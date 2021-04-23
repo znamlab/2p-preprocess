@@ -3,7 +3,7 @@ from setuptools import setup
 setup(
     name='2p-preprocess',
     version='v0.1',
-    packages=['2p-preprocess'],
+    packages=['preprocess_2p'],
     url='https://github.com/znamlab/2p-preprocess',
     license='MIT',
     author='Antonin Blot, Yiran He, Petr Znamenskiy',
