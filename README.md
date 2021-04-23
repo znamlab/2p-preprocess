@@ -1,4 +1,5 @@
 ## Installing suite2p
+
 Clone suite2p from github:
 ---
 git clone git@github.com:MouseLand/suite2p.git
