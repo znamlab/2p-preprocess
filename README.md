@@ -10,9 +10,3 @@ current location:
 ```
 conda env create -f environment.yml -p ./
 ```
-
-Install git and pip:
-```
-conda install git
-conda install pip
-```
