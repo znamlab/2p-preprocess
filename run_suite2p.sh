@@ -14,6 +14,6 @@ source /camp/apps/eb/software/Anaconda/conda.env.sh
 conda activate /camp/lab/znamenskiyp/home/shared/code/suite2p
 
 cd /camp/lab/znamenskiyp/home/shared/code/2p-preprocess
-python preprocess_2p.py ~/${DATA}
+python preprocess_2p.py ${DATA}
 
 ml matlab/R2019a

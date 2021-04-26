@@ -10,3 +10,8 @@ current location:
 ```
 conda env create -f environment.yml -p ./
 ```
+
+To start the slurm job, navigate back to the `2p-preprocess` directory and run the following:
+```
+sbatch --export=DATA=<DIRECTORY-WITH-YOUR-TIFFS> run_suite2p.sh
+```
