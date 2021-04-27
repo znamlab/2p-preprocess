@@ -101,11 +101,7 @@ for i = 1:N
 		xfactor = (p - x0)/(x1 - x0);
 		y(i) = tmp(pt) + (tmp(pt+1) - tmp(pt))*xfactor;
     end
-<<<<<<< HEAD
 
-=======
-
->>>>>>> a09186d78edc6c813963832485c1eb3a576b7f5b
 	% find index of oldest value in window
 	if isnan(x(i))
 		ix = win;  						  % NaN are stored at end of list
@@ -113,11 +109,7 @@ for i = 1:N
 	else
 		ix = find(tmp == x(i),1,'first');
 	end
-<<<<<<< HEAD
 
-=======
-
->>>>>>> a09186d78edc6c813963832485c1eb3a576b7f5b
 	% replace with next item in data
 	newnum = x(offset + i + 1);
 	tmp(ix) = newnum;
