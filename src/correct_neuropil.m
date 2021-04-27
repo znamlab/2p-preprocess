@@ -17,15 +17,15 @@ function rois = correct_neuropil(dpath, ops)
 % neuropil is removed using AST model.
 
 % Add paths
-codepath = mfilename('fullpath');
+codepath = fileparts(mfilename('fullpath'));
 addpath(fullfile(codepath, '../thirdparty/ast_model/src/'))
 addpath(fullfile(codepath, '../thirdparty/runperc/'));
 addpath(fullfile(codepath, 'utils'))
 
 % Set options
 defaults.cells_only = false;
-defaults.fast_neuropil = true;
-defaults.b = 2000;
+defaults.fast_neuropil = false;
+defaults.trend_halfwin = 2000;
 defaults.trend_perc = 10;
 defaults.gmm_comps = 3;
 
@@ -52,7 +52,7 @@ Fneu = data.Fneu;
 spks = data.spks;
 iscell = data.iscell;
 
-% ncells = size(F,1);
+ncells = size(F,1);
 % neuropil_pix = sum(sum(masks.neuropil_masks>0, 3), 2);
 % for indR = 1:size(masks.neuropil_masks, 1)
 %     neuropil_masks{indR} = sparse(double(squeeze(masks.neuropil_masks(indR,:,:))))'>0;
@@ -114,7 +114,7 @@ parfor indR = 1:ncells
             rois(indR).cleaned = (rois(indR).activity - rois(indR).activity_trend) - ...
                 0.7 * (rois(indR).neuropil - rois(indR).neuropil_trend);
         else
-            n_sectors = round([Fpix neuropil_pix(indR)]);
+            n_sectors = round([Fpix 100]); %neuropil_pix(indR)
             rois(indR).cleaned = fit_ast_model(...
                 [rois(indR).activity - rois(indR).activity_trend;...
                 rois(indR).neuropil - rois(indR).neuropil_trend], ...
@@ -131,7 +131,7 @@ parfor indR = 1:ncells
     end
 end
 
-rois(merged_cells) = [];
+%rois(merged_cells) = [];
 
 if ops.fast_neuropil
     savefile = fullfile(dpath, 'rois.mat');

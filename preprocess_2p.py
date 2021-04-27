@@ -6,6 +6,7 @@ from suite2p import run_s2p, default_ops
 
 # set your options for running
 ops = default_ops()
+ops['save_mat'] = True
 db = []
 db.append({'data_path': [sys.argv[1]]})
 
