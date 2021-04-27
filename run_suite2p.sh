@@ -10,7 +10,8 @@
 ml purge
 ml Anaconda3
 source /camp/apps/eb/software/Anaconda/conda.env.sh
-conda activate /camp/lab/znamenskiyp/home/shared/code/suite2p
+
+conda activate /camp/lab/znamenskiyp/home/shared/code/2p-preprocess/thirdparty/suite2p
 
 cd /camp/lab/znamenskiyp/home/shared/code/2p-preprocess
 conda activate ./thirdparty/suite2p
