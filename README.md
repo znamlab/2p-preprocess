@@ -17,3 +17,7 @@ To start the slurm job, navigate to the `2p-preprocess` directory and run the fo
 ```
 sbatch --export=DATA=<DIRECTORY-WITH-YOUR-TIFFS> run_suite2p.sh
 ```
+
+# About
+Some code in this repository (`extractdff_gmm`, ) originates from a different code
+base and is reused with permission of the original author, Maxime Rio.
