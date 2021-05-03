@@ -13,7 +13,7 @@ ml Anaconda3
 source /camp/apps/eb/software/Anaconda/conda.env.sh
 
 cd /camp/lab/znamenskiyp/home/shared/code/2p-preprocess
-conda activate ./thirdparty/suite2p
+conda activate suite2p
 python preprocess_2p.py ${DATA}
 
 ml matlab/R2019a

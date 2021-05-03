@@ -5,8 +5,10 @@ cd thirdparty
 
 echo Installing suite2p...
 git clone git@github.com:MouseLand/suite2p.git
-cd suite2p
-conda env create -f environment.yml -p ./
+conda env create -f suite2p/environment.yml
+
+echo Install ast_model.py
+conda env create -f ast_model_py/environment.yml
 
 echo Fetching ast_model...
 cd ../
