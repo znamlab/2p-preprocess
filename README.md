@@ -19,5 +19,5 @@ sbatch --export=DATA=<DIRECTORY-WITH-YOUR-TIFFS> run_suite2p.sh
 ```
 
 # About
-Some code in this repository (`extractdff_gmm`, ) originates from a different code
+Some code in this repository (`extractdff_gmm`, `ast_model.py`) originates from a different code
 base and is reused with permission of the original author, Maxime Rio.
