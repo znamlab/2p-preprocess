@@ -1,0 +1,9 @@
+name: 2p-preprocess
+channels:
+  - conda-forge
+dependencies:
+  - python=3.5
+  - autograd
+  - matplotlib
+  - pip
+  - jupyter
