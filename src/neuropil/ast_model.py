@@ -1,11 +1,10 @@
+
 import autograd.numpy as np
 import autograd.numpy.random as npr
 import autograd.scipy.special as sp
 import autograd.scipy.stats.norm as norm
 from autograd import grad
 from autograd.misc.optimizers import adam
-
-import matplotlib.pyplot as plt
 
 
 # taken from example files of autograd package
@@ -114,36 +113,6 @@ def ast_model(traces, n_sectors, n_samples=1, n_iters=5000, lr=0.01,
         def callback(params, t, g):
             elbo = -objective(params, t)
             print("Iteration {} lower bound {}".format(t, elbo))
-
-    elif verbose == 'display':
-
-        class Callback:
-
-            def __init__(self):
-                self.elbos = []
-                _, self.axes = plt.subplots(4, 1, figsize=(12, 10))
-
-            def __call__(self, params, t, g):
-                elbo = -objective(params, t)
-                self.elbos.append(elbo)
-
-                print("Iteration {} lower bound {}".format(t, elbo))
-                if t % 10 == 0:
-                    self.axes[0].clear()
-                    self.axes[0].plot(self.elbos)
-
-                    alpha, offset, mu, _ = transform_x(*unpack_x(params[:D]))
-                    self.axes[1].clear()
-                    self.axes[1].plot(mu[0])
-                    self.axes[2].clear()
-                    self.axes[2].plot(traces[0])
-                    self.axes[2].plot(traces[0] - alpha[0] * mu[0])
-                    self.axes[3].clear()
-                    self.axes[3].plot(traces[1])
-                    self.axes[3].plot(traces[1] - mu[0])
-
-                plt.pause(1e-5)
-
         callback = Callback()
 
     # optimization of the variational objective
