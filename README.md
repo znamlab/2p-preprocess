@@ -11,7 +11,11 @@ cd 2p-preprocess
 ./setup.sh
 ```
 
-This should install the dependencies and create a virtual enviroment for suite2p.
+This should install the dependencies and create conda environments for suite2p
+and for the repo itself. Environments are created in each users home directory.
+
+`run_suite2p.sh` contains an example script that first runs the standard run_suite2p
+pipeline and then applies neuropil correction using the AST model.
 
 To start the slurm job, navigate to the `2p-preprocess` directory and run the following:
 ```
