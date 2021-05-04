@@ -16,7 +16,7 @@ def correct_neuropil(dpath):
     results = [pool.apply(ast_model, args=(
                     np.vstack([_Fr, _Fn]),
                     np.array([_stat['npix'], _stat['neuropil_mask'].shape[0]])
-                    )) for (_Fr, _Fn, _stat) in zip(Fr[0:10,:], Fn[0:10,:], stat[0:10])]
+                    )) for (_Fr, _Fn, _stat) in zip(Fr, Fn, stat)]
 
     pool.close()
 
