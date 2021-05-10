@@ -6,4 +6,5 @@ dependencies:
   - autograd
   - matplotlib
   - jupyter
-  - pip
+  - pip:
+    - defopt
