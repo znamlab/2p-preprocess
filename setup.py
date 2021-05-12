@@ -7,6 +7,13 @@ setup(
     package_dir={
         '': 'src',
     },
+    install_requires=[
+        'flexiznam @ git+ssh://git@github.com:znamlab/flexiznam.git',
+        'autograd',
+        'matplotlib',
+        'jupyter',
+        'defopt'
+    ],
     entry_points={
         'console_scripts': [
             'neuropil = neuropil.neuropil:main',

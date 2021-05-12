@@ -13,8 +13,5 @@ ml Anaconda3
 source /camp/apps/eb/software/Anaconda/conda.env.sh
 
 cd /camp/lab/znamenskiyp/home/users/znamenp/code/2p-preprocess
-conda activate suite2p
-python preprocess_2p.py ${PROJECT} ${MOUSE} ${DATE} ${SESSION}
-
 conda activate 2p-preprocess
-neuropil ${DATA}/suite2p/plane0/
+python preprocess_2p.py ${PROJECT} ${MOUSE} ${DATE} ${SESSION}
