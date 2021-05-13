@@ -96,6 +96,8 @@ def split_recordings(datapaths, ops, frames_per_folder, recording_ids, flz_sessi
         np.load(str(savepath / 'suite2p' / 'plane0' / 'Fneu.npy')),
         np.load(str(savepath / 'suite2p' / 'plane0' / 'spks.npy')),
         )
+    if ops['ast_neuropil']:
+        Fast = np.load(str(savepath / 'suite2p' / 'plane0' / 'Fast.npy'))
     for (dataset, recording_id, start, end) in zip(datapaths, recording_ids, first_frames, last_frames):
         already_processed = len(flz.get_entities(session=flz_session,
                                                  datatype='dataset',
@@ -150,7 +152,7 @@ def main(project, mouse, session_name, *, conflicts=Conflicts.none):
         )
     # neuropil correction
     if ops['ast_neuropil']:
-        Fast = correct_neuropil(str(savepath / 'suite2p' / 'plane0'))
+        correct_neuropil(str(savepath / 'suite2p' / 'plane0'))
 
     split_recordings(datapaths, ops, opsEnd['frames_per_folder'],
                      recording_ids, flz_session, path_root, savepath)
