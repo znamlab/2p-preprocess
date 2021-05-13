@@ -2,11 +2,12 @@ from .ast_model import ast_model
 import numpy as np
 import multiprocessing as mp
 import sys
+import os
 
 def correct_neuropil(dpath):
-    Fr = np.load(dpath + 'F.npy')
-    Fn = np.load(dpath + 'Fneu.npy')
-    stat = np.load(dpath + 'stat.npy')
+    Fr = np.load(os.path.join(dpath, 'F.npy'))
+    Fn = np.load(os.path.join(dpath, 'Fneu.npy'))
+    stat = np.load(os.path.join(dpath, 'stat.npy'), allow_pickle=True)
 
     cores = mp.cpu_count()
     print('Starting parallel pool with {} processes...'.format(cores))
@@ -27,8 +28,10 @@ def correct_neuropil(dpath):
         var_params.append(param)
 
     print('Neuropil correction completed... Saving...')
-    np.save(dpath + 'Fast.npy', np.vstack(traces), allow_pickle=True)
+    Fast = np.vstack(traces)
+    np.save(os.path.join(dpath, 'Fast.npy'), Fast, allow_pickle=True)
     np.save(dpath + 'ast_stat.npy', np.vstack(var_params), allow_pickle=True)
+    return Fast
 
 def main():
     datapath = sys.argv[1]
