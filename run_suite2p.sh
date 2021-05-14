@@ -12,6 +12,6 @@ ml purge
 ml Anaconda3
 source /camp/apps/eb/software/Anaconda/conda.env.sh
 
-cd /camp/lab/znamenskiyp/home/users/znamenp/code/2p-preprocess
 conda activate 2p-preprocess
-python preprocess_2p.py ${PROJECT} ${MOUSE} ${DATE} ${SESSION}
+echo Processing ${SESSION} from ${MOUSE} in project ${PROJECT}
+preprocess2p ${PROJECT} ${MOUSE} ${SESSION} -c skip --run-neuropil

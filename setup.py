@@ -17,7 +17,7 @@ setup(
     entry_points={
         'console_scripts': [
             'neuropil = neuropil.neuropil:main',
-            'preprocess2p = preprocess2p.preprocess2p:main'
+            'preprocess2p = preprocess2p.preprocess2p:entry_point'
         ],
     }
     )
