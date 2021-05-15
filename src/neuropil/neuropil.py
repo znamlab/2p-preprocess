@@ -11,9 +11,10 @@ def correct_neuropil(dpath, parallel=False):
 
     print('Starting neuropil correction with ASt method...')
     if parallel:
-        cores = int(os.environ.get('SLURM_CPUS_PER_TASK'))
+        cores = int(os.environ.get('SLURM_JOB_CPUS_PER_NODE'))
         print('Starting parallel pool with {} processes...'.format(cores))
         pool = mp.Pool(cores)
+        print('Started')
         results = [pool.apply(ast_model, args=(
                         np.vstack([_Fr, _Fn]),
                         np.array([_stat['npix'], _stat['neuropil_mask'].shape[0]])
