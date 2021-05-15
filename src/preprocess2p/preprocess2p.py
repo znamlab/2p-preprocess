@@ -186,9 +186,9 @@ def main(project, mouse, session_name, *, conflicts=Conflicts.none, run_neuropil
     run_extraction(flz_session, project, mouse, session_name, conflicts, ops)
     # neuropil correction
     # TODO does not run on cluster, WHY?!
-    # if ops['ast_neuropil']:
-    #     suite2p_path = str(savepath / 'suite2p' / 'plane0')
-    #     correct_neuropil(suite2p_path)
+    if ops['ast_neuropil']:
+        suite2p_path = str(savepath / 'suite2p' / 'plane0')
+        correct_neuropil(suite2p_path)
     print('Splitting recordings...')
     split_recordings(flz_session, project, mouse, session_name, conflicts)
 

@@ -9,7 +9,8 @@ setup(
     },
     install_requires=[
         'flexiznam @ git+ssh://git@github.com/znamlab/flexiznam.git',
-        'autograd',
+        'jax',
+        'jaxlib',
         'matplotlib',
         'jupyter',
         'defopt'
