@@ -24,8 +24,8 @@ sbatch --export=PROJECT=test,MOUSE=PZAJ2.1c,SESSION=S20210513 run_suite2p_gpu.sh
 ```
 
 # ASt model
-The Asymmetric Student's t-model for neuropil correction is described [https://basellasermouse.github.io/ast_model/model.html](here). The python implementation
-in this repository uses [https://github.com/google/jax](JAX) for automatic
+The Asymmetric Student's t-model for neuropil correction is described [here](https://basellasermouse.github.io/ast_model/model.html). The python implementation
+in this repository uses [JAX](https://github.com/google/jax) for automatic
 differentiation and rapid GPU computation. If run on a node without GPU, it
 should revert to CPU.
 
