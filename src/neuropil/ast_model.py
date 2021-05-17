@@ -11,15 +11,14 @@ def black_box_variational_inference(logprob, n_samples):
     """Implements http://arxiv.org/abs/1401.0118, and uses the
     local reparameterization trick from http://arxiv.org/abs/1506.02557"""
 
-    rs = npr.PRNGKey(0)
-
-    def variational_objective(params):
+    def variational_objective(params, t):
         """Provides a stochastic estimate of the variational lower bound."""
+        rng = npr.PRNGKey(t)
         # Variational dist is a diagonal Gaussian.
         D = params.size // 2
         mean, log_std = params[:D], params[D:]
-        samples = npr.normal(rs, [n_samples, D]) * jnp.exp(log_std) + mean
-        gaussian_entropy = 0.5 * D * (1.0 + jnp.log(2*jnp.pi)) + jnp.sum(log_std)
+        samples = npr.normal(rng, [n_samples, D]) * jnp.exp(log_std) + mean
+        gaussian_entropy = jnp.sum(log_std) # only part of the entropy that depends on params
         lower_bound = gaussian_entropy + jnp.mean(logprob(samples))
         return -lower_bound
 
@@ -28,6 +27,7 @@ def black_box_variational_inference(logprob, n_samples):
 
 def K(nu):
     """helper function for asymmetric Student pdf"""
+    # this part does not get differentiated so using the scipy method
     return (
         sp.gamma(0.5 * (nu + 1)) / (jnp.sqrt(jnp.pi * nu) * sp.gamma(0.5 * nu))
     )
@@ -52,7 +52,6 @@ def log_density_ast(y, alpha, nu1, nu2, mu, sigma):
 def ast_model(traces, n_sectors, n_samples=1, n_iters=5000, lr=0.01,
               verbose=False):
     """asymmetric Student model inferred with black-box SVI"""
-
     nsig, nt = traces.shape
     scale = traces.std()
     traces = traces / scale
@@ -87,7 +86,7 @@ def ast_model(traces, n_sectors, n_samples=1, n_iters=5000, lr=0.01,
         x_density = log_density_ast(
             traces, 0.5, 30, 1, alpha2 * mu + offset, sigmas
         )
-
+        x
         return (
             sigma_density.squeeze() + alpha_density.squeeze() +
             mu_density.squeeze().sum(axis=-1) +
@@ -106,9 +105,9 @@ def ast_model(traces, n_sectors, n_samples=1, n_iters=5000, lr=0.01,
     init_var_params = jnp.concatenate([init_mean, init_log_std])
 
     @jit
-    def update(params, opt_state):
+    def update(params, opt_state, t):
         """ Compute the gradient and update the parameters """
-        value, grads = value_and_grad(objective)(params)
+        value, grads = value_and_grad(objective)(params, t)
         opt_state = opt_update(0, grads, opt_state)
         return get_params(opt_state), opt_state, value
 
@@ -117,9 +116,9 @@ def ast_model(traces, n_sectors, n_samples=1, n_iters=5000, lr=0.01,
     opt_state = opt_init(init_var_params)
     params = get_params(opt_state)
     for i in range(n_iters):
-        params, opt_state, loss = update(params, opt_state)
-        if i % 1000 == 0:
-            print("Iteration {} lower bound {}".format(i, loss))
+        params, opt_state, loss = update(params, opt_state, i)
+        if i+1 % 1000 == 0:
+            print("Iteration {} lower bound {}".format(i+1, loss))
 
     # clean trace
     alpha, _, mu, _ = transform_x(*unpack_x(params[:D]))
