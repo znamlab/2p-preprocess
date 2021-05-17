@@ -14,13 +14,20 @@ cd 2p-preprocess
 This should install the dependencies and create conda environments for suite2p
 and for the repo itself. Environments are created in each users home directory.
 
-`run_suite2p.sh` contains an example script that first runs the standard run_suite2p
-pipeline and then applies neuropil correction using the AST model.
+`run_suite2p.sh` and `run_suite2p_gpu.sh` contain example scripts that first runs the standard run_suite2p pipeline and then applies neuropil correction using the AST model.
+If running neuropil correction using the AST model, using a GPU node is recommended.
 
-To start the slurm job, navigate to the `2p-preprocess` directory and run the following:
+To start the slurm job, navigate to the `2p-preprocess` directory and run the
+`sbatch` script, passing the session details as environment variables, e.g.:
 ```
-sbatch --export=DATA=<DIRECTORY-WITH-YOUR-TIFFS> run_suite2p.sh
+sbatch --export=PROJECT=test,MOUSE=PZAJ2.1c,SESSION=S20210513 run_suite2p_gpu.sh
 ```
+
+# ASt model
+The Asymmetric Student's t-model for neuropil correction is described [https://basellasermouse.github.io/ast_model/model.html](here). The python implementation
+in this repository uses [https://github.com/google/jax](JAX) for automatic
+differentiation and rapid GPU computation. If run on a node without GPU, it
+should revert to CPU.
 
 # About
 Some code in this repository (`extractdff_gmm`, `ast_model.py`) originates from a different code
