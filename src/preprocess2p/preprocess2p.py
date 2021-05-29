@@ -9,13 +9,6 @@ from neuropil import correct_neuropil
 import itertools
 
 from suite2p import run_s2p, default_ops
-from enum import Enum
-
-class Conflicts(Enum):
-    none = None
-    overwrite = 'overwrite'
-    append = 'append'
-    skip = 'skip'
 
 
 def get_paths(project, mouse, session_name):
@@ -32,36 +25,42 @@ def run_extraction(flz_session, project, mouse, session_name, conflicts, ops):
     :param str project: name of the project, determines save path
     :param str mouse: name of the mouse, determines save path
     :param str session_name: name of the session, used to find data on flexilims
-    :param Conflicts conflicts: defines behavior if recordings have already been split
+    :param str conflicts: defines behavior if recordings have already been split
     :param dict ops: dictionary of suite2p settings
     """
     path_root, savepath = get_paths(project, mouse, session_name)
     # get experimental session
-    exp_session = flz.get_entities(
-        datatype='session', name=session_name, session=flz_session)
-    if not len(exp_session):
-        print('Session {} not found!'.format(session_name))
-        return
+    exp_session = flz.get_entity(
+        datatype='session',
+        name=session_name,
+        flexilims_session=flz_session
+    )
     # check if processed dataset already exists
-    processed = flz.get_entities(session=flz_session,
-                                 datatype='dataset',
-                                 origin_id=exp_session['id'][0],
-                                 query_key='dataset_type',
-                                 query_value='suite2p_rois')
+    processed = flz.get_entities(
+        flexilims_session=flz_session,
+        datatype='dataset',
+        origin_id=exp_session['id'],
+        query_key='dataset_type',
+        query_value='suite2p_rois'
+    )
     already_processed = len(processed)>0
     if already_processed:
-        if conflicts.value is None:
+        if conflicts is None:
             raise flz.errors.NameNotUniqueException(
-                'Session {} already processed'.format(exp_session['name'][0]))
-        elif conflicts.value is 'skip':
-            print('Session {} already processed... skipping extraction...'.format(exp_session['name'][0]))
+                'Session {} already processed'.format(exp_session['name']))
+        elif conflicts == 'skip':
+            print('Session {} already processed... skipping extraction...'.format(exp_session['name']))
             return
-        elif conflicts.value is 'append':
+        elif conflicts == 'append':
             # TODO create a new version
             raise NotImplementedError('Appending not yet supported')
     # get all datasets
-    datasets = flz.get_datasets(exp_session['id'][0], recording_type='two_photon',
-                 dataset_type='scanimage', session=flz_session)
+    datasets = flz.get_datasets(
+        exp_session['id'],
+        recording_type='two_photon',
+        dataset_type='scanimage',
+        flexilims_session=flz_session
+    )
     datapaths = []
     for _, p in datasets.items(): datapaths.extend(p)
 
@@ -73,15 +72,17 @@ def run_extraction(flz_session, project, mouse, session_name, conflicts, ops):
         # TODO update attributes
         pass
     else:
-        flz.add_dataset(parent_id=exp_session['id'][0],
-                        dataset_type='suite2p_rois',
-                        created='',
-                        path=str(savepath.relative_to(path_root)),
-                        is_raw='no',
-                        project_id=project,
-                        session=flz_session,
-                        dataset_name=exp_session['name'][0]+'_suite2p_rois',
-                        attributes=ops)
+        flz.add_dataset(
+            parent_id=exp_session['id'],
+            dataset_type='suite2p_rois',
+            created='',
+            path=str(savepath.relative_to(path_root)),
+            is_raw='no',
+            project_id=project,
+            flexilims_session=flz_session,
+            dataset_name=exp_session['name']+'_suite2p_rois',
+            attributes=ops
+        )
 
 
 def split_recordings(flz_session, project, mouse, session_name, conflicts):
@@ -94,28 +95,39 @@ def split_recordings(flz_session, project, mouse, session_name, conflicts):
     :param str project: name of the project, determines save path
     :param str mouse: name of the mouse, determines save path
     :param str session_name: name of the session, determines save path
-    :param Conflicts conflicts: defines behavior if recordings have already been split
+    :param str conflicts: defines behavior if recordings have already been split
     """
     path_root, savepath = get_paths(project, mouse, session_name)
     # get experimental session
-    exp_session = flz.get_entities(
-        datatype='session', name=session_name, session=flz_session)
+    exp_session = flz.get_entity(
+        datatype='session',
+        name=session_name,
+        flexilims_session=flz_session
+    )
     # get scanimage datasets
-    datasets = flz.get_datasets(exp_session['id'][0], recording_type='two_photon',
-        dataset_type='scanimage', session=flz_session)
+    datasets = flz.get_datasets(
+        exp_session['id'],
+        recording_type='two_photon',
+        dataset_type='scanimage',
+        flexilims_session=flz_session
+    )
     # get preprocessed suite2p dataset
-    suite2p_dataset = flz.get_entities(session=flz_session, datatype='dataset',
-        origin_id=exp_session['id'][0], query_key='dataset_type',
-        query_value='suite2p_rois')
-    if len(suite2p_dataset)!=1:
-        raise flz.error.NameNotUniqueException(
-            'Found {} processed suite2p data sets for session {}'
-            .format(len(suite2p_dataset), exp_session['name'][0]))
+    suite2p_dataset = flz.get_entity(
+        session=flz_session,
+        datatype='dataset',
+        origin_id=exp_session['id'],
+        query_key='dataset_type',
+        query_value='suite2p_rois'
+    )
     # load the ops file to find length of individual recordings
-    ops_path = path_root / suite2p_dataset['path'][0] / 'suite2p' / 'plane0' / 'ops.npy'
+    ops_path = path_root / suite2p_dataset['path'] / 'suite2p' / 'plane0' / 'ops.npy'
     ops = np.load(ops_path, allow_pickle=True).tolist()
-    datasets = flz.get_datasets(exp_session['id'][0], recording_type='two_photon',
-        dataset_type='scanimage', session=flz_session)
+    datasets = flz.get_datasets(
+        exp_session['id'],
+        recording_type='two_photon',
+        dataset_type='scanimage',
+        flexilims_session=flz_session
+    )
     datapaths = []
     recording_ids = []
     for r, p in datasets.items():
@@ -135,11 +147,13 @@ def split_recordings(flz_session, project, mouse, session_name, conflicts):
     if ast_path.exists():
         Fast = np.load(str(ast_path))
     for (dataset, recording_id, start, end) in zip(datapaths, recording_ids, first_frames, last_frames):
-        already_processed = len(flz.get_entities(session=flz_session,
-                                                 datatype='dataset',
-                                                 origin_id=recording_id,
-                                                 query_key='dataset_type',
-                                                 query_value='suite2p_traces'))>0
+        already_processed = len(flz.get_entities(
+            flexilims_session=flz_session,
+            datatype='dataset',
+            origin_id=recording_id,
+            query_key='dataset_type',
+            query_value='suite2p_traces'
+        ))>0
         # TODO what is the dataset already exists
         dataset_dir = Path(dataset).name
         dataset_path = savepath / dataset_dir
@@ -153,24 +167,26 @@ def split_recordings(flz_session, project, mouse, session_name, conflicts):
         if ast_path.exists():
             np.save(str(dataset_path / 'Fast.npy'), Fast[:,start:end])
         if not already_processed:
-            flz.add_dataset(parent_id=recording_id,
-                            dataset_type='suite2p_traces',
-                            created='',
-                            path=str(dataset_path.relative_to(path_root)),
-                            is_raw='no',
-                            session=flz_session,
-                            dataset_name=dataset_dir+'_suite2p_traces',
-                            attributes=ops)
+            flz.add_dataset(
+                parent_id=recording_id,
+                dataset_type='suite2p_traces',
+                created='',
+                path=str(dataset_path.relative_to(path_root)),
+                is_raw='no',
+                flexilims_session=flz_session,
+                dataset_name=dataset_dir+'_suite2p_traces',
+                attributes=ops
+            )
 
 
-def main(project, mouse, session_name, *, conflicts=Conflicts.none, run_neuropil=False):
+def main(project, mouse, session_name, *, conflicts=None, run_neuropil=False):
     """
     Process all the 2p datasets for a given session
 
     :param str project: name of the project, e.g. '3d_vision'
     :param str mouse: name of the mouse, e.g. PZAJ2.1c
     :param str session_name: name of the session
-    :param Conflicts conflicts: how to treat existing processed data
+    :param str conflicts: how to treat existing processed data
     :param bool run_neuropil: whether or not to run neuropil extraction with the
         ASt model
     """
@@ -185,7 +201,6 @@ def main(project, mouse, session_name, *, conflicts=Conflicts.none, run_neuropil
     print('Running suite2p...')
     run_extraction(flz_session, project, mouse, session_name, conflicts, ops)
     # neuropil correction
-    # TODO does not run on cluster, WHY?!
     if ops['ast_neuropil']:
         suite2p_path = str(savepath / 'suite2p' / 'plane0')
         correct_neuropil(suite2p_path)
