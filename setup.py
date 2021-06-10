@@ -8,7 +8,7 @@ setup(
         '': 'src',
     },
     install_requires=[
-        'flexiznam @ git+ssh://git@github.com/znamlab/flexiznam.git',
+        'flexiznam @ git+ssh://git@github.com/znamlab/flexiznam.git@dev',
         'matplotlib',
         'jupyter',
         'defopt'
