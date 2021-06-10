@@ -198,13 +198,13 @@ def main(project, mouse, session_name, *, conflicts=None, run_neuropil=False):
     ops = default_ops()
     ops['save_path0'] = str(savepath)
     ops['ast_neuropil'] = run_neuropil
-    print('Running suite2p...')
+    print('Running suite2p...', flush=True)
     run_extraction(flz_session, project, mouse, session_name, conflicts, ops)
     # neuropil correction
     if ops['ast_neuropil']:
         suite2p_path = str(savepath / 'suite2p' / 'plane0')
         correct_neuropil(suite2p_path)
-    print('Splitting recordings...')
+    print('Splitting recordings...', flush=True)
     split_recordings(flz_session, project, mouse, session_name, conflicts)
 
 def entry_point():

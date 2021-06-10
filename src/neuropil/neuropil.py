@@ -1,6 +1,5 @@
 from .ast_model import ast_model
 import numpy as np
-import multiprocessing as mp
 import sys
 import os
 
@@ -13,7 +12,8 @@ def correct_neuropil(dpath):
     traces, var_params = [], []
     for i, (_Fr, _Fn, _stat) in enumerate(zip(Fr, Fn, stat)):
         print('Running correction for ROI {} of {}'.
-              format(i, len(Fr)))
+              format(i, len(Fr)),
+              flush=True)
         trace, param = ast_model(
             np.vstack([_Fr, _Fn]),
             np.array([_stat['npix'], _stat['neuropil_mask'].shape[0]])
