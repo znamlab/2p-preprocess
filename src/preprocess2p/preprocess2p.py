@@ -18,7 +18,7 @@ def get_paths(project, dataset_path):
     path_full = path_root / 'processed' / dataset_path
     return path_root, path_full
 
-def run_extraction(flz_session, project, mouse, session_name, conflicts, ops):
+def run_extraction(flz_session, project, session_name, conflicts, ops):
     """
     Fetch data from flexilims and run suite2p with the provided settings
 
@@ -47,7 +47,7 @@ def run_extraction(flz_session, project, mouse, session_name, conflicts, ops):
         conflicts=conflicts
     )
     # if already on flexilims and not re-processing, then do nothing
-    if suite2p_dataset.get_flexilims_entry() and conflicts == 'skip':
+    if (suite2p_dataset.get_flexilims_entry() is not None) and conflicts == 'skip':
         print(
             'Session {} already processed... skipping extraction...'
             .format(exp_session['name'])
@@ -61,7 +61,7 @@ def run_extraction(flz_session, project, mouse, session_name, conflicts, ops):
         flexilims_session=flz_session
     )
     datapaths = []
-    for _, p in si_datasets.items(): si_datasets.extend(p)
+    for _, p in si_datasets.items(): datapaths.extend(p)
     # set save path
     path_root, dataset_path = get_paths(project, suite2p_dataset.path)
     ops['save_path0'] = str(dataset_path)
@@ -127,7 +127,7 @@ def split_recordings(flz_session, suite2p_dataset, conflicts):
             dataset_type='suite2p_traces',
             conflicts=conflicts
         )
-        if split_dataset.get_flexilims_entry() and conflicts == 'skip':
+        if (split_dataset.get_flexilims_entry() is not None) and conflicts == 'skip':
             print(
                 'Dataset {} already split... skipping...'
                 .format(split_dataset.name)
@@ -164,18 +164,21 @@ def main(project, mouse, session_name, *, conflicts=None, run_neuropil=False):
     """
     # get session info from flexilims
     print('Connecting to flexilims...')
-    flz_session = flz.get_session(project)
+    flz_session = flz.get_flexilims_session(project)
     # suite2p
     ops = default_ops()
     ops['ast_neuropil'] = run_neuropil
     print('Running suite2p...')
-    run_extraction(flz_session, project, mouse, session_name, conflicts, ops)
+    suite2p_dataset = run_extraction(flz_session, project, session_name, conflicts, ops)
     # neuropil correction
     if ops['ast_neuropil']:
-        suite2p_path = str(savepath / 'suite2p' / 'plane0')
-        correct_neuropil(suite2p_path)
+        _, suite2p_dataset_path = get_paths(
+            suite2p_dataset.project,
+            suite2p_dataset.path
+        )
+        correct_neuropil(str(suite2p_dataset_path / 'suite2p' / 'plane0'))
     print('Splitting recordings...')
-    split_recordings(flz_session, project, mouse, session_name, conflicts)
+    split_recordings(flz_session, suite2p_dataset, conflicts)
 
 def entry_point():
     defopt.run(main)
