@@ -11,15 +11,16 @@ def black_box_variational_inference(logprob, n_samples):
     """Implements http://arxiv.org/abs/1401.0118, and uses the
     local reparameterization trick from http://arxiv.org/abs/1506.02557"""
 
-    def variational_objective(params, t):
+    def variational_objective(params, t, traces):
         """Provides a stochastic estimate of the variational lower bound."""
         rng = npr.PRNGKey(t)
         # Variational dist is a diagonal Gaussian.
         D = params.size // 2
         mean, log_std = params[:D], params[D:]
         samples = npr.normal(rng, [n_samples, D]) * jnp.exp(log_std) + mean
-        gaussian_entropy = jnp.sum(log_std) # only part of the entropy that depends on params
-        lower_bound = gaussian_entropy + jnp.mean(logprob(samples))
+        # only part of the entropy that depends on params
+        gaussian_entropy = jnp.sum(log_std)
+        lower_bound = gaussian_entropy + jnp.mean(logprob(samples, traces))
         return -lower_bound
 
     return variational_objective
@@ -28,6 +29,8 @@ def black_box_variational_inference(logprob, n_samples):
 def K(nu):
     """helper function for asymmetric Student pdf"""
     # this part does not get differentiated so using the scipy method
+    # the scipy functions will be executed at compile time and their output
+    # will be passed to the GPU
     return (
         sp.gamma(0.5 * (nu + 1)) / (jnp.sqrt(jnp.pi * nu) * sp.gamma(0.5 * nu))
     )
@@ -68,7 +71,7 @@ def ast_model(traces, n_sectors, n_samples=1, n_iters=5000, lr=0.01,
         sigma = jnp.exp(log_sigma)
         return alpha, offset, mu, sigma
 
-    def log_density(x):
+    def log_density(x, traces):
         log_alpha, offset, mu, log_sigma = unpack_x(x)
         alpha, offset, mu, sigma = transform_x(
             log_alpha, offset, mu, log_sigma
@@ -83,10 +86,11 @@ def ast_model(traces, n_sectors, n_samples=1, n_iters=5000, lr=0.01,
 
         # likelihood
         sigmas = sigma / jnp.sqrt(n_sectors[:, jnp.newaxis])
+        # this is where we pass data to JAX - awkward...
         x_density = log_density_ast(
             traces, 0.5, 30, 1, alpha2 * mu + offset, sigmas
         )
-        x
+
         return (
             sigma_density.squeeze() + alpha_density.squeeze() +
             mu_density.squeeze().sum(axis=-1) +
@@ -96,7 +100,6 @@ def ast_model(traces, n_sectors, n_samples=1, n_iters=5000, lr=0.01,
 
     # variational objective
     objective = black_box_variational_inference(log_density, n_samples)
-    gradient = grad(objective)
 
     # initial variational parameters
     D = nsig * 2 + nt
@@ -104,11 +107,12 @@ def ast_model(traces, n_sectors, n_samples=1, n_iters=5000, lr=0.01,
     init_log_std = -5 * jnp.ones(D)
     init_var_params = jnp.concatenate([init_mean, init_log_std])
 
+    # this decorator tells JAX to use XLA to compile the code
     @jit
     def update(params, opt_state, t):
         """ Compute the gradient and update the parameters """
-        value, grads = value_and_grad(objective)(params, t)
-        opt_state = opt_update(0, grads, opt_state)
+        value, grads = value_and_grad(objective)(params, t, traces)
+        opt_state = opt_update(t, grads, opt_state)
         return get_params(opt_state), opt_state, value
 
     # optimization of the variational objective
