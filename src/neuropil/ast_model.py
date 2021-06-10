@@ -119,8 +119,10 @@ def ast_model(traces, n_sectors, n_samples=1, n_iters=5000, lr=0.01,
     opt_init, opt_update, get_params = adam(lr)
     opt_state = opt_init(init_var_params)
     params = get_params(opt_state)
+    elbo = []
     for i in range(n_iters):
         params, opt_state, loss = update(params, opt_state, i)
+        elbo.append(loss)
         if i+1 % 1000 == 0:
             print("Iteration {} lower bound {}".format(i+1, loss))
 
@@ -128,4 +130,4 @@ def ast_model(traces, n_sectors, n_samples=1, n_iters=5000, lr=0.01,
     alpha, _, mu, _ = transform_x(*unpack_x(params[:D]))
     cleaned_trace = (traces[0] - alpha[0] * mu[0]) * scale
 
-    return cleaned_trace, params
+    return cleaned_trace, params, elbo
