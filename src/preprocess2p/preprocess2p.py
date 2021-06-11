@@ -89,7 +89,7 @@ def split_recordings(flz_session, suite2p_dataset, conflicts):
     # load the ops file to find length of individual recordings
     path_root, suite2p_dataset_path = get_paths(
         suite2p_dataset.project,
-        suite2p_dataset_path.path
+        suite2p_dataset.path
     )
     ops_path = suite2p_dataset_path / 'suite2p' / 'plane0' / 'ops.npy'
     ops = np.load(ops_path, allow_pickle=True).tolist()
@@ -111,17 +111,17 @@ def split_recordings(flz_session, suite2p_dataset, conflicts):
     first_frames = np.concatenate(([0], last_frames[:-1]))
     # load processed data
     F, Fneu, spks = (
-        np.load(str(savepath / 'suite2p' / 'plane0' / 'F.npy')),
-        np.load(str(savepath / 'suite2p' / 'plane0' / 'Fneu.npy')),
-        np.load(str(savepath / 'suite2p' / 'plane0' / 'spks.npy')),
+        np.load(str(suite2p_dataset_path / 'suite2p' / 'plane0' / 'F.npy')),
+        np.load(str(suite2p_dataset_path / 'suite2p' / 'plane0' / 'Fneu.npy')),
+        np.load(str(suite2p_dataset_path / 'suite2p' / 'plane0' / 'spks.npy')),
         )
     datasets_out = []
     if suite2p_dataset.extra_attributes['ast_neuropil']:
-        ast_path = savepath / 'suite2p' / 'plane0' / 'Fast.npy'
+        ast_path = suite2p_dataset_path / 'suite2p' / 'plane0' / 'Fast.npy'
         Fast = np.load(str(ast_path))
     for (dataset, recording_id, start, end) in zip(datapaths, recording_ids, first_frames, last_frames):
         split_dataset = Dataset.from_origin(
-            project=project,
+            project=suite2p_dataset.project,
             origin_type='recording',
             origin_id=recording_id,
             dataset_type='suite2p_traces',
@@ -135,7 +135,7 @@ def split_recordings(flz_session, suite2p_dataset, conflicts):
             datasets_out.append(split_dataset)
             continue
         # otherwise lets split it
-        path_root, dataset_path = get_paths(project, split_dataset.path)
+        path_root, dataset_path = get_paths(suite2p_dataset.project, split_dataset.path)
         try:
             os.mkdir(str(dataset_path))
         except OSError:

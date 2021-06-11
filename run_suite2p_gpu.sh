@@ -13,9 +13,10 @@ ml purge
 ml CUDA/10.1.105
 ml cuDNN/7.5.0.56-CUDA-10.1.105
 ml Anaconda3/2020.07
+
 source /camp/apps/eb/software/Anaconda/conda.env.sh
 
 conda activate 2p-preprocess
 echo Processing ${SESSION} from ${MOUSE} in project ${PROJECT}
 cd /camp/home/znamenp/home/users/znamenp/code/2p-preprocess
-preprocess2p ${PROJECT} ${MOUSE} ${SESSION} -c skip --run-neuropil
+preprocess2p ${PROJECT} ${MOUSE} ${SESSION} -c overwrite --run-neuropil
