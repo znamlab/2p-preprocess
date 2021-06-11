@@ -1,6 +1,5 @@
 from .ast_model import ast_model
 import numpy as np
-import multiprocessing as mp
 import sys
 import os
 

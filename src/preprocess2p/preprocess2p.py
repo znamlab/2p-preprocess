@@ -168,7 +168,7 @@ def main(project, mouse, session_name, *, conflicts=None, run_neuropil=False):
     # suite2p
     ops = default_ops()
     ops['ast_neuropil'] = run_neuropil
-    print('Running suite2p...')
+    print('Running suite2p...', flush=True)
     suite2p_dataset = run_extraction(flz_session, project, session_name, conflicts, ops)
     # neuropil correction
     if ops['ast_neuropil']:
