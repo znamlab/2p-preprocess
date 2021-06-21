@@ -2,6 +2,7 @@ import numpy as np
 import sys
 import defopt
 import os
+import re
 import flexiznam as flz
 from flexiznam.schema import Dataset
 from pathlib import Path
@@ -10,13 +11,26 @@ from neuropil import correct_neuropil
 import itertools
 
 from suite2p import run_s2p, default_ops
-
+from ScanImageTiffReader import ScanImageTiffReader
 
 def get_paths(project, dataset_path):
     # root directory for both raw and processed data
     path_root = Path(flz.config.PARAMETERS['projects_root'])
     path_full = path_root / 'processed' / dataset_path
     return path_root, path_full
+
+def get_frame_rate(tiff_path):
+    tiffs = [tiff for tiff in os.listdir(tiff_path) if tiff.endswith(".tif")]
+    if tiffs:
+        tiff_path = str(Path(tiff_path) / tiffs[0])
+        return float(
+            re.search(
+                'scanVolumeRate = (\d+\.\d+)',
+                ScanImageTiffReader(tiff_path).metadata()
+            ).group(1)
+        )
+    else:
+        return None
 
 def run_extraction(flz_session, project, session_name, conflicts, ops):
     """
@@ -65,6 +79,8 @@ def run_extraction(flz_session, project, session_name, conflicts, ops):
     # set save path
     path_root, dataset_path = get_paths(project, suite2p_dataset.path)
     ops['save_path0'] = str(dataset_path)
+    # assume frame rates are the same for all recordings
+    ops['fs'] = get_frame_rate(datapaths[0])
     # run suite2p
     db = {'data_path': datapaths}
     opsEnd = run_s2p(ops=ops, db=db)
