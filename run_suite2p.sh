@@ -14,6 +14,6 @@ ml Anaconda3/2020.07
 source /camp/apps/eb/software/Anaconda/conda.env.sh
 
 conda activate 2p-preprocess
-echo Processing ${SESSION} from ${MOUSE} in project ${PROJECT}
+echo Processing ${SESSION} in project ${PROJECT}
 cd /camp/home/znamenp/home/users/znamenp/code/2p-preprocess
-preprocess2p ${PROJECT} ${MOUSE} ${SESSION} -c skip --run-neuropil
+preprocess2p ${PROJECT} ${SESSION} -c skip --run-neuropil
