@@ -11,7 +11,9 @@ setup(
         'flexiznam @ git+ssh://git@github.com/znamlab/flexiznam.git@dev',
         'matplotlib',
         'jupyter',
-        'defopt'
+        'defopt',
+        'more_itertools',
+        'scikit-image'
     ],
     entry_points={
         'console_scripts': [

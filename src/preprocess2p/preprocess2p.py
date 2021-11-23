@@ -13,6 +13,51 @@ import itertools
 from suite2p import run_s2p, default_ops
 from ScanImageTiffReader import ScanImageTiffReader
 
+from tifffile import TiffFile
+from skimage.registration import phase_cross_correlation
+from scipy.ndimage import shift
+from more_itertools import ichunked, chunked
+
+def parse_si_metadata(tiff_path):
+    """
+    Reads metadata from a Scanimage TIFF and return a dictionary with
+    specified key values.
+
+    Currently can only extract numerical data.
+
+    Args:
+        tiff_path: path to TIFF or directory containing tiffs
+
+    """
+    if not tiff_path.endswith('.tif'):
+        tiffs = [tiff for tiff in os.listdir(tiff_path) if tiff.endswith(".tif")]
+    else:
+        tiffs = [ tiff_path, ]
+    if tiffs:
+        tiff_path = str(Path(tiff_path) / tiffs[0])
+        tiff = ScanImageTiffReader(tiff_path)
+        # list of SI metadata keywords to export
+        si_keys = [
+            'SI.hRoiManager.scanZoomFactor',
+            'SI.hRoiManager.scanFramePeriod',
+            'SI.hRoiManager.scanFrameRate',
+            'SI.hRoiManager.scanVolumeRate',
+            'SI.hStackManager.actualNumSlices',
+            'SI.hStackManager.actualNumVolumes',
+            'SI.hStackManager.actualStackZStepSize',
+            'SI.hStackManager.framesPerSlice',
+            'SI.hRoiManager.pixelsPerLine',
+            'SI.hRoiManager.linesPerFrame'
+        ]
+
+        si_dict = {}
+        for key in si_keys:
+            val = float(re.search(f'{key} = (\d+(?:\.\d+)?)', tiff.metadata()).group(1))
+            si_dict[key] = val
+        return si_dict
+    else:
+        return None
+
 
 def get_frame_rate(tiff_path):
     tiffs = [tiff for tiff in os.listdir(tiff_path) if tiff.endswith(".tif")]
@@ -26,6 +71,78 @@ def get_frame_rate(tiff_path):
         )
     else:
         return None
+
+
+def register_zstack(tiff_path, ch_to_align=0, nchannels=2):
+    """
+    Apply motion correction to a z-stack.
+
+    We first apply motion correction to individual frames in each slice and the
+    register adjacent slices to each other.
+
+    Args:
+        tiff_path
+    """
+    si_dict = parse_si_metadata(tiff_path)
+    stack = TiffFile(tiff_path)
+    nframes = int(si_dict['SI.hStackManager.framesPerSlice'])
+
+    chunk_size = nframes * nchannels
+
+    nx = int(si_dict['SI.hRoiManager.pixelsPerLine'])
+    ny = int(si_dict['SI.hRoiManager.linesPerFrame'])
+    nz = int(si_dict['SI.hStackManager.actualNumSlices'])
+
+    registered_stack = np.zeros((nx, ny, nchannels, nz))
+
+    # process stack one slice at a time
+    for (iplane, plane) in enumerate(chunked(stack.pages, chunk_size)):
+        # generate reference image for the current slice
+        template_image = np.zeros((nx, ny))
+        for channels in chunked(plane, nchannels):
+            template_image[:,:] += channels[ch_to_align].asarray()
+        # use reference image to align individual planes
+        for channels in chunked(plane, nchannels):
+            shifts = phase_cross_correlation(
+                template_image[:,:],
+                channels[ch_to_align].asarray(),
+                space='real'
+            )
+            for (ich, channel) in enumerate(channels):
+                registered_stack[:,:,ich,iplane] += shift(
+                    channel.asarray(),
+                    (shifts[0][0],shifts[0][1]),
+                    output=None,
+                    order=3,
+                    mode='constant',
+                    cval=0.0,
+                    prefilter=True
+                )
+
+    aligned_stack = np.zeros((nx, ny, nchannels, nz))
+    # we don't need to align the very first plane
+    aligned_stack[:,:,:,0] = registered_stack[:,:,:,0]
+
+    # align planes to each other
+    for iplane in range(1, nz):
+        # it helps to do subpixel registration to align slices
+        shifts = phase_cross_correlation(
+            aligned_stack[:,:,ch_to_align,iplane-1],
+            registered_stack[:,:,ch_to_align,iplane],
+            space='real',
+            upsample_factor=10
+        )
+        for ich in range(nchannels):
+            aligned_stack[:,:,ich,iplane] = shift(
+                    registered_stack[:,:,ich,iplane],
+                    (shifts[0][0],shifts[0][1]),
+                    output=None,
+                    order=3,
+                    mode='constant',
+                    cval=0.0,
+                    prefilter=True
+            )
+    return aligned_stack
 
 def run_extraction(flz_session, project, session_name, conflicts, ops):
     """
