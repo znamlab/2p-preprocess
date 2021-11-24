@@ -105,6 +105,7 @@ def register_zstack(tiff_path, ch_to_align=0, nchannels=2):
 
     # process stack one slice at a time
     for (iplane, plane) in enumerate(chunked(stack.pages, chunk_size)):
+        print(f'Registering plane {iplane+1} of {nz}', flush=True)
         # generate reference image for the current slice
         template_image = np.zeros((nx, ny))
         for channels in chunked(plane, nchannels):
@@ -132,6 +133,7 @@ def register_zstack(tiff_path, ch_to_align=0, nchannels=2):
     aligned_stack[:,:,:,0] = registered_stack[:,:,:,0]
 
     # align planes to each other
+    print('Aliging planes to each other', flush=True)
     for iplane in range(1, nz):
         # it helps to do subpixel registration to align slices
         shifts = phase_cross_correlation(
