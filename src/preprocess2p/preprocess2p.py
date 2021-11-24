@@ -28,6 +28,8 @@ def parse_si_metadata(tiff_path):
     Args:
         tiff_path: path to TIFF or directory containing tiffs
 
+    Returns:
+        dict: dictionary of SI parameters
     """
     if not tiff_path.endswith('.tif'):
         tiffs = [tiff for tiff in os.listdir(tiff_path) if tiff.endswith(".tif")]
@@ -81,7 +83,13 @@ def register_zstack(tiff_path, ch_to_align=0, nchannels=2):
     register adjacent slices to each other.
 
     Args:
-        tiff_path
+        tiff_path (str): path to the z-stack file
+        ch_to_align (int): channel to use for registration
+        nchannels (int): number of channels in the stack
+
+    Rerurns:
+        numpy.ndarray: z-stack after applying motion correction (X x Y x Z)
+
     """
     si_dict = parse_si_metadata(tiff_path)
     stack = TiffFile(tiff_path)
