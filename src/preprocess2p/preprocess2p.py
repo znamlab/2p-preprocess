@@ -165,7 +165,55 @@ def register_zstack(tiff_path, ch_to_align=0):
                     cval=0.0,
                     prefilter=True
             )
-    return aligned_stack
+    return aligned_stack / int(nframes)
+
+
+def run_zstack_registration(flz_session, project, session_name, conflicts,
+        ch_to_align=0):
+    """
+
+
+    """
+    # get experimental session
+    exp_session = flz.get_entity(
+        datatype='session',
+        name=session_name,
+        flexilims_session=flz_session
+    )
+
+    zstacks = flz.get_entities(
+        datatype='dataset',
+        origin_id=exp_session['id'],
+        query_key='stack_type',
+        query_value='zstack'
+    )
+
+    for zstack in zstacks:
+        registered_dataset = Dataset.from_origin(
+            project=project,
+            origin_type='session',
+            origin_id=exp_session['id'],
+            dataset_type='registered_stack',
+            conflicts=conflicts
+        )
+        # save registered stack under the same path as raw stack + "_registered"
+        # in the processed directory
+        registered_dataset.path = zstack.path.copy()
+        registered_dataset.path.stem += '_registered'
+
+        registered_stack = register_zstack(
+            str(zstack.path_full),
+            ch_to_align
+        )
+        with TiffWriter(registered_dataset.path_full) as tif:
+            for iplane in range(nz):
+                for ich in range(nchannels):
+                    tif.write(
+                        np.int16(registered_stack[:,:,ich,iplane]),
+                        contiguous=True
+                    )
+        registered_dataset.update_flexilims(mode='overwrite')
+
 
 def run_extraction(flz_session, project, session_name, conflicts, ops):
     """
