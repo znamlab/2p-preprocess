@@ -56,6 +56,9 @@ def parse_si_metadata(tiff_path):
         for key in si_keys:
             val = float(re.search(f'{key} = (\d+(?:\.\d+)?)', tiff.metadata()).group(1))
             si_dict[key] = val
+
+        channels = re.search('SI.hChannels.channelSave = \[(.*)\]', tiff.metadata()).group(1).split()
+        si_dict['SI.hChannels.channelSave'] = [int(s) for s in channels]
         return si_dict
     else:
         return None
@@ -75,7 +78,7 @@ def get_frame_rate(tiff_path):
         return None
 
 
-def register_zstack(tiff_path, ch_to_align=0, nchannels=2):
+def register_zstack(tiff_path, ch_to_align=0):
     """
     Apply motion correction to a z-stack.
 
@@ -92,6 +95,8 @@ def register_zstack(tiff_path, ch_to_align=0, nchannels=2):
 
     """
     si_dict = parse_si_metadata(tiff_path)
+    nchannels = len(si_dict['SI.hChannels.channelSave'])
+    assert nchannels>ch_to_align
     stack = TiffFile(tiff_path)
     nframes = int(si_dict['SI.hStackManager.framesPerSlice'])
 
