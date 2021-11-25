@@ -13,10 +13,12 @@ import itertools
 from suite2p import run_s2p, default_ops
 from ScanImageTiffReader import ScanImageTiffReader
 
-from tifffile import TiffFile
+from tifffile import TiffFile, TiffWriter
 from skimage.registration import phase_cross_correlation
 from scipy.ndimage import shift
 from more_itertools import ichunked, chunked
+import scipy.fft as fft
+from suite2p.registration.rigid import phasecorr, phasecorr_reference
 
 def parse_si_metadata(tiff_path):
     """
@@ -111,21 +113,27 @@ def register_zstack(tiff_path, ch_to_align=0):
     # process stack one slice at a time
     for (iplane, plane) in enumerate(chunked(stack.pages, chunk_size)):
         print(f'Registering plane {iplane+1} of {nz}', flush=True)
+        data = np.asarray([page.asarray() for page in plane])
         # generate reference image for the current slice
-        template_image = np.zeros((nx, ny))
-        for channels in chunked(plane, nchannels):
-            template_image[:,:] += channels[ch_to_align].asarray()
+        template_image = np.mean(data[ch_to_align:nchannels:,:,:], axis=0)
+        template_image_fft = fft.fftn(template_image)
+        # yshift, xshift, _ = phasecorr(
+        #     data[ch_to_align:nchannels:,:,:],
+        #     template_image_fft,
+        #     0.2,
+        #     0
+        # )
         # use reference image to align individual planes
-        for channels in chunked(plane, nchannels):
+        for iframe in range(nframes):
             shifts = phase_cross_correlation(
-                template_image[:,:],
-                channels[ch_to_align].asarray(),
-                space='real'
+                template_image_fft,
+                fft.fftn(data[iframe+ch_to_align*nframes,:,:]),
+                space='fourier'
             )
-            for (ich, channel) in enumerate(channels):
+            for ich in range(nchannels):
                 registered_stack[:,:,ich,iplane] += shift(
-                    channel.asarray(),
-                    (shifts[0][0],shifts[0][1]),
+                    data[iframe+ich*nframes,:,:],
+                    (shifts[0][0], shifts[0][1]),
                     output=None,
                     order=3,
                     mode='constant',
