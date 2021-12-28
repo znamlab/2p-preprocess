@@ -22,6 +22,16 @@ jet = mpl.cm.get_cmap("jet").copy()
 jet.set_bad(color='k')
 
 def load_s2p_output(output_dir):
+    """
+    Loads suite2p output for directory of choice
+    :param output_dir: path to directory with stat.npy et al.
+    :return f: numpy array with fluorescence values for each ROI
+    :return f_neu: numpy array with fluorescence values for neuropil mask for each ROI
+    :return spks: numpy array with deconvolved fluorescence
+    :return stats: numpy array containing dict with stats output
+    :return iscell: boolean array of ROIs identified as cells
+    :return ops: dict of suite2p run settings
+    """
     ops = np.load(Path(output_dir).joinpath("ops.npy"), allow_pickle=True).item()
     stats = np.load(Path(output_dir).joinpath("stat.npy"), allow_pickle=True)
     iscell = np.load(Path(output_dir).joinpath("iscell.npy"), allow_pickle=True)[:, 0].astype('bool')
@@ -31,6 +41,14 @@ def load_s2p_output(output_dir):
     return f, f_neu, spks, stats, iscell, ops
 
 def stats_to_array(stats: Sequence[Dict[str, Any]], Ly: int, Lx: int, label_id: bool = False):
+    """
+    converts stats sequence of dictionaries to an array
+    :param stats: sequence of dictionaries from stat.npy
+    :param Ly: number of pixels along dim Y from ops dictionary
+    :param Lx: number of pixels along dim X
+    :param label_id: keeps ROI indexing
+    :return: numpy stack of arrays, each containing x and y pixels for each ROI
+    """
     arrays = []
     for i, stat in enumerate(stats):
         arr = np.zeros((Ly, Lx), dtype=float)
@@ -41,6 +59,16 @@ def stats_to_array(stats: Sequence[Dict[str, Any]], Ly: int, Lx: int, label_id: 
     return(np.stack(arrays))
 
 def plot_detection_outcome(stats, ops, iscell, fname, output_dir):
+    """
+    generates a four panel plot with maximum intensity projection, both cell and non-cell ROIs
+    detected in recording, all non-cell ROIs and all cell ROIs
+    :param stats: stats array from stat.npy
+    :param ops: dictionary of suite2p settings
+    :param iscell: boolean array of which ROIs are identified as cells
+    :param fname: name of recording for writing plots to file
+    :param output_dir: path to directory for writing plots to file
+    :return: none
+    """
     im = stats_to_array(stats, Ly = ops['Ly'], Lx = ops['Lx'], label_id=True)
     im[im == 0] = np.nan
 
@@ -68,6 +96,11 @@ def plot_detection_outcome(stats, ops, iscell, fname, output_dir):
     plt.close(fig)
 
 def make_bounding_box(stat):
+    """
+    utility function for creating a bounding box around cells and neuropil masks
+    :param stat: numpy array from stat.npy
+    :returns y_lim1, y_lim2, x_lim1, x_lim2: x and y pixels for adding ~ 40 px border around cell ROI or mask
+    """
     y_min = stat['ypix'].min()
     y_max = stat['ypix'].max()
 
@@ -86,7 +119,21 @@ def make_bounding_box(stat):
     return y_lim1, y_lim2, x_lim1, x_lim2
 
 def plot_roi_and_neuropil(f, f_neu, spks, ops, stat, which_roi, fname, out_dir):
-    im = stats_to_array(stats, Ly=ops['Ly'], Lx=ops['Lx'], label_id=True)
+    """
+    utility for generating a multipanel plot by user-selected ROI. plots
+    fluoresence trace, neuropil fluo trace, deconvolved spikes, cell ROI and
+    neuropil mask. f, f_neu and spks are only plotted for first 2000 frames
+    :param f: numpy array of fluorescence values
+    :param f_neu: numpy array of neuropil fluorescence values
+    :param spks: numpy array of deconvolved spikes
+    :param ops: dictionary of suite2p settings
+    :param stat: numpy array of stat.npy
+    :param which_roi: index of ROI to be plotted
+    :param fname: string containing name of recording for writing figure to file
+    :param out_dir: path to write .svg files
+    :return: none
+    """
+    im = stats_to_array(stat, Ly=ops['Ly'], Lx=ops['Lx'], label_id=True)
     im[im == 0] = np.nan
 
     fig = plt.figure(figsize=(12, 4))
@@ -139,6 +186,7 @@ def plot_roi_and_neuropil(f, f_neu, spks, ops, stat, which_roi, fname, out_dir):
 
     neu_mask = np.zeros(512*512)
     neu_mask[mask[0]] = 1
+    # check that pixels are being mapped back to 2D array correctly
     neu_mask = np.reshape(neu_mask, (512,512))
     neu_mask[neu_mask == 0] = np.nan
 
@@ -147,8 +195,12 @@ def plot_roi_and_neuropil(f, f_neu, spks, ops, stat, which_roi, fname, out_dir):
     mask_ax.imshow(neu_mask[y_lim1:y_lim2, x_lim1:x_lim2], cmap=plt.cm.get_cmap('spring').reversed(), alpha=0.5)
     mask_ax.title.set_text('neuropil mask')
 
+    # fix potential errors if trailing slash is not included
     basename = fname + "_f-cell-neuropil_roi%s.svg"%which_roi
     fig_name = Path(out_dir).joinpath(basename)
 
     fig.savefig(fig_name, format="svg", dpi=1200)
     plt.close(fig)
+
+# add function for making scatterplot of f vs f_neu for ROI of interest
+
