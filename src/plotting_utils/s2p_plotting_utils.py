@@ -2,6 +2,7 @@ from pathlib import Path
 from typing import Sequence, Dict, Any
 import matplotlib.pyplot as plt
 import numpy as np
+from scipy.stats import kde, pearsonr
 
 import suite2p
 
@@ -202,5 +203,48 @@ def plot_roi_and_neuropil(f, f_neu, spks, ops, stat, which_roi, fname, out_dir):
     fig.savefig(fig_name, format="svg", dpi=1200)
     plt.close(fig)
 
-# add function for making scatterplot of f vs f_neu for ROI of interest
+# add function for plotting f vs f_neu for ROI of interest
+def plot_f_f_neu(f, f_neu, which_roi, fname, out_dir):
+    """
+    a function that plots f vs f_neu for user-selected ROI, displays as a colour map of the KDE
+    :param f: numpy array of cell fluorescence values
+    :param f_neu: numpy array of neuropil fluorescence values
+    :param which_roi: index of ROI
+    :param fname: str, name of recording for writing figure to file
+    :param out_dir: str, path to directory for writing .svg files
+    :return: none
+    """
+    x = f[which_roi,:]
+    y = f_neu[which_roi,:]
+    # calculate Pearson's R from cell and neuropil fluorescence
+    corr, _ = pearsonr(x, y)
 
+    # create a gaussian KDE on a regular grid of 256 x 256 bins
+    nbins = 256
+    k = kde.gaussian_kde([x, y])
+    xi, yi = np.mgrid[x.min():x.max():nbins*1j, y.min():y.max():nbins*1j]
+    zi = k(np.vstack([xi.flatten(), yi.flatten()]))
+
+    # make a figure of cell and neuropil fluorescence values, density
+    # of points
+    fig = plt.figure(figsize=(4,4))
+    ax = fig.gca()
+
+    ax.tick_params(axis='y', left=True, which='major', labelleft=True)
+    czset = ax.contourf(xi, yi, zi.reshape(xi.shape), cmap='Greens')
+    cset = ax.contour(xi, yi, zi.reshape(xi.shape), colors='k')
+
+    ax.clabel(cset, inline=1, fontsize=8)
+    ax.set_xlabel('cell fluorescence')
+    ax.set_ylabel('neuropil fluorescence')
+    ax.set_title('ROI index %s'%which_roi)
+    ax.text(0.1, 0.9, 'Pearson\'s R = %3f'%corr,
+            verticalalignment='bottom',
+            horizontalalignment='left',
+            transform=ax.transAxes)
+
+    basename = fname + "_f-cell-neuropil-corr_roi%s.svg" % which_roi
+    fig_name = Path(out_dir).joinpath(basename)
+
+    fig.savefig(fig_name, format="svg", dpi=1200)
+    plt.close(fig)
