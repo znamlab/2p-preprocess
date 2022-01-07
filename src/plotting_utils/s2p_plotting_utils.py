@@ -17,7 +17,7 @@ mpl.rcParams.update({
     'figure.subplot.wspace': .01,
     'figure.subplot.hspace': .01,
     'figure.figsize': (18, 13),
-    'ytick.major.left': False,
+    'ytick.major.left': True,
 })
 jet = mpl.cm.get_cmap("jet").copy()
 jet.set_bad(color='k')
@@ -142,7 +142,7 @@ def plot_roi_and_neuropil(f, f_neu, spks, ops, stat, which_roi, fname, out_dir):
 
     f_ax = fig.add_subplot(grid[0:2, 0:2])
     f_ax.plot(range(0, 2000, 1), f[which_roi, range(0, 2000, 1)], 'g', alpha=0.8)
-    f_ax.plot(range(0,2000,1), f_neu[which_roi, range(0,2000,1)], 'm', alpha=0.5)
+    f_ax.plot(range(0, 2000, 1), f_neu[which_roi, range(0,2000,1)], 'm', alpha=0.5)
     f_ax.set_ylabel('fluorescence')
 
     # Adjust spks range to match range of fluorescence traces
@@ -168,15 +168,19 @@ def plot_roi_and_neuropil(f, f_neu, spks, ops, stat, which_roi, fname, out_dir):
     img_ax.imshow(im[which_roi, y_lim1:y_lim2, x_lim1:x_lim2], alpha=0.5, cmap='spring')
     img_ax.title.set_text('ROI index %s'%(which_roi))
 
-    cell_pix=np.zeros((ops['Ly'], ops['Lx']))
-    lammap=np.zeros((ops['Ly'], ops['Lx']))
-    ypix=s['ypix']
-    xpix=s['xpix']
-    lam=s['lam']
+    # need to fix how to calculate neuropil masks from this, want to avoid lambda filter so
+    # cells with low weights can be visualised
+
+    cell_pix = np.zeros((ops['Ly'], ops['Lx']))
+    lammap = np.zeros((ops['Ly'], ops['Lx']))
+    ypix = s['ypix']
+    xpix = s['xpix']
+    lam = s['lam']
     lammap[ypix, xpix] = np.maximum(lammap[ypix, xpix], lam)
     cell_pix = lammap > 0.0
 
-    mask=suite2p.extraction.create_neuropil_masks(
+    # try calling funciton with circular = True?
+    mask = suite2p.extraction.create_neuropil_masks(
         ypixs=s['ypix'],
         xpixs=s['xpix'],
         cell_pix=cell_pix,
@@ -248,3 +252,48 @@ def plot_f_f_neu(f, f_neu, which_roi, fname, out_dir):
 
     fig.savefig(fig_name, format="svg", dpi=1200)
     plt.close(fig)
+
+def plot_reg_metrics(ops, fname, out_dir):
+    """
+    plots registration metrics for s2p run, writes to .svg file
+    :param ops: dictionary of options values from ops.npy
+    :param fname: str, name of recording for writing figure to file
+    :param out_dir: str, path to directory for writing .svg files
+    :return: none
+    """
+
+    fig = plt.figure(figsize = (8,6))
+    grid = plt.GridSpec(3, 4, wspace=0.5, hspace=0.8, figure=fig)
+
+    ax1 = fig.add_subplot(grid[0, 0:2])
+    ax1.plot(ops['tPC'][:,0], 'k')
+    ax1.set_xlabel('frames')
+    ax1.set_ylabel('PC 1')
+
+    ax2 = fig.add_subplot(grid[0, 2:4])
+    ax2.plot(ops['regDX'][:,1], 'o-')
+    ax2.plot(ops['regDX'][:,2], 'go-')
+    ax2.set_xlabel('PC')
+    ax2.set_ylabel('NR offset')
+
+    ax3 = fig.add_subplot(grid[1:3, 0:2])
+    ax3.imshow(ops['regPC'][0,0,:,:])
+    ax3.set_title('mean top 500 frames of PC1')
+    ax3.tick_params(axis='y', left=False, which='major', labelleft=False)
+    ax3.tick_params(axis='x', bottom=False, which='major', labelbottom=False)
+
+    ax4 = fig.add_subplot(grid[1:3, 2:4])
+    ax4.imshow(ops['regPC'][1,0,:,:])
+    ax4.set_title('mean bottom 500 frames of PC1')
+    ax4.tick_params(axis='y', left=False, which='major', labelleft=False)
+    ax4.tick_params(axis='x', bottom=False, which='major', labelbottom=False)
+
+    basename = fname + "_reg-metrics.svg"
+    fig_name = Path(out_dir).joinpath(basename)
+
+    fig.savefig(fig_name, format="svg", dpi=1200)
+    plt.close(fig)
+
+
+
+
