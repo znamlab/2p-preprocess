@@ -5,10 +5,17 @@ Clone the repo from github:
 git clone git@github.com:znamlab/2p-preprocess.git
 ```
 
-Next, navigate to the repo directory and run the setup script:
+Next, navigate to the repo directory and run following commands to install the package
+and dependencies:
 ```
 cd 2p-preprocess
-./setup.sh
+conda env create -f environment.yml
+
+conda activate 2p-preprocess
+conda install pip
+pip install -e .
+pip install jax[cuda11_cudnn805] -f https://storage.googleapis.com/jax-releases/jax_releases.html
+conda deactivate
 ```
 
 This should install the dependencies and create conda environments for suite2p
