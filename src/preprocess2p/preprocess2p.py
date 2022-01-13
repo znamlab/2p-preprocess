@@ -185,7 +185,8 @@ def run_zstack_registration(flz_session, project, session_name, conflicts,
         datatype='dataset',
         origin_id=exp_session['id'],
         query_key='stack_type',
-        query_value='zstack'
+        query_value='zstack',
+        flexilims_session=flz_session
     )
 
     for zstack in zstacks:
