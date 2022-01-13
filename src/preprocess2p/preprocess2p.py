@@ -189,7 +189,13 @@ def run_zstack_registration(flz_session, project, session_name, conflicts,
         flexilims_session=flz_session
     )
 
-    for zstack in zstacks:
+    for zstack in zstacks.id:
+        # get zstack entity from flexilims
+        zstack = flz.get_entity(
+            datatype ='dataset',
+            id=zstack,
+            flexilims_session=flz_session)
+            
         registered_dataset = Dataset.from_origin(
             project=project,
             origin_type='session',
