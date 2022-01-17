@@ -189,13 +189,12 @@ def run_zstack_registration(flz_session, project, session_name, conflicts,
         flexilims_session=flz_session
     )
 
-    for zstack in zstacks.id:
-        # get zstack entity from flexilims
-        zstack = flz.get_entity(
-            datatype ='dataset',
-            id=zstack,
-            flexilims_session=flz_session)
-            
+    for i,j in zstacks.iterrows():
+        # get zstack Dataset from flexilims
+        zstack = Dataset.from_flexilims(name=j.name,
+            project=project,
+            flm_session=flz_session)
+
         registered_dataset = Dataset.from_origin(
             project=project,
             origin_type='session',
@@ -205,11 +204,13 @@ def run_zstack_registration(flz_session, project, session_name, conflicts,
         )
         # save registered stack under the same path as raw stack + "_registered"
         # in the processed directory
-        registered_dataset.path = zstack.path.copy()
+        registered_dataset.path = zstack.path
         registered_dataset.path.stem += '_registered'
 
+        assert len(zstack.extra_attributes['file_list']) == 1
+        
         registered_stack = register_zstack(
-            str(zstack.path_full),
+            str(zstack.path_full/zstack.extra_attributes['file_list'][0]),
             ch_to_align
         )
         with TiffWriter(registered_dataset.path_full) as tif:
