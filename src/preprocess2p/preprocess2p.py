@@ -208,11 +208,16 @@ def run_zstack_registration(flz_session, project, session_name, conflicts,
         registered_dataset.path.stem += '_registered'
 
         assert len(zstack.extra_attributes['file_list']) == 1
-        
+
         registered_stack = register_zstack(
             str(zstack.path_full/zstack.extra_attributes['file_list'][0]),
             ch_to_align
         )
+        
+        # consider writing this as a value to return from register_zstack?
+        nz = registered_stack.shape[3]
+        nchannels = registered_stack.shape[2]
+
         with TiffWriter(registered_dataset.path_full) as tif:
             for iplane in range(nz):
                 for ich in range(nchannels):
