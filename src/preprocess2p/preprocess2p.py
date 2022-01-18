@@ -204,7 +204,7 @@ def run_zstack_registration(flz_session, project, session_name, conflicts,
         )
         # save registered stack under the same path as raw stack + "_registered"
         # in the processed directory
-        registered_dataset.path = zstack.path
+        registered_dataset.path = zstack.path.joinpath("registered")
         # registered_dataset.path.stem += '_registered'
 
         assert len(zstack.extra_attributes['file_list']) == 1
@@ -217,7 +217,7 @@ def run_zstack_registration(flz_session, project, session_name, conflicts,
         # consider writing this as a value to return from register_zstack?
         nz = registered_stack.shape[3]
         nchannels = registered_stack.shape[2]
-        
+
         # will this crash if directory does not yet exist?
         with TiffWriter(registered_dataset.path_full.joinpath(zstack.extra_attributes['file_list'][0])) as tif:
             for iplane in range(nz):
