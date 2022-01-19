@@ -191,7 +191,8 @@ def run_zstack_registration(flz_session, project, session_name, conflicts,
 
     for i,j in zstacks.iterrows():
         # get zstack Dataset from flexilims
-        zstack = Dataset.from_flexilims(name=j.name,
+        zstack = Dataset.from_flexilims(
+            name=j.name,
             project=project,
             flm_session=flz_session)
 
@@ -202,11 +203,16 @@ def run_zstack_registration(flz_session, project, session_name, conflicts,
             dataset_type='registered_stack',
             conflicts=conflicts
         )
+
         # save registered stack under the same path as raw stack + "_registered"
         # in the processed directory
         registered_dataset.path = zstack.path.joinpath("registered")
         # registered_dataset.path.stem += '_registered'
 
+        # change registered Dataset to unique name
+        registered_dataset.name = zstack.name + '_registered'
+
+        # ensure there is only one file in zstack Dataset object
         assert len(zstack.extra_attributes['file_list']) == 1
 
         registered_stack = register_zstack(
