@@ -168,10 +168,23 @@ def register_zstack(tiff_path, ch_to_align=0):
     return aligned_stack / int(nframes)
 
 
-def run_zstack_registration(flz_session, project, session_name, conflicts,
+def run_zstack_registration(flz_session, project, session_name, conflicts='append',
         ch_to_align=0):
     """
+    Apply motion correction to all zstacks for a single session, create Flexylims
+    entries for each registered zstacks
 
+    Args:
+        flz_session ()
+        project (str): human-readable string for project name in Flexylims
+                (hexadecimal id fails with Dataset.from_origin)
+        session_name (str): string matching Flexylims session name
+        conflicts (str): string for handling flexilims conflicts, if more than
+                one zstack needs to be registered for session, use conflicts="append"
+        ch_to_align (int): channel to use for calculating shifts
+
+    Returns:
+        nothing, writes numpy.ndarray from register_zstack to a tif file
 
     """
     # get experimental session
@@ -181,6 +194,7 @@ def run_zstack_registration(flz_session, project, session_name, conflicts,
         flexilims_session=flz_session
     )
 
+    # get all zstacks from session
     zstacks = flz.get_entities(
         datatype='dataset',
         origin_id=exp_session['id'],
@@ -190,7 +204,7 @@ def run_zstack_registration(flz_session, project, session_name, conflicts,
     )
 
     for i,j in zstacks.iterrows():
-        # get zstack Dataset from flexilims
+        # get zstack Dataset with flexilims
         zstack = Dataset.from_flexilims(
             name=j.name,
             project=project,
