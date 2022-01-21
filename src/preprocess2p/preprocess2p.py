@@ -94,7 +94,8 @@ def register_zstack(tiff_path, ch_to_align=0):
 
     Rerurns:
         numpy.ndarray: z-stack after applying motion correction (X x Y x Z)
-
+        nz: int, number of slices in aligned_stack
+        nchannels: int, number of channels in aligned_stack
     """
     si_dict = parse_si_metadata(tiff_path)
     nchannels = len(si_dict['SI.hChannels.channelSave'])
@@ -165,7 +166,7 @@ def register_zstack(tiff_path, ch_to_align=0):
                     cval=0.0,
                     prefilter=True
             )
-    return aligned_stack / int(nframes)
+    return aligned_stack / int(nframes), nz, nchannels
 
 
 def run_zstack_registration(flz_session, project, session_name, conflicts='append',
@@ -210,6 +211,7 @@ def run_zstack_registration(flz_session, project, session_name, conflicts='appen
             project=project,
             flm_session=flz_session)
 
+        # add flm_session as argument
         registered_dataset = Dataset.from_origin(
             project=project,
             origin_type='session',
@@ -229,16 +231,16 @@ def run_zstack_registration(flz_session, project, session_name, conflicts='appen
         # ensure there is only one file in zstack Dataset object
         assert len(zstack.extra_attributes['file_list']) == 1
 
-        registered_stack = register_zstack(
+        registered_stack, nz, nchannels = register_zstack(
             str(zstack.path_full/zstack.extra_attributes['file_list'][0]),
             ch_to_align
         )
 
-        # consider writing this as a value to return from register_zstack?
-        nz = registered_stack.shape[3]
-        nchannels = registered_stack.shape[2]
+        # create directory for output, if it does not already exist
+        if not registered_dataset.path_full.is_dir():
+            registered_dataset.path_full.mkdir(parents=True, exist_ok=False)
 
-        # will this crash if directory does not yet exist?
+        # write registered stack to file
         with TiffWriter(registered_dataset.path_full.joinpath(zstack.extra_attributes['file_list'][0])) as tif:
             for iplane in range(nz):
                 for ich in range(nchannels):
