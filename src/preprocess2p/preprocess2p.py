@@ -217,7 +217,8 @@ def run_zstack_registration(flz_session, project, session_name, conflicts='appen
             origin_type='session',
             origin_id=exp_session['id'],
             dataset_type='registered_stack',
-            conflicts=conflicts
+            conflicts=conflicts,
+            flm_session=flz_session
         )
 
         # save registered stack under the same path as raw stack + "_registered"
@@ -248,7 +249,8 @@ def run_zstack_registration(flz_session, project, session_name, conflicts='appen
                         np.int16(registered_stack[:,:,ich,iplane]),
                         contiguous=True
                     )
-        registered_dataset.update_flexilims(mode='overwrite')
+        registered_dataset.update_flexilims(mode='overwrite',
+                                            flm_session=flz_session)
 
 
 def run_extraction(flz_session, project, session_name, conflicts, ops):
