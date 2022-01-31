@@ -145,6 +145,10 @@ def register_zstack(tiff_path, ch_to_align=0):
                     prefilter=True
                 )
 
+        # after calculating shifted image for each frame in each channel in registered_data, take
+        # the mean of each channel across all frames in the plane and put it into registered_stack
+        registered_stack[:,:,:,iplane] = np.mean(registered_data, axis=3)
+
     aligned_stack = np.zeros((nx, ny, nchannels, nz))
     # we don't need to align the very first plane
     aligned_stack[:,:,:,0] = registered_stack[:,:,:,0]
