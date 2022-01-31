@@ -260,7 +260,6 @@ def run_extraction(flz_session, project, session_name, conflicts, ops):
     Args:
         flz_session (Flexilims): flexilims session
         project (str): name of the project, determines save path
-        mouse (str): name of the mouse, determines save path
         session_name (str): name of the session, used to find data on flexilims
         conflicts (str): defines behavior if recordings have already been split
         ops (dict): dictionary of suite2p settings
@@ -368,7 +367,7 @@ def split_recordings(flz_session, suite2p_dataset, conflicts):
             continue
         # otherwise lets split it
         try:
-            os.mkdir(str(split_dataset.path_full))
+            split_dataset.path_full.mkdir(parents=True)
         except OSError:
             print('Error creating directory {}'.format(str(split_dataset.path_full)))
         np.save(str(split_dataset.path_full / 'F.npy'), F[:,start:end])
