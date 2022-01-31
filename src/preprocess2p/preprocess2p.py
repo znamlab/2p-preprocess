@@ -115,8 +115,11 @@ def register_zstack(tiff_path, ch_to_align=0):
     for (iplane, plane) in enumerate(chunked(stack.pages, chunk_size)):
         print(f'Registering plane {iplane+1} of {nz}', flush=True)
         data = np.asarray([page.asarray() for page in plane])
+        # allocate space for registered data for this plane, dimensions are
+        # (X x Y x channels x frames)
+        registered_data = np.zeros((nx, ny, nchannels, nframes))
         # generate reference image for the current slice
-        template_image = np.mean(data[ch_to_align:nchannels:,:,:], axis=0)
+        template_image = np.mean(data[ch_to_align::nchannels,:,:], axis=0)
         template_image_fft = fft.fftn(template_image)
         # yshift, xshift, _ = phasecorr(
         #     data[ch_to_align:nchannels:,:,:],
@@ -128,12 +131,12 @@ def register_zstack(tiff_path, ch_to_align=0):
         for iframe in range(nframes):
             shifts = phase_cross_correlation(
                 template_image_fft,
-                fft.fftn(data[iframe+ch_to_align*nframes,:,:]),
+                fft.fftn(data[nchannels*iframe+ch_to_align,:,:]),
                 space='fourier'
             )
             for ich in range(nchannels):
-                registered_stack[:,:,ich,iplane] += shift(
-                    data[iframe+ich*nframes,:,:],
+                registered_data[:,:,ich,iframe] += shift(
+                    data[nchannels*iframe+ich, :, :],
                     (shifts[0][0], shifts[0][1]),
                     output=None,
                     order=3,
