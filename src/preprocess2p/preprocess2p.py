@@ -115,9 +115,6 @@ def register_zstack(tiff_path, ch_to_align=0):
     for (iplane, plane) in enumerate(chunked(stack.pages, chunk_size)):
         print(f'Registering plane {iplane+1} of {nz}', flush=True)
         data = np.asarray([page.asarray() for page in plane])
-        # allocate space for registered data for this plane, dimensions are
-        # (X x Y x channels x frames)
-        registered_data = np.zeros((nx, ny, nchannels, nframes))
         # generate reference image for the current slice
         template_image = np.mean(data[ch_to_align::nchannels,:,:], axis=0)
         template_image_fft = fft.fftn(template_image)
@@ -135,7 +132,7 @@ def register_zstack(tiff_path, ch_to_align=0):
                 space='fourier'
             )
             for ich in range(nchannels):
-                registered_data[:,:,ich,iframe] += shift(
+                registered_stack[:,:,ich,iplane] += shift(
                     data[nchannels*iframe+ich, :, :],
                     (shifts[0][0], shifts[0][1]),
                     output=None,
@@ -144,10 +141,6 @@ def register_zstack(tiff_path, ch_to_align=0):
                     cval=0.0,
                     prefilter=True
                 )
-
-        # after calculating shifted image for each frame in each channel in registered_data, take
-        # the mean of each channel across all frames in the plane and put it into registered_stack
-        registered_stack[:,:,:,iplane] = np.mean(registered_data, axis=3)
 
     aligned_stack = np.zeros((nx, ny, nchannels, nz))
     # we don't need to align the very first plane
