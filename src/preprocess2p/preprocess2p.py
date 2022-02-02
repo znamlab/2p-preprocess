@@ -228,7 +228,7 @@ def run_zstack_registration(flz_session, project, session_name, conflicts='appen
 
         # create directory for output, if it does not already exist
         if not registered_dataset.path_full.is_dir():
-            registered_dataset.path_full.mkdir(parents=True, exist_ok=False)
+            registered_dataset.path_full.mkdir(mode=770, parents=True)
 
         # write registered stack to file
         with TiffWriter(registered_dataset.path_full.joinpath(zstack.extra_attributes['file_list'][0])) as tif:
@@ -356,7 +356,7 @@ def split_recordings(flz_session, suite2p_dataset, conflicts):
             continue
         # otherwise lets split it
         try:
-            split_dataset.path_full.mkdir(parents=True)
+            split_dataset.path_full.mkdir(mode=770, parents=True)
         except OSError:
             print('Error creating directory {}'.format(str(split_dataset.path_full)))
         np.save(str(split_dataset.path_full / 'F.npy'), F[:,start:end])
