@@ -221,17 +221,6 @@ def run_zstack_registration(flz_session, project, session_name, conflicts='appen
             flm_session=flz_session
         )
 
-        # save registered stack under the same path as raw stack + "_registered"
-        # in the processed directory
-        registered_dataset.path = zstack.path.joinpath("registered")
-        # registered_dataset.path.stem += '_registered'
-
-        # change registered Dataset to unique name
-        registered_dataset.name = zstack.name + '_registered'
-
-        # ensure there is only one file in zstack Dataset object
-        assert len(zstack.extra_attributes['file_list']) == 1
-
         registered_stack, nz, nchannels = register_zstack(
             str(zstack.path_full/zstack.extra_attributes['file_list'][0]),
             ch_to_align
