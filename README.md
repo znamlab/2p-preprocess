@@ -27,7 +27,7 @@ If running neuropil correction using the AST model, using a GPU node is recommen
 To start the slurm job, navigate to the `2p-preprocess` directory and run the
 `sbatch` script, passing the session details as environment variables, e.g.:
 ```
-sbatch --export=PROJECT=test,MOUSE=PZAJ2.1c,SESSION=S20210513 run_suite2p_gpu.sh
+sbatch --export=PROJECT=test,SESSION=PZAJ2.1c_S20210513 run_suite2p_gpu.sh
 ```
 
 # ASt model
