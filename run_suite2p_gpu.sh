@@ -7,6 +7,7 @@
 #SBATCH --mem-per-cpu=8G
 #SBATCH --partition=gpu
 #SBATCH --gres=gpu:1
+#SBATCH --nodelist=gpu038
 #SBATCH --mail-type=END,FAIL
 #SBATCH --output=/camp/lab/znamenskiyp/home/users/znamenp/code/2p-preprocess/logs/2p_preprocess_%j.log
 ml purge
