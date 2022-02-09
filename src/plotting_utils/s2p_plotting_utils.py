@@ -261,7 +261,6 @@ def plot_reg_metrics(ops, fname, out_dir):
     :param out_dir: str, path to directory for writing .svg files
     :return: none
     """
-
     fig = plt.figure(figsize=(8, 6))
     grid = plt.GridSpec(3, 4, wspace=0.5, hspace=0.8, figure=fig)
 
