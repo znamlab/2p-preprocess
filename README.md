@@ -5,10 +5,17 @@ Clone the repo from github:
 git clone git@github.com:znamlab/2p-preprocess.git
 ```
 
-Next, navigate to the repo directory and run the setup script:
+Next, navigate to the repo directory and run following commands to install the package
+and dependencies:
 ```
 cd 2p-preprocess
-./setup.sh
+conda env create -f environment.yml
+
+conda activate 2p-preprocess
+conda install pip
+pip install -e .
+pip install jax[cuda11_cudnn805] -f https://storage.googleapis.com/jax-releases/jax_releases.html
+conda deactivate
 ```
 
 This should install the dependencies and create conda environments for suite2p
@@ -20,7 +27,7 @@ If running neuropil correction using the AST model, using a GPU node is recommen
 To start the slurm job, navigate to the `2p-preprocess` directory and run the
 `sbatch` script, passing the session details as environment variables, e.g.:
 ```
-sbatch --export=PROJECT=test,MOUSE=PZAJ2.1c,SESSION=S20210513 run_suite2p_gpu.sh
+sbatch --export=PROJECT=test,SESSION=PZAJ2.1c_S20210513 run_suite2p_gpu.sh
 ```
 
 # ASt model
