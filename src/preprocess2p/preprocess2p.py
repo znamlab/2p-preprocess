@@ -221,6 +221,9 @@ def run_zstack_registration(flz_session, project, session_name, conflicts='appen
             flm_session=flz_session
         )
 
+        if len(zstack.extra_attributes['file_list']) > 1:
+            raise NotImplementedError
+
         registered_stack, nz, nchannels = register_zstack(
             str(zstack.path_full/zstack.extra_attributes['file_list'][0]),
             ch_to_align
@@ -238,8 +241,7 @@ def run_zstack_registration(flz_session, project, session_name, conflicts='appen
                         np.int16(registered_stack[:,:,ich,iplane]),
                         contiguous=True
                     )
-        registered_dataset.update_flexilims(mode='overwrite',
-                                            flm_session=flz_session)
+        registered_dataset.update_flexilims(mode='overwrite')
 
 
 def run_extraction(flz_session, project, session_name, conflicts, ops):
