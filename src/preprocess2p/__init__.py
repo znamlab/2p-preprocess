@@ -1,1 +1,1 @@
-from .preprocess2p import main, register_zstack, parse_si_metadata
+from .preprocess2p import main, run_zstack_registration, parse_si_metadata, register_zstack
