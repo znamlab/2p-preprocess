@@ -281,7 +281,7 @@ def run_extraction(flz_session, project, session_name, conflicts, ops):
     # fetch SI datasets
     si_datasets = flz.get_datasets(
         exp_session['id'],
-        recording_type='two_photon',
+        recording_type='two_photon', #!Some 2p recording may not be labelled as 'two_photon'
         dataset_type='scanimage',
         flexilims_session=flz_session
     )
@@ -290,7 +290,7 @@ def run_extraction(flz_session, project, session_name, conflicts, ops):
     # set save path
     ops['save_path0'] = str(suite2p_dataset.path_full)
     # assume frame rates are the same for all recordings
-    ops['fs'] = get_frame_rate(datapaths[0])
+    ops['fs'] = get_frame_rate(datapaths[0])/ops['nplanes']  # in case of multiplane recording
     # run suite2p
     db = {'data_path': datapaths}
     opsEnd = run_s2p(ops=ops, db=db)
@@ -332,48 +332,50 @@ def split_recordings(flz_session, suite2p_dataset, conflicts):
     last_frames = np.cumsum(ops['frames_per_folder'])
     first_frames = np.concatenate(([0], last_frames[:-1]))
     # load processed data
-    F, Fneu, spks = (
-        np.load(str(suite2p_dataset.path_full / 'suite2p' / 'plane0' / 'F.npy')),
-        np.load(str(suite2p_dataset.path_full / 'suite2p' / 'plane0' / 'Fneu.npy')),
-        np.load(str(suite2p_dataset.path_full / 'suite2p' / 'plane0' / 'spks.npy')),
-        )
-    datasets_out = []
-    if suite2p_dataset.extra_attributes['ast_neuropil']:
-        ast_path = suite2p_dataset.path_full / 'suite2p' / 'plane0' / 'Fast.npy'
-        Fast = np.load(str(ast_path))
-    for (dataset, recording_id, start, end) in zip(datapaths, recording_ids, first_frames, last_frames):
-        split_dataset = Dataset.from_origin(
-            project=suite2p_dataset.project,
-            origin_type='recording',
-            origin_id=recording_id,
-            dataset_type='suite2p_traces',
-            conflicts=conflicts
-        )
-        if (split_dataset.get_flexilims_entry() is not None) and conflicts == 'skip':
-            print(
-                'Dataset {} already split... skipping...'
-                .format(split_dataset.name)
+    for iplane in range(ops['nplanes']):
+        F, Fneu, spks = (
+            np.load(str(suite2p_dataset.path_full / 'suite2p' / ('plane'+str(iplane)) / 'F.npy')),
+            np.load(str(suite2p_dataset.path_full / 'suite2p' / ('plane'+str(iplane)) / 'Fneu.npy')),
+            np.load(str(suite2p_dataset.path_full / 'suite2p' / ('plane'+str(iplane)) / 'spks.npy')),
             )
-            datasets_out.append(split_dataset)
-            continue
-        # otherwise lets split it
-        try:
-            os.makedirs(str(split_dataset.path_full))
-        except OSError:
-            print('Error creating directory {}'.format(str(split_dataset.path_full)))
-        np.save(str(split_dataset.path_full / 'F.npy'), F[:,start:end])
-        np.save(str(split_dataset.path_full / 'Fneu.npy'), Fneu[:,start:end])
-        np.save(str(split_dataset.path_full / 'spks.npy'), spks[:,start:end])
+        datasets_out = []
         if suite2p_dataset.extra_attributes['ast_neuropil']:
-            np.save(str(split_dataset.path_full / 'Fast.npy'), Fast[:,start:end])
-        split_dataset.extra_attributes = suite2p_dataset.extra_attributes.copy()
-        split_dataset.update_flexilims(mode='overwrite')
-        datasets_out.append(split_dataset)
-    return datasets_out
+            ast_path = suite2p_dataset.path_full / 'suite2p' / ('plane'+str(iplane)) / 'Fast.npy'
+            Fast = np.load(str(ast_path))
+        for (dataset, recording_id, start, end) in zip(datapaths, recording_ids, first_frames, last_frames):
+            split_dataset = Dataset.from_origin(
+                project=suite2p_dataset.project,
+                origin_type='recording',
+                origin_id=recording_id,
+                dataset_type='suite2p_traces',
+                conflicts=conflicts
+            )
+            # !!! TEST IF SPLIT DATASET FLEXILIMS INTERACTION WORKS FOR MULTIPLANE!!!
+            if (split_dataset.get_flexilims_entry() is not None) and conflicts == 'skip':
+                print(
+                    'Dataset {} already split... skipping...'
+                    .format(split_dataset.name)
+                )
+                datasets_out.append(split_dataset)
+                continue
+            # otherwise lets split it
+            try:
+                os.makedirs(str(split_dataset.path_full))
+            except OSError:
+                print('Error creating directory {}'.format(str(split_dataset.path_full)))
+            np.save(str(split_dataset.path_full / 'F.npy'), F[:,start:end])
+            np.save(str(split_dataset.path_full / 'Fneu.npy'), Fneu[:,start:end])
+            np.save(str(split_dataset.path_full / 'spks.npy'), spks[:,start:end])
+            if suite2p_dataset.extra_attributes['ast_neuropil']:
+                np.save(str(split_dataset.path_full / 'Fast.npy'), Fast[:,start:end])
+            split_dataset.extra_attributes = suite2p_dataset.extra_attributes.copy()
+            split_dataset.update_flexilims(mode='overwrite')
+            datasets_out.append(split_dataset)
+        return datasets_out
 
 
-def main(project, session_name, *, conflicts=None, run_neuropil=False,
-         tau=0.7):
+def main(project, session_name, *, conflicts=None, run_neuropil=False, run_split=False,
+         tau=0.7, nplanes=1):
     """
     Process all the 2p datasets for a given session
 
@@ -392,13 +394,16 @@ def main(project, session_name, *, conflicts=None, run_neuropil=False,
     ops = default_ops()
     ops['ast_neuropil'] = run_neuropil
     ops['tau'] = tau
+    ops['nplanes'] = nplanes
     print('Running suite2p...', flush=True)
     suite2p_dataset = run_extraction(flz_session, project, session_name, conflicts, ops)
     # neuropil correction
     if ops['ast_neuropil']:
-        correct_neuropil(str(suite2p_dataset.path_full / 'suite2p' / 'plane0'))
-    print('Splitting recordings...')
-    split_recordings(flz_session, suite2p_dataset, conflicts)
+        for iplane in range(ops['nplanes']):
+            correct_neuropil(str(suite2p_dataset.path_full / 'suite2p' / 'plane'+str(iplane)))
+    if run_split:
+        print('Splitting recordings...')
+        split_recordings(flz_session, suite2p_dataset, conflicts='append')
 
 def entry_point():
     defopt.run(main)
