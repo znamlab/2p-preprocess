@@ -3,7 +3,7 @@ import jax.random as npr
 import scipy.special as sp
 import jax.scipy.stats.norm as norm
 from jax import value_and_grad, grad, jit
-from jax.experimental.optimizers import adam
+from jax.example_libraries.optimizers import adam
 
 
 # taken from example files of autograd package
