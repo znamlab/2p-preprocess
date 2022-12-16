@@ -385,7 +385,9 @@ def main(project, session_name, *, conflicts=None, run_neuropil=False, run_split
         conflicts (str): how to treat existing processed data
         run_neuropil (bool): whether or not to run neuropil extraction with the
             ASt model
+        run_split (bool): whether or not to run splitting for different folders
         tau (float): time constant
+        nplanes (int): number of planes
     """
     # get session info from flexilims
     print('Connecting to flexilims...')
@@ -400,7 +402,7 @@ def main(project, session_name, *, conflicts=None, run_neuropil=False, run_split
     # neuropil correction
     if ops['ast_neuropil']:
         for iplane in range(ops['nplanes']):
-            correct_neuropil(str(suite2p_dataset.path_full / 'suite2p' / 'plane'+str(iplane)))
+            correct_neuropil(suite2p_dataset.path_full / 'suite2p' / ('plane'+str(iplane)))
     if run_split:
         print('Splitting recordings...')
         split_recordings(flz_session, suite2p_dataset, conflicts='append')

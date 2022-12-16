@@ -13,5 +13,5 @@ source /camp/apps/eb/software/Anaconda/conda.env.sh
 
 conda activate 2p-preprocess
 echo Processing ${SESSION} in project ${PROJECT}
-cd /camp/lab/znamenskiyp/home/users/hey2/codes/2p-preprocess/
+cd /camp/lab/znamenskiyp/home/users/hey2/codes/2p-preprocess
 preprocess2p ${PROJECT} ${SESSION} -c append -t ${TAU}
