@@ -209,7 +209,7 @@ def run_zstack_registration(flz_session, project, session_name, conflicts='appen
         zstack = Dataset.from_flexilims(
             name=j.name,
             project=project,
-            flm_session=flz_session)
+            flexilims_session=flz_session)
 
         # add flm_session as argument
         registered_dataset = Dataset.from_origin(
@@ -218,14 +218,14 @@ def run_zstack_registration(flz_session, project, session_name, conflicts='appen
             origin_id=exp_session['id'],
             dataset_type='registered_stack',
             conflicts=conflicts,
-            flm_session=flz_session
+            flexilims_session=flz_session
         )
 
-        if len(zstack.extra_attributes['file_list']) > 1:
-            raise NotImplementedError
+        if len(zstack.tif_files) > 1:
+            raise NotImplementedError("Cannot register more than one .tif file for each dataset entity.")
 
         registered_stack, nz, nchannels = register_zstack(
-            str(zstack.path_full/zstack.extra_attributes['file_list'][0]),
+            str(zstack.path_full/zstack.tif_files[0]),
             ch_to_align
         )
 
@@ -234,7 +234,7 @@ def run_zstack_registration(flz_session, project, session_name, conflicts='appen
             os.makedirs(str(registered_dataset.path_full))
 
         # write registered stack to file
-        with TiffWriter(registered_dataset.path_full.joinpath(zstack.extra_attributes['file_list'][0])) as tif:
+        with TiffWriter(registered_dataset.path_full.joinpath(zstack.tif_files[0])) as tif:
             for iplane in range(nz):
                 for ich in range(nchannels):
                     tif.write(
