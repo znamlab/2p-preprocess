@@ -2,9 +2,8 @@ import jax.numpy as jnp
 import jax.random as npr
 import scipy.special as sp
 import jax.scipy.stats.norm as norm
-from jax import value_and_grad, grad, jit
-from jax.example_libraries.optimizers import adam
-
+from jax import value_and_grad, jit
+import optax
 
 # taken from example files of autograd package
 def black_box_variational_inference(logprob, n_samples):
@@ -105,20 +104,20 @@ def ast_model(traces, n_sectors, n_samples=1, n_iters=5000, lr=0.01,
     D = nsig * 2 + nt
     init_mean = -1 * jnp.ones(D)
     init_log_std = -5 * jnp.ones(D)
-    init_var_params = jnp.concatenate([init_mean, init_log_std])
+    params = jnp.concatenate([init_mean, init_log_std])
 
     # this decorator tells JAX to use XLA to compile the code
     @jit
     def update(params, opt_state, t):
         """ Compute the gradient and update the parameters """
         value, grads = value_and_grad(objective)(params, t, traces)
-        opt_state = opt_update(t, grads, opt_state)
-        return get_params(opt_state), opt_state, value
+        updates, opt_state = optimizer.update(grads, opt_state)
+        params = optax.apply_updates(params, updates)
+        return params, opt_state, value
 
     # optimization of the variational objective
-    opt_init, opt_update, get_params = adam(lr)
-    opt_state = opt_init(init_var_params)
-    params = get_params(opt_state)
+    optimizer = optax.adam(lr)
+    opt_state = optimizer.init(params)
     elbo = []
     for i in range(n_iters):
         params, opt_state, loss = update(params, opt_state, i)
