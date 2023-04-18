@@ -348,7 +348,6 @@ def split_recordings(flz_session, suite2p_dataset, conflicts):
                 dataset_type="suite2p_traces",
                 conflicts=conflicts,
             )
-            split_dataset.extra_attributes["fs"] = frame_rate
             # !!! TEST IF SPLIT DATASET FLEXILIMS INTERACTION WORKS FOR MULTIPLANE!!!
             if (
                 split_dataset.get_flexilims_entry() is not None
@@ -371,6 +370,7 @@ def split_recordings(flz_session, suite2p_dataset, conflicts):
             if suite2p_dataset.extra_attributes["ast_neuropil"]:
                 np.save(str(split_dataset.path_full / "Fast.npy"), Fast[:, start:end])
             split_dataset.extra_attributes = suite2p_dataset.extra_attributes.copy()
+            split_dataset.extra_attributes["fs"] = frame_rate
             split_dataset.update_flexilims(mode="overwrite")
             datasets_out.append(split_dataset)
         return datasets_out
