@@ -1,7 +1,6 @@
 import numpy as np
 import defopt
 import os
-import re
 import flexiznam as flz
 from flexiznam.schema import Dataset
 from pathlib import Path
@@ -9,7 +8,6 @@ from neuropil import correct_neuropil
 import itertools
 
 from suite2p import run_s2p, default_ops
-from ScanImageTiffReader import ScanImageTiffReader
 from tifffile import TiffFile, TiffWriter
 from skimage.registration import phase_cross_correlation
 from scipy.ndimage import shift
@@ -40,46 +38,8 @@ def parse_si_metadata(tiff_path):
         ]
     if tiffs:
         tiff_path = str(Path(tiff_path) / tiffs[0])
-        tiff = ScanImageTiffReader(tiff_path)
-        # list of SI metadata keywords to export
-        si_keys = [
-            "SI.hRoiManager.scanZoomFactor",
-            "SI.hRoiManager.scanFramePeriod",
-            "SI.hRoiManager.scanFrameRate",
-            "SI.hRoiManager.scanVolumeRate",
-            "SI.hStackManager.actualNumSlices",
-            "SI.hStackManager.actualNumVolumes",
-            "SI.hStackManager.actualStackZStepSize",
-            "SI.hStackManager.framesPerSlice",
-            "SI.hRoiManager.pixelsPerLine",
-            "SI.hRoiManager.linesPerFrame",
-        ]
-
-        si_dict = {}
-        for key in si_keys:
-            val = float(re.search(f"{key} = (\d+(?:\.\d+)?)", tiff.metadata()).group(1))
-            si_dict[key] = val
-
-        channels = (
-            re.search("SI.hChannels.channelSave = \[(.*)\]", tiff.metadata())
-            .group(1)
-            .split()
-        )
-        si_dict["SI.hChannels.channelSave"] = [int(s) for s in channels]
-        return si_dict
-    else:
-        return None
-
-
-def get_frame_rate(tiff_path):
-    tiffs = [tiff for tiff in os.listdir(tiff_path) if tiff.endswith(".tif")]
-    if tiffs:
-        tiff_path = str(Path(tiff_path) / tiffs[0])
-        return float(
-            re.search(
-                "scanVolumeRate = (\d+\.\d+)", ScanImageTiffReader(tiff_path).metadata()
-            ).group(1)
-        )
+        tif = TiffFile(tiff_path)
+        return tif.scanimage_metadata['FrameData']
     else:
         return None
 
@@ -295,7 +255,7 @@ def run_extraction(flz_session, project, session_name, conflicts, ops):
     ops["save_path0"] = str(suite2p_dataset.path_full)
     # assume frame rates are the same for all recordings
     ops["fs"] = (
-        get_frame_rate(datapaths[0]) / ops["nplanes"]
+        parse_si_metadata(datapaths[0])["SI.hRoiManager.scanVolumeRate"]
     )  # in case of multiplane recording
     # run suite2p
     db = {"data_path": datapaths}
@@ -382,9 +342,13 @@ def split_recordings(flz_session, suite2p_dataset, conflicts):
     )
     datapaths = []
     recording_ids = []
-    for r, p in datasets.items():
-        datapaths.extend(p)
-        recording_ids.extend(itertools.repeat(r, len(p)))
+    frame_rates = []
+    for recording, paths in datasets.items():
+        datapaths.extend(paths)
+        recording_ids.extend(itertools.repeat(recording, len(paths)))
+        frame_rates.extend([ 
+            parse_si_metadata(this_path)["SI.hRoiManager.scanVolumeRate"] for this_path in paths
+        ])
     # split into individual recordings
     assert len(datapaths) == len(ops["frames_per_folder"])
     last_frames = np.cumsum(ops["frames_per_folder"])
@@ -469,6 +433,7 @@ def split_recordings(flz_session, suite2p_dataset, conflicts):
                 np.save(str(split_dataset.path_full / "Fast.npy"), Fast[:, start:end])
                 np.save(str(split_dataset.path_full / "dff_ast.npy"), dff_ast[:, start:end])
             split_dataset.extra_attributes = suite2p_dataset.extra_attributes.copy()
+            split_dataset.extra_attributes["fs"] = frame_rate
             split_dataset.update_flexilims(mode="overwrite")
             datasets_out.append(split_dataset)
         return datasets_out
