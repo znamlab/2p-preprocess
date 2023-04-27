@@ -476,9 +476,9 @@ def main(
     # neuropil correction
     if ops["ast_neuropil"]:
         for iplane in range(ops["nplanes"]):
-            # correct_neuropil(
-            #     suite2p_dataset.path_full / "suite2p" / ("plane" + str(iplane))
-            # )
+            correct_neuropil(
+                suite2p_dataset.path_full / "suite2p" / ("plane" + str(iplane))
+            )
             print("Calculating dF/F...")
             calculate_dFF(suite2p_dataset, iplane, mode='gmm', n_components=2, verbose=True)
     if run_split:
