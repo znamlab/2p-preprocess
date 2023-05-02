@@ -517,11 +517,11 @@ def main(
     # neuropil correction
     if ops["ast_neuropil"]:
         for iplane in range(ops["nplanes"]):
-            # correct_neuropil(
-            #     suite2p_dataset.path_full / "suite2p" / ("plane" + str(iplane))
-            # )
-            # print("Calculating dF/F...")
-            # calculate_dFF(suite2p_dataset, iplane, n_components=dff_ncomponents, verbose=True)
+            correct_neuropil(
+                suite2p_dataset.path_full / "suite2p" / ("plane" + str(iplane))
+            )
+            print("Calculating dF/F...")
+            calculate_dFF(suite2p_dataset, iplane, n_components=dff_ncomponents, verbose=True)
             print("Deconvolve spikes from neuropil corrected trace...")
             spike_deconvolution_suite2p(suite2p_dataset, iplane)
     if run_split:
