@@ -8,6 +8,7 @@ from neuropil import correct_neuropil
 import itertools
 
 from suite2p import run_s2p, default_ops
+from suite2p.extraction import dcnv
 from tifffile import TiffFile, TiffWriter
 from skimage.registration import phase_cross_correlation
 from scipy.ndimage import shift
@@ -314,9 +315,38 @@ def calculate_dFF(suite2p_dataset, iplane, mode='gmm', n_components=2, verbose=T
     f0_path =  suite2p_dataset.path_full / "suite2p" / f"plane{iplane}" / "f0_ast.npy" 
     np.save(dff_path, dff)
     np.save(f0_path, f0)
+    
+
+def spike_deconvolution_suite2p(suite2p_dataset, iplane):
+    # Load the Fast.npy file and ops.npy file
+    Fast_path = suite2p_dataset.path_full / "suite2p" / f"plane{iplane}" / "Fast.npy"
+    ops_path = suite2p_dataset.path_full / "suite2p" / f"plane{iplane}" / "ops.npy"
+    Fast = np.load(Fast_path)
+    ops = np.load(ops_path, allow_pickle=True).tolist()
+    
+    # Params
+    # for computing and subtracting baseline
+    ops['baseline'] = 'maximin' # take the running max of the running min after smoothing with gaussian
+    ops['sig_baseline'] = 10.0 # in bins, standard deviation of gaussian with which to smooth
+    ops['win_baseline'] = 60.0 # in seconds, window in which to compute max/min filters
+
+    # baseline operation
+    Fast = dcnv.preprocess(
+        F=Fast,
+        baseline=ops['baseline'],
+        win_baseline=ops['win_baseline'],
+        sig_baseline=ops['sig_baseline'],
+        fs=ops['fs'],
+        prctile_baseline=ops['prctile_baseline']
+    )
+
+    # get spikes
+    spks_ast = dcnv.oasis(F=Fast, batch_size=ops['batch_size'], tau=ops['tau'], fs=ops['fs'])
+    spks_ast_path = suite2p_dataset.path_full / "suite2p" / f"plane{iplane}" / "spks_ast.npy"
+    np.save(spks_ast_path, spks_ast)  
 
 
-def split_recordings(flz_session, suite2p_dataset, conflicts):
+def split_recordings(flz_session, suite2p_dataset, conflicts, iplane):
     """
     suite2p concatenates all the recordings in a given session into a single file.
     To facilitate downstream analyses, we cut them back into chunks and add them
@@ -327,10 +357,11 @@ def split_recordings(flz_session, suite2p_dataset, conflicts):
         suite2p_dataset (Dataset): dataset containing concatenated recordings
             to split
         conflicts (str): defines behavior if recordings have already been split
+        iplane (int): which plane. 
 
     """
     # load the ops file to find length of individual recordings
-    ops_path = suite2p_dataset.path_full / "suite2p" / "plane0" / "ops.npy"
+    ops_path = suite2p_dataset.path_full / "suite2p" / f"plane{iplane}" / "ops.npy"
     ops = np.load(ops_path, allow_pickle=True).tolist()
     # get scanimage datasets
     datasets = flz.get_datasets(
@@ -354,7 +385,7 @@ def split_recordings(flz_session, suite2p_dataset, conflicts):
     first_frames = np.concatenate(([0], last_frames[:-1]))
     # load processed data
     for iplane in range(ops["nplanes"]):
-        F, Fneu, spks = (
+        F, Fneu, spks, spks_ast = (
             np.load(
                 str(
                     suite2p_dataset.path_full
@@ -377,6 +408,14 @@ def split_recordings(flz_session, suite2p_dataset, conflicts):
                     / "suite2p"
                     / ("plane" + str(iplane))
                     / "spks.npy"
+                )
+            ),
+            np.load(
+                str(
+                    suite2p_dataset.path_full
+                    / "suite2p"
+                    / ("plane" + str(iplane))
+                    / "spks_ast.npy"
                 )
             ),
         )
@@ -431,8 +470,9 @@ def split_recordings(flz_session, suite2p_dataset, conflicts):
             if suite2p_dataset.extra_attributes["ast_neuropil"]:
                 np.save(str(split_dataset.path_full / "Fast.npy"), Fast[:, start:end])
                 np.save(str(split_dataset.path_full / "dff_ast.npy"), dff_ast[:, start:end])
+                np.save(str(split_dataset.path_full / "spks_ast.npy"), spks_ast[:, start:end])
             split_dataset.extra_attributes = suite2p_dataset.extra_attributes.copy()
-            split_dataset.extra_attributes["fs"] = frame_rate
+            split_dataset.extra_attributes["fs"] = frame_rates
             split_dataset.update_flexilims(mode="overwrite")
             datasets_out.append(split_dataset)
         return datasets_out
@@ -477,14 +517,17 @@ def main(
     # neuropil correction
     if ops["ast_neuropil"]:
         for iplane in range(ops["nplanes"]):
-            correct_neuropil(
-                suite2p_dataset.path_full / "suite2p" / ("plane" + str(iplane))
-            )
-            print("Calculating dF/F...")
-            calculate_dFF(suite2p_dataset, iplane, n_components=dff_ncomponents, verbose=True)
+            # correct_neuropil(
+            #     suite2p_dataset.path_full / "suite2p" / ("plane" + str(iplane))
+            # )
+            # print("Calculating dF/F...")
+            # calculate_dFF(suite2p_dataset, iplane, n_components=dff_ncomponents, verbose=True)
+            print("Deconvolve spikes from neuropil corrected trace...")
+            spike_deconvolution_suite2p(suite2p_dataset, iplane)
     if run_split:
         print("Splitting recordings...")
-        split_recordings(flz_session, suite2p_dataset, conflicts="append")
+        for iplane in range(ops["nplanes"]):
+            split_recordings(flz_session, suite2p_dataset, conflicts="append", iplane=iplane)
 
 
 def entry_point():
