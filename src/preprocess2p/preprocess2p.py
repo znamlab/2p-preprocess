@@ -409,7 +409,7 @@ def split_recordings(flz_session, suite2p_dataset, conflicts, iplane):
     # load processed data
     for iplane in range(ops["nplanes"]):
         plane_path = suite2p_dataset.path_full / "suite2p" / f"plane{iplane}"
-        F, Fneu, spks, spks_ast = (
+        F, Fneu, spks = (
             np.load(plane_path / "F.npy"),
             np.load(plane_path / "Fneu.npy"),
             np.load(plane_path / "spks.npy"),
