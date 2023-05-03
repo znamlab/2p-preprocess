@@ -295,7 +295,12 @@ def dFF(f, n_components=2, verbose=True):
 
 
 def calculate_dFF(
-    suite2p_dataset, iplane, n_components=2, verbose=True, ast_neuropil=True
+    suite2p_dataset,
+    iplane,
+    n_components=2,
+    verbose=True,
+    ast_neuropil=True,
+    neucoeff=0.7,
 ):
     """
     Calculate dF/F for the whole session with concatenated recordings after neuropil correction.
@@ -306,11 +311,19 @@ def calculate_dFF(
         iplane (int): which plane.
         n_components (int): number of components for GMM. default 2.
         verbose (bool): display progress or not. Default True.
+        ast_neuropil (bool): whether to use ASt neuropil correction or not. Default True.
+        neucoeff (float): coefficient for neuropil correction. Only used if ast_neuropil
+            is False. Default 0.7.
 
     """
     # Load fluorescence traces
     dir_path = suite2p_dataset.path_full / "suite2p" / f"plane{iplane}"
-    F = np.load(dir_path / "Fast.npy" if ast_neuropil else dir_path / "F.npy")
+    if ast_neuropil:
+        F = np.load(dir_path / "Fast.npy")
+    else:
+        F = np.load(dir_path / "F.npy")
+        Fneu = np.load(dir_path / "Fneu.npy")
+        F = F - neucoeff * Fneu
     # Calculate dFFs and save to the suite2p folder
     dff, f0 = dFF(F, n_components=n_components, verbose=verbose)
     np.save(dir_path / "dff_ast.npy" if ast_neuropil else dir_path / "dff.npy", dff)
@@ -497,6 +510,7 @@ def main(
     ops["ast_neuropil"] = run_neuropil
     ops["tau"] = tau
     ops["nplanes"] = nplanes
+    ops["dff_ncomponents"] = dff_ncomponents
     print("Running suite2p...", flush=True)
     suite2p_dataset = run_extraction(flz_session, project, session_name, conflicts, ops)
 
@@ -510,9 +524,10 @@ def main(
         calculate_dFF(
             suite2p_dataset,
             iplane,
-            n_components=dff_ncomponents,
+            n_components=ops["dff_ncomponents"],
             verbose=True,
             ast_neuropil=ops["ast_neuropil"],
+            neucoeff=ops["neucoeff"],
         )
         if ops["ast_neuropil"]:
             print("Deconvolve spikes from neuropil corrected trace...")
