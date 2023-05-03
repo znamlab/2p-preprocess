@@ -40,7 +40,7 @@ def parse_si_metadata(tiff_path):
     if tiffs:
         tiff_path = str(Path(tiff_path) / tiffs[0])
         tif = TiffFile(tiff_path)
-        return tif.scanimage_metadata['FrameData']
+        return tif.scanimage_metadata["FrameData"]
     else:
         return None
 
@@ -255,9 +255,9 @@ def run_extraction(flz_session, project, session_name, conflicts, ops):
     # set save path
     ops["save_path0"] = str(suite2p_dataset.path_full)
     # assume frame rates are the same for all recordings
-    ops["fs"] = (
-        parse_si_metadata(datapaths[0])["SI.hRoiManager.scanVolumeRate"]
-    )  # in case of multiplane recording
+    ops["fs"] = parse_si_metadata(datapaths[0])[
+        "SI.hRoiManager.scanVolumeRate"
+    ]  # in case of multiplane recording
     # run suite2p
     db = {"data_path": datapaths}
     opsEnd = run_s2p(ops=ops, db=db)
@@ -271,51 +271,52 @@ def dFF(f, n_components=2, verbose=True):
     """
     Helper function for calculating dF/F from raw fluorescence trace.
     Args:
-        f (ndarray): shape nrois x time, raw fluorescence trace for all rois extracted from suite2p
+        f (numpy.ndarray): shape nrois x time, raw fluorescence trace for all rois extracted from suite2p
         n_components (int): number of components for GMM. default 2.
         verbose (bool): display progress or not. Default True.
+
     Returns:
-        dffs (ndarray): shape nrois x time, dF/F for all rois extracted from suite2p
+        dffs (numpy.ndarray): shape nrois x time, dF/F for all rois extracted from suite2p
+
     """
 
     f0 = np.zeros(f.shape[0])
     for i in range(f.shape[0]):
-        gmm = mixture.GaussianMixture(
-            n_components=n_components, random_state=42
-        ).fit(f[i].reshape(-1, 1))
+        gmm = mixture.GaussianMixture(n_components=n_components, random_state=42).fit(
+            f[i].reshape(-1, 1)
+        )
         gmm_means = np.sort(gmm.means_[:, 0])
         f0[i] = gmm_means[0]
         if verbose:
             if i % 100 == 0:
-                print(f'{i}/{f.shape[0]}', flush=True)
+                print(f"{i}/{f.shape[0]}", flush=True)
     f0 = f0.reshape(-1, 1)
     dff = (f - f0) / f0
     return dff, f0
 
 
-def calculate_dFF(suite2p_dataset, iplane, mode='gmm', n_components=2, verbose=True):
+def calculate_dFF(suite2p_dataset, iplane, n_components=2, verbose=True):
     """
-    Calculate dF/F for the whole session with concatenated recordings after neuropil correction. 
+    Calculate dF/F for the whole session with concatenated recordings after neuropil correction.
 
     Args:
         suite2p_dataset (Dataset): dataset containing concatenated recordings
             to split
         iplane (int): which plane.
-        mode (str): default 'gmm' (only option for now)
         n_components (int): number of components for GMM. default 2.
         verbose (bool): display progress or not. Default True.
 
     """
-    # Load the Fast.npy file 
+    # Load the Fast.npy file
     Fast_path = suite2p_dataset.path_full / "suite2p" / f"plane{iplane}" / "Fast.npy"
     Fast = np.load(Fast_path)
     # Calculate dFFs and save to the suite2p folder
-    dff, f0= dFF(Fast, mode=mode, n_components=n_components, verbose=verbose)
-    dff_path =  suite2p_dataset.path_full / "suite2p" / f"plane{iplane}" / "dff_ast.npy"  
-    f0_path =  suite2p_dataset.path_full / "suite2p" / f"plane{iplane}" / "f0_ast.npy" 
+    dff, f0 = dFF(Fast, n_components=n_components, verbose=verbose)
+    dff_path = suite2p_dataset.path_full / "suite2p" / f"plane{iplane}" / "dff_ast.npy"
+    f0_path = suite2p_dataset.path_full / "suite2p" / f"plane{iplane}" / "f0_ast.npy"
     np.save(dff_path, dff)
     np.save(f0_path, f0)
-    
+
 
 def spike_deconvolution_suite2p(suite2p_dataset, iplane):
     # Load the Fast.npy file and ops.npy file
@@ -323,27 +324,33 @@ def spike_deconvolution_suite2p(suite2p_dataset, iplane):
     ops_path = suite2p_dataset.path_full / "suite2p" / f"plane{iplane}" / "ops.npy"
     Fast = np.load(Fast_path)
     ops = np.load(ops_path, allow_pickle=True).tolist()
-    
-    # Params
-    # for computing and subtracting baseline
-    ops['baseline'] = 'maximin' # take the running max of the running min after smoothing with gaussian
-    ops['sig_baseline'] = 10.0 # in bins, standard deviation of gaussian with which to smooth
-    ops['win_baseline'] = 60.0 # in seconds, window in which to compute max/min filters
+
+    # Params for computing and subtracting baseline
+    # take the running max of the running min after smoothing with gaussian
+    ops["baseline"] = "maximin"
+    # in bins, standard deviation of gaussian with which to smooth
+    ops["sig_baseline"] = 10.0
+    # in seconds, window in which to compute max/min filters
+    ops["win_baseline"] = 60.0
 
     # baseline operation
     Fast = dcnv.preprocess(
         F=Fast,
-        baseline=ops['baseline'],
-        win_baseline=ops['win_baseline'],
-        sig_baseline=ops['sig_baseline'],
-        fs=ops['fs'],
-        prctile_baseline=ops['prctile_baseline']
+        baseline=ops["baseline"],
+        win_baseline=ops["win_baseline"],
+        sig_baseline=ops["sig_baseline"],
+        fs=ops["fs"],
+        prctile_baseline=ops["prctile_baseline"],
     )
 
     # get spikes
-    spks_ast = dcnv.oasis(F=Fast, batch_size=ops['batch_size'], tau=ops['tau'], fs=ops['fs'])
-    spks_ast_path = suite2p_dataset.path_full / "suite2p" / f"plane{iplane}" / "spks_ast.npy"
-    np.save(spks_ast_path, spks_ast)  
+    spks_ast = dcnv.oasis(
+        F=Fast, batch_size=ops["batch_size"], tau=ops["tau"], fs=ops["fs"]
+    )
+    spks_ast_path = (
+        suite2p_dataset.path_full / "suite2p" / f"plane{iplane}" / "spks_ast.npy"
+    )
+    np.save(spks_ast_path, spks_ast)
 
 
 def split_recordings(flz_session, suite2p_dataset, conflicts, iplane):
@@ -357,7 +364,7 @@ def split_recordings(flz_session, suite2p_dataset, conflicts, iplane):
         suite2p_dataset (Dataset): dataset containing concatenated recordings
             to split
         conflicts (str): defines behavior if recordings have already been split
-        iplane (int): which plane. 
+        iplane (int): which plane.
 
     """
     # load the ops file to find length of individual recordings
@@ -376,70 +383,34 @@ def split_recordings(flz_session, suite2p_dataset, conflicts, iplane):
     for recording, paths in datasets.items():
         datapaths.extend(paths)
         recording_ids.extend(itertools.repeat(recording, len(paths)))
-        frame_rates.extend([ 
-            parse_si_metadata(this_path)["SI.hRoiManager.scanVolumeRate"] for this_path in paths
-        ])
+        frame_rates.extend(
+            [
+                parse_si_metadata(this_path)["SI.hRoiManager.scanVolumeRate"]
+                for this_path in paths
+            ]
+        )
     # split into individual recordings
     assert len(datapaths) == len(ops["frames_per_folder"])
     last_frames = np.cumsum(ops["frames_per_folder"])
     first_frames = np.concatenate(([0], last_frames[:-1]))
     # load processed data
     for iplane in range(ops["nplanes"]):
+        plane_path = suite2p_dataset.path_full / "suite2p" / f"plane{iplane}"
         F, Fneu, spks, spks_ast = (
-            np.load(
-                str(
-                    suite2p_dataset.path_full
-                    / "suite2p"
-                    / ("plane" + str(iplane))
-                    / "F.npy"
-                )
-            ),
-            np.load(
-                str(
-                    suite2p_dataset.path_full
-                    / "suite2p"
-                    / ("plane" + str(iplane))
-                    / "Fneu.npy"
-                )
-            ),
-            np.load(
-                str(
-                    suite2p_dataset.path_full
-                    / "suite2p"
-                    / ("plane" + str(iplane))
-                    / "spks.npy"
-                )
-            ),
-            np.load(
-                str(
-                    suite2p_dataset.path_full
-                    / "suite2p"
-                    / ("plane" + str(iplane))
-                    / "spks_ast.npy"
-                )
-            ),
+            np.load(plane_path / "F.npy"),
+            np.load(plane_path / "Fneu.npy"),
+            np.load(plane_path / "spks.npy"),
         )
         datasets_out = []
         if suite2p_dataset.extra_attributes["ast_neuropil"]:
-            ast_path = (
-                suite2p_dataset.path_full
-                / "suite2p"
-                / ("plane" + str(iplane))
-                / "Fast.npy"
+            Fast, dff_ast, spks_ast = (
+                np.load(plane_path / "Fast.npy"),
+                np.load(plane_path / "dff_ast.npy"),
+                np.load(plane_path / "spks_ast.npy"),
             )
-            Fast = np.load(str(ast_path))
-            
-            dff_ast = np.load(
-                str(
-                    suite2p_dataset.path_full
-                    / "suite2p"
-                    / ("plane" + str(iplane))
-                    / "dff_ast.npy"
-                )
-            )
-            
-        for dataset, recording_id, start, end in zip(
-            datapaths, recording_ids, first_frames, last_frames
+
+        for dataset, recording_id, start, end, frame_rate in zip(
+            datapaths, recording_ids, first_frames, last_frames, frame_rates
         ):
             split_dataset = Dataset.from_origin(
                 project=suite2p_dataset.project,
@@ -464,15 +435,18 @@ def split_recordings(flz_session, suite2p_dataset, conflicts, iplane):
                 print(
                     "Error creating directory {}".format(str(split_dataset.path_full))
                 )
-            np.save(str(split_dataset.path_full / "F.npy"), F[:, start:end])
-            np.save(str(split_dataset.path_full / "Fneu.npy"), Fneu[:, start:end])
-            np.save(str(split_dataset.path_full / "spks.npy"), spks[:, start:end])
+            np.save(split_dataset.path_full / "F.npy", F[:, start:end])
+            np.save(split_dataset.path_full / "Fneu.npy", Fneu[:, start:end])
+            np.save(split_dataset.path_full / "spks.npy", spks[:, start:end])
             if suite2p_dataset.extra_attributes["ast_neuropil"]:
-                np.save(str(split_dataset.path_full / "Fast.npy"), Fast[:, start:end])
-                np.save(str(split_dataset.path_full / "dff_ast.npy"), dff_ast[:, start:end])
-                np.save(str(split_dataset.path_full / "spks_ast.npy"), spks_ast[:, start:end])
+                np.save(split_dataset.path_full / "Fast.npy", Fast[:, start:end])
+                np.save(split_dataset.path_full / "dff_ast.npy", dff_ast[:, start:end])
+                np.save(
+                    split_dataset.path_full / "spks_ast.npy",
+                    spks_ast[:, start:end],
+                )
             split_dataset.extra_attributes = suite2p_dataset.extra_attributes.copy()
-            split_dataset.extra_attributes["fs"] = frame_rates
+            split_dataset.extra_attributes["fs"] = frame_rate
             split_dataset.update_flexilims(mode="overwrite")
             datasets_out.append(split_dataset)
         return datasets_out
@@ -521,13 +495,17 @@ def main(
                 suite2p_dataset.path_full / "suite2p" / ("plane" + str(iplane))
             )
             print("Calculating dF/F...")
-            calculate_dFF(suite2p_dataset, iplane, n_components=dff_ncomponents, verbose=True)
+            calculate_dFF(
+                suite2p_dataset, iplane, n_components=dff_ncomponents, verbose=True
+            )
             print("Deconvolve spikes from neuropil corrected trace...")
             spike_deconvolution_suite2p(suite2p_dataset, iplane)
     if run_split:
         print("Splitting recordings...")
         for iplane in range(ops["nplanes"]):
-            split_recordings(flz_session, suite2p_dataset, conflicts="append", iplane=iplane)
+            split_recordings(
+                flz_session, suite2p_dataset, conflicts="append", iplane=iplane
+            )
 
 
 def entry_point():
