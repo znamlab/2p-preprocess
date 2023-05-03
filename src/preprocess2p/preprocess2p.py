@@ -279,7 +279,6 @@ def dFF(f, n_components=2, verbose=True):
         dffs (numpy.ndarray): shape nrois x time, dF/F for all rois extracted from suite2p
 
     """
-
     f0 = np.zeros(f.shape[0])
     for i in range(f.shape[0]):
         gmm = mixture.GaussianMixture(n_components=n_components, random_state=42).fit(
@@ -295,7 +294,9 @@ def dFF(f, n_components=2, verbose=True):
     return dff, f0
 
 
-def calculate_dFF(suite2p_dataset, iplane, n_components=2, verbose=True):
+def calculate_dFF(
+    suite2p_dataset, iplane, n_components=2, verbose=True, ast_neuropil=True
+):
     """
     Calculate dF/F for the whole session with concatenated recordings after neuropil correction.
 
@@ -307,15 +308,13 @@ def calculate_dFF(suite2p_dataset, iplane, n_components=2, verbose=True):
         verbose (bool): display progress or not. Default True.
 
     """
-    # Load the Fast.npy file
-    Fast_path = suite2p_dataset.path_full / "suite2p" / f"plane{iplane}" / "Fast.npy"
-    Fast = np.load(Fast_path)
+    # Load fluorescence traces
+    dir_path = suite2p_dataset.path_full / "suite2p" / f"plane{iplane}"
+    F = np.load(dir_path / "Fast.npy" if ast_neuropil else dir_path / "F.npy")
     # Calculate dFFs and save to the suite2p folder
-    dff, f0 = dFF(Fast, n_components=n_components, verbose=verbose)
-    dff_path = suite2p_dataset.path_full / "suite2p" / f"plane{iplane}" / "dff_ast.npy"
-    f0_path = suite2p_dataset.path_full / "suite2p" / f"plane{iplane}" / "f0_ast.npy"
-    np.save(dff_path, dff)
-    np.save(f0_path, f0)
+    dff, f0 = dFF(F, n_components=n_components, verbose=verbose)
+    np.save(dir_path / "dff_ast.npy" if ast_neuropil else dir_path / "dff.npy", dff)
+    np.save(dir_path / "f0_ast.npy" if ast_neuropil else dir_path / "f0.npy", f0)
 
 
 def spike_deconvolution_suite2p(
@@ -500,21 +499,26 @@ def main(
     ops["nplanes"] = nplanes
     print("Running suite2p...", flush=True)
     suite2p_dataset = run_extraction(flz_session, project, session_name, conflicts, ops)
-    # neuropil correction
-    if ops["ast_neuropil"]:
-        for iplane in range(ops["nplanes"]):
+
+    for iplane in range(ops["nplanes"]):
+        if ops["ast_neuropil"]:
+            print("Running ASt neuropil correction...")
             correct_neuropil(
                 suite2p_dataset.path_full / "suite2p" / ("plane" + str(iplane))
             )
-            print("Calculating dF/F...")
-            calculate_dFF(
-                suite2p_dataset, iplane, n_components=dff_ncomponents, verbose=True
-            )
+        print("Calculating dF/F...")
+        calculate_dFF(
+            suite2p_dataset,
+            iplane,
+            n_components=dff_ncomponents,
+            verbose=True,
+            ast_neuropil=ops["ast_neuropil"],
+        )
+        if ops["ast_neuropil"]:
             print("Deconvolve spikes from neuropil corrected trace...")
             spike_deconvolution_suite2p(suite2p_dataset, iplane)
-    if run_split:
-        print("Splitting recordings...")
-        for iplane in range(ops["nplanes"]):
+        if run_split:
+            print("Splitting recordings...")
             split_recordings(
                 flz_session, suite2p_dataset, conflicts="append", iplane=iplane
             )
