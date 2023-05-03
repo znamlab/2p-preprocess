@@ -497,6 +497,7 @@ def main(
     ops["ast_neuropil"] = run_neuropil
     ops["tau"] = tau
     ops["nplanes"] = nplanes
+    ops["dff_ncomponents"] = dff_ncomponents
     print("Running suite2p...", flush=True)
     suite2p_dataset = run_extraction(flz_session, project, session_name, conflicts, ops)
 
@@ -510,7 +511,7 @@ def main(
         calculate_dFF(
             suite2p_dataset,
             iplane,
-            n_components=dff_ncomponents,
+            n_components=ops["dff_ncomponents"],
             verbose=True,
             ast_neuropil=ops["ast_neuropil"],
         )
