@@ -262,7 +262,7 @@ def run_extraction(flz_session, project, session_name, conflicts, ops):
     db = {"data_path": datapaths}
     opsEnd = run_s2p(ops=ops, db=db)
     # update the database
-    suite2p_dataset.extra_attributes = ops.copy()
+    suite2p_dataset.extra_attributes = opsEnd.copy()
     suite2p_dataset.update_flexilims(mode="overwrite")
     return suite2p_dataset
 
@@ -318,7 +318,20 @@ def calculate_dFF(suite2p_dataset, iplane, n_components=2, verbose=True):
     np.save(f0_path, f0)
 
 
-def spike_deconvolution_suite2p(suite2p_dataset, iplane):
+def spike_deconvolution_suite2p(
+    suite2p_dataset, iplane, baseline="maximin", sig_baseline=10.0, win_baseline=60.0
+):
+    """
+    Run spike deconvolution on the concatenated recordings after ASt neuropil correction.
+
+    Args:
+        suite2p_dataset (Dataset): dataset containing concatenated recordings
+        iplane (int): which plane to run on
+        baseline (str): method for baseline estimation before spike deconvolution. Default 'maximin'.
+        sig_baseline (float): standard deviation of gaussian with which to smooth. Default 10.0.
+        win_baseline (float): window in which to compute max/min filters in seconds. Default 60.0.
+
+    """
     # Load the Fast.npy file and ops.npy file
     Fast_path = suite2p_dataset.path_full / "suite2p" / f"plane{iplane}" / "Fast.npy"
     ops_path = suite2p_dataset.path_full / "suite2p" / f"plane{iplane}" / "ops.npy"
@@ -327,11 +340,11 @@ def spike_deconvolution_suite2p(suite2p_dataset, iplane):
 
     # Params for computing and subtracting baseline
     # take the running max of the running min after smoothing with gaussian
-    ops["baseline"] = "maximin"
+    ops["baseline"] = baseline
     # in bins, standard deviation of gaussian with which to smooth
-    ops["sig_baseline"] = 10.0
+    ops["sig_baseline"] = sig_baseline
     # in seconds, window in which to compute max/min filters
-    ops["win_baseline"] = 60.0
+    ops["win_baseline"] = win_baseline
 
     # baseline operation
     Fast = dcnv.preprocess(
@@ -351,6 +364,7 @@ def spike_deconvolution_suite2p(suite2p_dataset, iplane):
         suite2p_dataset.path_full / "suite2p" / f"plane{iplane}" / "spks_ast.npy"
     )
     np.save(spks_ast_path, spks_ast)
+    np.save(ops_path, ops)
 
 
 def split_recordings(flz_session, suite2p_dataset, conflicts, iplane):
@@ -423,9 +437,7 @@ def split_recordings(flz_session, suite2p_dataset, conflicts, iplane):
             if (
                 split_dataset.get_flexilims_entry() is not None
             ) and conflicts == "skip":
-                print(
-                    "Dataset {} already split... skipping...".format(split_dataset.name)
-                )
+                print(f"Dataset {split_dataset.name} already split... skipping...")
                 datasets_out.append(split_dataset)
                 continue
             # otherwise lets split it
