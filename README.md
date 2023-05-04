@@ -14,7 +14,8 @@ conda env create -f environment.yml
 conda activate 2p-preprocess
 conda install pip
 pip install -e .
-pip install jax[cuda11_cudnn805] -f https://storage.googleapis.com/jax-releases/jax_releases.html
+pip install --upgrade "jax[cuda11_local]" -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
+pip install optax
 conda deactivate
 ```
 
