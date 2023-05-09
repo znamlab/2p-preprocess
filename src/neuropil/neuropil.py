@@ -24,8 +24,8 @@ def correct_neuropil(dpath):
     print('Neuropil correction completed... Saving...', flush=True)
     Fast = np.vstack(traces)
     np.save(os.path.join(dpath, 'Fast.npy'), Fast, allow_pickle=True)
-    np.save(dpath + 'ast_stat.npy', np.vstack(var_params), allow_pickle=True)
-    np.save(dpath + 'ast_elbo.npy', np.vstack(elbos), allow_pickle=True)    
+    np.save(os.path.join(dpath,'ast_stat.npy'), np.vstack(var_params), allow_pickle=True)
+    np.save(os.path.join(dpath,'ast_elbo.npy'), np.vstack(elbos), allow_pickle=True)    
     return Fast
 
 def main():
