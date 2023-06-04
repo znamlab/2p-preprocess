@@ -16,6 +16,7 @@ setup(
         "defopt",
         "more_itertools",
         "scikit-image",
+        "tqdm",
     ],
     entry_points={
         "console_scripts": [
