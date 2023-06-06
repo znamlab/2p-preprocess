@@ -172,42 +172,34 @@ def run_zstack_registration(
         zstack = Dataset.from_flexilims(
             name=zstack.name, project=project, flexilims_session=flz_session
         )
-
-        # add flm_session as argument
-        registered_dataset = Dataset.from_origin(
-            project=project,
-            origin_type="session",
-            origin_id=exp_session["id"],
-            dataset_type="registered_stack",
-            conflicts=conflicts,
-            flexilims_session=flz_session,
-        )
-
-        if len(zstack.tif_files) > 1:
-            raise NotImplementedError(
-                "Cannot register more than one .tif file for each dataset entity."
+        for j in range(0,len(zstack.tif_files)):
+            registered_dataset = Dataset.from_origin(
+                project=project,
+                origin_type="session",
+                origin_id=exp_session["id"],
+                dataset_type="registered_stack",
+                conflicts=conflicts,
+                flexilims_session=flz_session,
             )
 
-        registered_stack, nz, nchannels = register_zstack(
-            str(zstack.path_full / zstack.tif_files[0]), ch_to_align
-        )
+            registered_stack, nz, nchannels = register_zstack(
+                str(zstack.path_full / zstack.tif_files[j]), ch_to_align
+            )
 
-        # create directory for output, if it does not already exist
-        if not registered_dataset.path_full.is_dir():
-            os.makedirs(str(registered_dataset.path_full))
+            # create directory for output, if it does not already exist
+            if not registered_dataset.path_full.is_dir():
+                os.makedirs(str(registered_dataset.path_full))
 
-        # write registered stack to file
-        with TiffWriter(
-            registered_dataset.path_full.joinpath(zstack.tif_files[0])
-        ) as tif:
-            for iplane in range(nz):
-                for ich in range(nchannels):
-                    tif.write(
-                        np.int16(registered_stack[:, :, ich, iplane]), contiguous=True
+            # write registered stack to file
+            with TiffWriter(registered_dataset.path_full.joinpath(zstack.tif_files[j])) as tif:
+                for iplane in range(nz):
+                    for ich in range(nchannels):
+                        tif.write(
+                            np.int16(registered_stack[:, :, ich, iplane]), contiguous=True
                     )
-        registered_dataset.update_flexilims(mode="overwrite")
+            registered_dataset.update_flexilims(mode="overwrite")
 
-
+            
 def run_extraction(flz_session, project, session_name, conflicts, ops):
     """
     Fetch data from flexilims and run suite2p with the provided settings
