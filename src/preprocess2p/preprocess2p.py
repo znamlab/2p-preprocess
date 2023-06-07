@@ -45,7 +45,7 @@ def parse_si_metadata(tiff_path):
         return None
 
 
-def register_zstack(tiff_path, ch_to_align=0, iter=1):
+def register_zstack(tiff_paths, ch_to_align=0, iter=1):
     """
     Apply motion correction to a z-stack.
 
@@ -53,7 +53,7 @@ def register_zstack(tiff_path, ch_to_align=0, iter=1):
     register adjacent slices to each other.
 
     Args:
-        tiff_path (str): path to the z-stack file
+        tiff_paths (list): list of full paths to the z-stack files
         ch_to_align (int): channel to use for registration
         nchannels (int): number of channels in the stack
         iter (int): number of iterations to perform for each plane to refine the
@@ -65,10 +65,14 @@ def register_zstack(tiff_path, ch_to_align=0, iter=1):
         nchannels: int, number of channels in aligned_stack
 
     """
-    si_dict = parse_si_metadata(tiff_path)
+    # get the aquisition params from the first .tif file
+    si_dict = parse_si_metadata(tiff_paths[0])
     nchannels = len(si_dict["SI.hChannels.channelSave"])
     assert nchannels > ch_to_align
-    stack = TiffFile(tiff_path)
+    # get a list of stacks from the acquisition
+    stack_list = [TiffFile(tiff_path) for tiff_path in tiff_paths]
+    # get the pages from the stack
+    stack_pages = [page for page in stack.pages for stack in stack_list]
     nframes = int(si_dict["SI.hStackManager.framesPerSlice"])
 
     chunk_size = nframes * nchannels
@@ -76,11 +80,12 @@ def register_zstack(tiff_path, ch_to_align=0, iter=1):
     nx = int(si_dict["SI.hRoiManager.pixelsPerLine"])
     ny = int(si_dict["SI.hRoiManager.linesPerFrame"])
     nz = int(si_dict["SI.hStackManager.actualNumSlices"])
+        
 
     registered_stack = np.zeros((nx, ny, nchannels, nz))
 
     # process stack one slice at a time
-    for iplane, plane in enumerate(chunked(stack.pages, chunk_size)):
+    for iplane, plane in enumerate(chunked(stack_pages, chunk_size)):
         print(f"Registering plane {iplane+1} of {nz}", flush=True)
         data = np.asarray([page.asarray() for page in plane])
         # generate reference image for the current slice
