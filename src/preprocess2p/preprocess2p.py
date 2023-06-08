@@ -71,8 +71,8 @@ def register_zstack(tiff_paths, ch_to_align=0, iter=1):
     assert nchannels > ch_to_align
     # get a list of stacks from the acquisition
     stack_list = [TiffFile(tiff_path) for tiff_path in tiff_paths]
-    # get the pages from the stack
-    stack_pages = [page for page in stack.pages for stack in stack_list]
+    # chain the the pages from the stack
+    stack_pages = itertools.chain(*[stack.pages for stack in stack_list])
     nframes = int(si_dict["SI.hStackManager.framesPerSlice"])
 
     chunk_size = nframes * nchannels
