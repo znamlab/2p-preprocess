@@ -282,7 +282,7 @@ def run_zstack_registration(
         zstack_tifs.sort()
 
         zstack_tifs = [str(zstack.path_full / tif) for tif in zstack_tifs]
-        registered_stack, nz, nchannels = register_zstack(
+        registered_stack, nz, nchannels, _, _ = register_zstack(
             zstack_tifs, ch_to_align
         )
 
