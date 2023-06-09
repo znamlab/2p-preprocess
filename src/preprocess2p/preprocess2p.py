@@ -106,7 +106,7 @@ def apply_bidi_correction(im, shift):
 
 
 def register_zstack(
-    tiff_path,
+    tiff_paths,
     ch_to_align=0,
     iter=1,
     max_shift=50,
@@ -120,7 +120,7 @@ def register_zstack(
     register adjacent slices to each other.
 
     Args:
-        tiff_path (str): path to the z-stack file
+        tiff_paths (list): list of full paths to the z-stack files
         ch_to_align (int): channel to use for registration
         nchannels (int): number of channels in the stack
         iter (int): number of iterations to perform for each plane to refine the
@@ -139,22 +139,26 @@ def register_zstack(
         nchannels: int, number of channels in aligned_stack
 
     """
-    si_dict = parse_si_metadata(tiff_path)
+    # get the aquisition params from the first .tif file
+    si_dict = parse_si_metadata(tiff_paths[0])
     nchannels = len(si_dict["SI.hChannels.channelSave"])
     assert nchannels > ch_to_align
-    stack = TiffFile(tiff_path)
+    # get a list of stacks from the acquisition
+    stack_list = [TiffFile(tiff_path) for tiff_path in tiff_paths]
+    # chain the the pages from the stack
+    stack_pages = itertools.chain(*[stack.pages for stack in stack_list])
     nframes = int(si_dict["SI.hStackManager.framesPerSlice"])
 
     chunk_size = nframes * nchannels
 
     nx = int(si_dict["SI.hRoiManager.pixelsPerLine"])
     ny = int(si_dict["SI.hRoiManager.linesPerFrame"])
-    nz = int(si_dict["SI.hStackManager.actualNumSlices"])
+    nz = int(si_dict["SI.hStackManager.actualNumSlices"])        
 
     registered_stack = np.zeros((nx, ny, nchannels, nz))
     frame_shifts = np.zeros((nframes, 2, nz))
     # process stack one slice at a time
-    for iplane, plane in enumerate(chunked(stack.pages, chunk_size)):
+    for iplane, plane in enumerate(chunked(stack_pages, chunk_size)):
         print(f"Registering plane {iplane+1} of {nz}", flush=True)
         data = np.asarray([page.asarray() for page in plane])
         if bidi_correction:
@@ -258,14 +262,12 @@ def run_zstack_registration(
         query_value="zstack",
         flexilims_session=flz_session,
     )
-
+    
     for i, zstack in zstacks.iterrows():
-        # get zstack Dataset with flexilims
         zstack = Dataset.from_flexilims(
             name=zstack.name, project=project, flexilims_session=flz_session
         )
 
-        # add flm_session as argument
         registered_dataset = Dataset.from_origin(
             project=project,
             origin_type="session",
@@ -275,13 +277,13 @@ def run_zstack_registration(
             flexilims_session=flz_session,
         )
 
-        if len(zstack.tif_files) > 1:
-            raise NotImplementedError(
-                "Cannot register more than one .tif file for each dataset entity."
-            )
+        # sorting tifs so that they are in order of acquisition
+        zstack_tifs = zstack.tif_files
+        zstack_tifs.sort()
 
-        registered_stack, nz, nchannels, frame_shifts, plane_shifts = register_zstack(
-            str(zstack.path_full / zstack.tif_files[0]), ch_to_align
+        zstack_tifs = [str(zstack.path_full / tif) for tif in zstack_tifs]
+        registered_stack, nz, nchannels = register_zstack(
+            zstack_tifs, ch_to_align
         )
 
         # create directory for output, if it does not already exist
@@ -289,17 +291,14 @@ def run_zstack_registration(
             os.makedirs(str(registered_dataset.path_full))
 
         # write registered stack to file
-        with TiffWriter(
-            registered_dataset.path_full.joinpath(zstack.tif_files[0])
-        ) as tif:
+        with TiffWriter(registered_dataset.path_full.joinpath(zstack.dataset_name).with_suffix(".tif")) as tif:
             for iplane in range(nz):
                 for ich in range(nchannels):
                     tif.write(
                         np.int16(registered_stack[:, :, ich, iplane]), contiguous=True
-                    )
+                )
         registered_dataset.update_flexilims(mode="overwrite")
-
-
+            
 def run_extraction(flz_session, project, session_name, conflicts, ops):
     """
     Fetch data from flexilims and run suite2p with the provided settings
