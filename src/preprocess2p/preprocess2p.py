@@ -1,6 +1,7 @@
 import numpy as np
 import defopt
 import os
+import datetime
 import flexiznam as flz
 from flexiznam.schema import Dataset
 from pathlib import Path
@@ -153,7 +154,7 @@ def register_zstack(
 
     nx = int(si_dict["SI.hRoiManager.pixelsPerLine"])
     ny = int(si_dict["SI.hRoiManager.linesPerFrame"])
-    nz = int(si_dict["SI.hStackManager.actualNumSlices"])        
+    nz = int(si_dict["SI.hStackManager.actualNumSlices"])
 
     registered_stack = np.zeros((nx, ny, nchannels, nz))
     frame_shifts = np.zeros((nframes, 2, nz))
@@ -262,7 +263,7 @@ def run_zstack_registration(
         query_value="zstack",
         flexilims_session=flz_session,
     )
-    
+
     for i, zstack in zstacks.iterrows():
         zstack = Dataset.from_flexilims(
             name=zstack.name, project=project, flexilims_session=flz_session
@@ -291,14 +292,19 @@ def run_zstack_registration(
             os.makedirs(str(registered_dataset.path_full))
 
         # write registered stack to file
-        with TiffWriter(registered_dataset.path_full.joinpath(zstack.dataset_name).with_suffix(".tif")) as tif:
+        with TiffWriter(
+            registered_dataset.path_full.joinpath(zstack.dataset_name).with_suffix(
+                ".tif"
+            )
+        ) as tif:
             for iplane in range(nz):
                 for ich in range(nchannels):
                     tif.write(
                         np.int16(registered_stack[:, :, ich, iplane]), contiguous=True
-                )
+                    )
         registered_dataset.update_flexilims(mode="overwrite")
-            
+
+
 def run_extraction(flz_session, project, session_name, conflicts, ops):
     """
     Fetch data from flexilims and run suite2p with the provided settings
@@ -353,7 +359,16 @@ def run_extraction(flz_session, project, session_name, conflicts, ops):
     db = {"data_path": datapaths}
     opsEnd = run_s2p(ops=ops, db=db)
     # update the database
-    suite2p_dataset.extra_attributes = opsEnd.copy()
+    ops = ops.copy()
+    for k, v in opsEnd.items():
+        if isinstance(v, np.ndarray):
+            print(f"{k} is a numpy array, skipping")
+            continue
+        if isinstance(v, datetime.datetime):
+            ops[k] = v.strftime(r"%Y-%m-%d %H:%M:%S")
+        else:
+            ops[k] = v
+    suite2p_dataset.extra_attributes = ops
     suite2p_dataset.update_flexilims(mode="overwrite")
     return suite2p_dataset
 
