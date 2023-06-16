@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="2p-preprocess",
-    version="0.1.1",
+    version="0.1.2",
     packages=find_packages(
         where="src", include=["neuropil", "preprocess2p", "plotting_utils"]
     ),
@@ -16,6 +16,7 @@ setup(
         "defopt",
         "more_itertools",
         "scikit-image",
+        "tqdm",
     ],
     entry_points={
         "console_scripts": [
