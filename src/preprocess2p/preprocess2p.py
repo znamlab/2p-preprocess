@@ -261,6 +261,8 @@ def run_extraction(flz_session, project, session_name, conflicts, ops):
     # run suite2p
     db = {"data_path": datapaths}
     opsEnd = run_s2p(ops=ops, db=db)
+    if 'date_proc' in opsEnd:
+        opsEnd['date_proc'] = opsEnd['date_proc'].isoformat()
     # update the database
     suite2p_dataset.extra_attributes = opsEnd.copy()
     suite2p_dataset.update_flexilims(mode="overwrite")
@@ -511,6 +513,12 @@ def main(
     ops["tau"] = tau
     ops["nplanes"] = nplanes
     ops["dff_ncomponents"] = dff_ncomponents
+    
+    # ops['anatomical_only'] = 2
+    ops['threshold_scaling'] = 0.5
+    ops['denoise'] = 1
+    ops['sparse_mode'] = 1
+    
     print("Running suite2p...", flush=True)
     suite2p_dataset = run_extraction(flz_session, project, session_name, conflicts, ops)
 
