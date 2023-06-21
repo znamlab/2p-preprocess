@@ -332,7 +332,7 @@ def run_extraction(flz_session, project, session_name, conflicts, ops):
         conflicts=conflicts,
     )
     # if already on flexilims and not re-processing, then do nothing
-    if (suite2p_dataset.get_flexilims_entry() is not None) and conflicts == "skip":
+    if (suite2p_dataset.get_flexilims_entry() is not None) and ((conflicts == "skip") and ops['roidetect'] != 1):
         print(
             "Session {} already processed... skipping extraction...".format(
                 exp_session["name"]
@@ -368,8 +368,11 @@ def run_extraction(flz_session, project, session_name, conflicts, ops):
             continue
         if isinstance(v, datetime.datetime):
             ops[k] = v.strftime(r"%Y-%m-%d %H:%M:%S")
+        if isinstance(v, np.float32):
+            ops[k] = float(v)
         else:
             ops[k] = v
+            
     suite2p_dataset.extra_attributes = ops
     suite2p_dataset.update_flexilims(mode="overwrite")
     return suite2p_dataset
@@ -620,10 +623,16 @@ def main(
     ops["nplanes"] = nplanes
     ops["dff_ncomponents"] = dff_ncomponents
     
-    # ops['anatomical_only'] = 2
-    ops['threshold_scaling'] = 0.5
-    ops['denoise'] = 1
-    ops['sparse_mode'] = 1
+    # segmentation settings
+    ops['roidetect'] = 1
+    ops['anatomical_only'] = 3 # enhanced mean image
+    ops['pretrained_model'] = 'cyto2'
+    ops['diameter'] = 13
+    ops['flow_threshold'] = 2
+    ops['cellprob_threshold'] = 0
+    # ops['threshold_scaling'] = 0.5
+    # ops['denoise'] = 1
+    # ops['sparse_mode'] = 1
     
     print("Running suite2p...", flush=True)
     suite2p_dataset = run_extraction(flz_session, project, session_name, conflicts, ops)
