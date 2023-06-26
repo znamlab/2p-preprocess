@@ -1,0 +1,22 @@
+# whether to use ASt model for neuropil correction 
+ast_neuropil: True
+# fixed coefficient for neuropil correction if not using ASt model
+neucoeff: 0.7
+# number of GMM components for F0 estimation
+dff_ncomponents: 2
+# cellpose segmentation parameters
+roidetect: 1
+anatomical_only: 3
+pretrained_model: cyto2
+diameter: 13
+flow_threshold: 2
+cellprob_threshold: 0
+# activity-based segmentation parameters
+threshold_scaling: 0.5
+denoise: 1
+sparse_mode: 1
+# spike extraction parameters
+baseline_method: maximin
+sig_baseline: 10.0
+win_baseline: 60.0
+tau: 0.7

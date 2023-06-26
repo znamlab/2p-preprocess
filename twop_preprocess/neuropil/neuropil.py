@@ -27,7 +27,3 @@ def correct_neuropil(dpath):
     np.save(os.path.join(dpath,'ast_stat.npy'), np.vstack(var_params), allow_pickle=True)
     np.save(os.path.join(dpath,'ast_elbo.npy'), np.vstack(elbos), allow_pickle=True)    
     return Fast
-
-def main():
-    datapath = sys.argv[1]
-    correct_neuropil(datapath)

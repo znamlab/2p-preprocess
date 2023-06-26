@@ -15,40 +15,29 @@ def cli():
     default=None,
     help="How to handle conflicts when processed data already exists",
 )
-@click.option("--run-neuropil", is_flag=True, help="Whether to run neuropil correction")
+@click.option(
+    "--run-neuropil", is_flag=True, help="Whether to run ASt neuropil correction"
+)
 @click.option("--run-split", is_flag=True, help="Whether to run split recordings")
 @click.option(
     "--tau", "-t", default=0.7, help="Decay time constant for spike extraction"
-)
-@click.option("--nplanes", default=1, help="Number of planes in the recording")
-@click.option(
-    "--dff_ncomponents",
-    default=2,
-    help="Number of GMM components to use for dF/F calculation",
 )
 def calcium(
     project,
     session,
     conflicts=None,
-    run_neuropil=False,
-    run_split=False,
+    run_neuropil=True,
+    run_split=True,
     tau=0.7,
-    nplanes=1,
-    dff_ncomponents=2,
 ):
     """Run calcium imaging preprocessing pipeline"""
     from twop_preprocess.calcium import extract_session
 
-    extract_session(
-        project,
-        session,
-        conflicts=conflicts,
-        run_neuropil=run_neuropil,
-        run_split=run_split,
-        tau=tau,
-        nplanes=nplanes,
-        dff_ncomponents=dff_ncomponents,
-    )
+    ops = {
+        "tau": tau,
+        "ast_neuropil": run_neuropil,
+    }
+    extract_session(project, session, conflicts=conflicts, run_split=run_split, ops=ops)
 
 
 @cli.command()

@@ -5,10 +5,10 @@ import flexiznam as flz
 from flexiznam.schema import Dataset
 from twop_preprocess.neuropil import correct_neuropil
 import itertools
-from suite2p import run_s2p, default_ops
+from suite2p import run_s2p
 from suite2p.extraction import dcnv
 from sklearn import mixture
-from twop_preprocess.utils import parse_si_metadata
+from twop_preprocess.utils import parse_si_metadata, load_ops
 from functools import partial
 
 print = partial(print, flush=True)
@@ -33,6 +33,8 @@ def run_extraction(flz_session, project, session_name, conflicts, ops):
     exp_session = flz.get_entity(
         datatype="session", name=session_name, flexilims_session=flz_session
     )
+    if exp_session is None:
+        raise ValueError(f"Session {session_name} not found on flexilims")
     suite2p_dataset = Dataset.from_origin(
         project=project,
         origin_type="session",
@@ -63,9 +65,9 @@ def run_extraction(flz_session, project, session_name, conflicts, ops):
     # set save path
     ops["save_path0"] = str(suite2p_dataset.path_full)
     # assume frame rates are the same for all recordings
-    ops["fs"] = parse_si_metadata(datapaths[0])[
-        "SI.hRoiManager.scanVolumeRate"
-    ]  # in case of multiplane recording
+    si_metadata = parse_si_metadata(datapaths[0])
+    ops["fs"] = si_metadata["SI.hRoiManager.scanVolumeRate"]
+    ops["nplanes"] = si_metadata["SI.hStackManager.numSlices"]
     # run suite2p
     db = {"data_path": datapaths}
     opsEnd = run_s2p(ops=ops, db=db)
@@ -86,7 +88,7 @@ def run_extraction(flz_session, project, session_name, conflicts, ops):
 
     suite2p_dataset.extra_attributes = ops
     suite2p_dataset.update_flexilims(mode="overwrite")
-    return suite2p_dataset
+    return suite2p_dataset, opsEnd
 
 
 def dFF(f, n_components=2, verbose=True):
@@ -119,10 +121,8 @@ def dFF(f, n_components=2, verbose=True):
 def calculate_dFF(
     suite2p_dataset,
     iplane,
-    n_components=2,
+    ops,
     verbose=True,
-    ast_neuropil=True,
-    neucoeff=0.7,
 ):
     """
     Calculate dF/F for the whole session with concatenated recordings after neuropil correction.
@@ -140,21 +140,21 @@ def calculate_dFF(
     """
     # Load fluorescence traces
     dir_path = suite2p_dataset.path_full / "suite2p" / f"plane{iplane}"
-    if ast_neuropil:
+    if ops["ast_neuropil"]:
         F = np.load(dir_path / "Fast.npy")
     else:
         F = np.load(dir_path / "F.npy")
         Fneu = np.load(dir_path / "Fneu.npy")
-        F = F - neucoeff * Fneu
+        F = F - ops["neucoeff"] * Fneu
     # Calculate dFFs and save to the suite2p folder
-    dff, f0 = dFF(F, n_components=n_components, verbose=verbose)
-    np.save(dir_path / "dff_ast.npy" if ast_neuropil else dir_path / "dff.npy", dff)
-    np.save(dir_path / "f0_ast.npy" if ast_neuropil else dir_path / "f0.npy", f0)
+    dff, f0 = dFF(F, n_components=ops["dff_ncomponents"], verbose=verbose)
+    np.save(
+        dir_path / "dff_ast.npy" if ops["ast_neuropil"] else dir_path / "dff.npy", dff
+    )
+    np.save(dir_path / "f0_ast.npy" if ops["ast_neuropil"] else dir_path / "f0.npy", f0)
 
 
-def spike_deconvolution_suite2p(
-    suite2p_dataset, iplane, baseline="maximin", sig_baseline=10.0, win_baseline=60.0
-):
+def spike_deconvolution_suite2p(suite2p_dataset, iplane):
     """
     Run spike deconvolution on the concatenated recordings after ASt neuropil correction.
 
@@ -172,22 +172,13 @@ def spike_deconvolution_suite2p(
     Fast = np.load(Fast_path)
     ops = np.load(ops_path, allow_pickle=True).tolist()
 
-    # Params for computing and subtracting baseline
-    # take the running max of the running min after smoothing with gaussian
-    ops["baseline"] = baseline
-    # in bins, standard deviation of gaussian with which to smooth
-    ops["sig_baseline"] = sig_baseline
-    # in seconds, window in which to compute max/min filters
-    ops["win_baseline"] = win_baseline
-
     # baseline operation
     Fast = dcnv.preprocess(
         F=Fast,
-        baseline=ops["baseline"],
+        baseline=ops["baseline_method"],
         win_baseline=ops["win_baseline"],
         sig_baseline=ops["sig_baseline"],
         fs=ops["fs"],
-        prctile_baseline=ops["prctile_baseline"],
     )
 
     # get spikes
@@ -198,7 +189,6 @@ def spike_deconvolution_suite2p(
         suite2p_dataset.path_full / "suite2p" / f"plane{iplane}" / "spks_ast.npy"
     )
     np.save(spks_ast_path, spks_ast)
-    np.save(ops_path, ops)
 
 
 def split_recordings(flz_session, suite2p_dataset, conflicts, iplane):
@@ -302,11 +292,8 @@ def extract_session(
     project,
     session_name,
     conflicts=None,
-    run_neuropil=False,
     run_split=False,
-    tau=0.7,
-    nplanes=1,
-    dff_ncomponents=2,
+    ops={},
 ):
     """
     Process all the 2p datasets for a given session
@@ -315,53 +302,25 @@ def extract_session(
         project (str): name of the project, e.g. '3d_vision'
         session_name (str): name of the session
         conflicts (str): how to treat existing processed data
-        run_neuropil (bool): whether or not to run neuropil extraction with the
-            ASt model
         run_split (bool): whether or not to run splitting for different folders
-        tau (float): time constant
-        nplanes (int): number of planes
-        dff_ncomponents (int): number of components for dff calculation
 
     """
     # get session info from flexilims
     print("Connecting to flexilims...")
     flz_session = flz.get_flexilims_session(project)
-    # suite2p
-    ops = default_ops()
-    ops["ast_neuropil"] = run_neuropil
-    ops["tau"] = tau
-    ops["nplanes"] = nplanes
-    ops["dff_ncomponents"] = dff_ncomponents
-
-    # segmentation settings
-    ops["roidetect"] = 1
-    ops["anatomical_only"] = 3  # enhanced mean image
-    ops["pretrained_model"] = "cyto2"
-    ops["diameter"] = 13
-    ops["flow_threshold"] = 2
-    ops["cellprob_threshold"] = 0
-    # ops['threshold_scaling'] = 0.5
-    # ops['denoise'] = 1
-    # ops['sparse_mode'] = 1
+    ops = load_ops(ops)
 
     print("Running suite2p...", flush=True)
-    suite2p_dataset = run_extraction(flz_session, project, session_name, conflicts, ops)
+    suite2p_dataset, opsEnd = run_extraction(flz_session, project, session_name, conflicts, ops)
 
-    for iplane in range(ops["nplanes"]):
+    for iplane in range(opsEnd["nplanes"]):
         if ops["ast_neuropil"]:
             print("Running ASt neuropil correction...")
             correct_neuropil(
                 suite2p_dataset.path_full / "suite2p" / ("plane" + str(iplane))
             )
         print("Calculating dF/F...")
-        calculate_dFF(
-            suite2p_dataset,
-            iplane,
-            n_components=ops["dff_ncomponents"],
-            verbose=True,
-            ast_neuropil=ops["ast_neuropil"],
-            neucoeff=ops["neucoeff"],
-        )
+        calculate_dFF(suite2p_dataset, iplane, ops, verbose=True)
         if ops["ast_neuropil"]:
             print("Deconvolve spikes from neuropil corrected trace...")
             spike_deconvolution_suite2p(suite2p_dataset, iplane)
