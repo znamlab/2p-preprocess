@@ -5,6 +5,7 @@ import jax.scipy.stats.norm as norm
 from jax import value_and_grad, jit
 import optax
 
+
 # taken from example files of autograd package
 def black_box_variational_inference(logprob, n_samples):
     """Implements http://arxiv.org/abs/1401.0118, and uses the
@@ -30,9 +31,7 @@ def K(nu):
     # this part does not get differentiated so using the scipy method
     # the scipy functions will be executed at compile time and their output
     # will be passed to the GPU
-    return (
-        sp.gamma(0.5 * (nu + 1)) / (jnp.sqrt(jnp.pi * nu) * sp.gamma(0.5 * nu))
-    )
+    return sp.gamma(0.5 * (nu + 1)) / (jnp.sqrt(jnp.pi * nu) * sp.gamma(0.5 * nu))
 
 
 # from Zhu and Galbraith - 2009 - A Generalized Asymmetric Student-t
@@ -40,19 +39,16 @@ def K(nu):
 def log_density_ast(y, alpha, nu1, nu2, mu, sigma):
     """log pdf of asymmetric Student distribution"""
     z = (y - mu) / (2 * sigma)
-    left_branch = (
-        -jnp.log(sigma)
-        - 0.5 * (nu1 + 1) * jnp.log1p((z / (alpha * K(nu1)))**2 / nu1)
+    left_branch = -jnp.log(sigma) - 0.5 * (nu1 + 1) * jnp.log1p(
+        (z / (alpha * K(nu1))) ** 2 / nu1
     )
-    right_branch = (
-        -jnp.log(sigma)
-        - 0.5 * (nu2 + 1) * jnp.log1p((z / ((1 - alpha) * K(nu2)))**2 / nu2)
+    right_branch = -jnp.log(sigma) - 0.5 * (nu2 + 1) * jnp.log1p(
+        (z / ((1 - alpha) * K(nu2))) ** 2 / nu2
     )
     return jnp.where(z < 0, left_branch, right_branch)
 
 
-def ast_model(traces, n_sectors, n_samples=1, n_iters=5000, lr=0.01,
-              verbose=False):
+def ast_model(traces, n_sectors, n_samples=1, n_iters=5000, lr=0.01, verbose=False):
     """asymmetric Student model inferred with black-box SVI"""
     nsig, nt = traces.shape
     scale = traces.std()
@@ -60,8 +56,8 @@ def ast_model(traces, n_sectors, n_samples=1, n_iters=5000, lr=0.01,
 
     def unpack_x(x):
         log_alpha = x[..., :1, jnp.newaxis]
-        offset = x[..., 1:1+nsig, jnp.newaxis]
-        mu = x[..., jnp.newaxis, 1+nsig:-1]
+        offset = x[..., 1 : 1 + nsig, jnp.newaxis]
+        mu = x[..., jnp.newaxis, 1 + nsig : -1]
         log_sigma = x[..., -1:, jnp.newaxis]
         return log_alpha, offset, mu, log_sigma
 
@@ -72,9 +68,7 @@ def ast_model(traces, n_sectors, n_samples=1, n_iters=5000, lr=0.01,
 
     def log_density(x, traces):
         log_alpha, offset, mu, log_sigma = unpack_x(x)
-        alpha, offset, mu, sigma = transform_x(
-            log_alpha, offset, mu, log_sigma
-        )
+        alpha, offset, mu, sigma = transform_x(log_alpha, offset, mu, log_sigma)
         alpha2 = jnp.concatenate([alpha, jnp.ones_like(alpha)], 1)
 
         # prior
@@ -86,15 +80,14 @@ def ast_model(traces, n_sectors, n_samples=1, n_iters=5000, lr=0.01,
         # likelihood
         sigmas = sigma / jnp.sqrt(n_sectors[:, jnp.newaxis])
         # this is where we pass data to JAX - awkward...
-        x_density = log_density_ast(
-            traces, 0.5, 30, 1, alpha2 * mu + offset, sigmas
-        )
+        x_density = log_density_ast(traces, 0.5, 30, 1, alpha2 * mu + offset, sigmas)
 
         return (
-            sigma_density.squeeze() + alpha_density.squeeze() +
-            mu_density.squeeze().sum(axis=-1) +
-            offset_density.squeeze().sum(axis=-1) +
-            x_density.sum(axis=-1).sum(axis=-1)
+            sigma_density.squeeze()
+            + alpha_density.squeeze()
+            + mu_density.squeeze().sum(axis=-1)
+            + offset_density.squeeze().sum(axis=-1)
+            + x_density.sum(axis=-1).sum(axis=-1)
         )
 
     # variational objective
@@ -109,7 +102,7 @@ def ast_model(traces, n_sectors, n_samples=1, n_iters=5000, lr=0.01,
     # this decorator tells JAX to use XLA to compile the code
     @jit
     def update(params, opt_state, t):
-        """ Compute the gradient and update the parameters """
+        """Compute the gradient and update the parameters"""
         value, grads = value_and_grad(objective)(params, t, traces)
         updates, opt_state = optimizer.update(grads, opt_state)
         params = optax.apply_updates(params, updates)
@@ -122,8 +115,8 @@ def ast_model(traces, n_sectors, n_samples=1, n_iters=5000, lr=0.01,
     for i in range(n_iters):
         params, opt_state, loss = update(params, opt_state, i)
         elbo.append(loss)
-        if i+1 % 1000 == 0:
-            print("Iteration {} lower bound {}".format(i+1, loss))
+        if i + 1 % 1000 == 0:
+            print("Iteration {} lower bound {}".format(i + 1, loss))
 
     # clean trace
     alpha, _, mu, _ = transform_x(*unpack_x(params[:D]))
