@@ -22,3 +22,11 @@ tau: 0.7
 neucoeff: 0.7
 # whether to delete the registered bin file
 delete_bin: True
+
+# options for zstack registration
+zstack:
+  ch_to_align: 0
+  iter: 1
+  max_shift: 50
+  align_planes: True
+  bidi_correction: True

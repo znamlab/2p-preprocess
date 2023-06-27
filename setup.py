@@ -5,7 +5,7 @@ setup(
     version="0.2",
     packages=find_packages(),
     install_requires=[
-        "flexiznam @ git+ssh://git@github.com/znamlab/flexiznam.git@dev",
+        "flexiznam @ git+ssh://git@github.com/znamlab/flexiznam.git",
         "matplotlib",
         "jupyter",
         "more_itertools",

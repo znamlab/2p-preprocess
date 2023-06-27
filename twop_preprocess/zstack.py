@@ -7,8 +7,10 @@ from tifffile import TiffFile, TiffWriter
 from more_itertools import chunked
 import scipy.fft as fft
 from tqdm import tqdm
-from twop_preprocess.utils import parse_si_metadata
+from twop_preprocess.utils import parse_si_metadata, load_ops
+from functools import partial
 
+print = partial(print, flush=True)
 
 def phase_corr(
     reference: np.ndarray,
@@ -71,14 +73,7 @@ def apply_bidi_correction(im, shift):
     return np.squeeze(im)
 
 
-def register_zstack(
-    tiff_paths,
-    ch_to_align=0,
-    iter=1,
-    max_shift=50,
-    align_planes=True,
-    bidi_correction=False,
-):
+def register_zstack(tiff_paths, ops):
     """
     Apply motion correction to a z-stack.
 
@@ -108,7 +103,7 @@ def register_zstack(
     # get the aquisition params from the first .tif file
     si_dict = parse_si_metadata(tiff_paths[0])
     nchannels = len(si_dict["SI.hChannels.channelSave"])
-    assert nchannels > ch_to_align
+    assert nchannels > ops["ch_to_align"]
     # get a list of stacks from the acquisition
     stack_list = [TiffFile(tiff_path) for tiff_path in tiff_paths]
     # chain the the pages from the stack
@@ -127,25 +122,27 @@ def register_zstack(
     for iplane, plane in enumerate(chunked(stack_pages, chunk_size)):
         print(f"Registering plane {iplane+1} of {nz}", flush=True)
         data = np.asarray([page.asarray() for page in plane])
-        if bidi_correction:
+        if ops["bidi_correction"]:
             if iplane == 0:
-                bidi_shift = estimate_bidi_correction(data[ch_to_align, :, :])
+                bidi_shift = estimate_bidi_correction(data[ops["ch_to_align"], :, :])
                 print(f"Estimated bidi shift: {bidi_shift}", flush=True)
             data = apply_bidi_correction(data, bidi_shift)
         # generate reference image for the current slice
-        for i in range(iter):
+        for i in range(ops["iter"]):
             if i == 0:
-                template_image = np.mean(data[ch_to_align::nchannels, :, :], axis=0)
+                template_image = np.mean(
+                    data[ops["ch_to_align"] :: nchannels, :, :], axis=0
+                )
             else:
-                template_image = registered_stack[:, :, ch_to_align, iplane]
+                template_image = registered_stack[:, :, ops["ch_to_align"], iplane]
                 registered_stack[:, :, ich, iplane] = 0
             template_image_fft = fft.fft2(template_image)
             # use reference image to align individual planes
             for iframe in tqdm(range(nframes)):
                 shifts = phase_corr(
                     template_image_fft,
-                    data[nchannels * iframe + ch_to_align, :, :],
-                    max_shift=max_shift,
+                    data[nchannels * iframe + ops["ch_to_align"], :, :],
+                    max_shift=ops["max_shift"],
                     whiten=True,
                     fft_ref=False,
                 )[0]
@@ -157,7 +154,7 @@ def register_zstack(
                         axis=(0, 1),
                     )
     plane_shifts = np.zeros((2, nz))
-    if not align_planes:
+    if not ops["align_planes"]:
         return (
             registered_stack / int(nframes),
             nz,
@@ -173,9 +170,9 @@ def register_zstack(
     print("Aliging planes to each other", flush=True)
     for iplane in range(1, nz):
         shifts = phase_corr(
-            aligned_stack[:, :, ch_to_align, iplane - 1],
-            registered_stack[:, :, ch_to_align, iplane],
-            max_shift=max_shift,
+            aligned_stack[:, :, ops["ch_to_align"], iplane - 1],
+            registered_stack[:, :, ops["ch_to_align"], iplane],
+            max_shift=ops["max_shift"],
             whiten=True,
             fft_ref=True,
         )[0]
@@ -198,9 +195,7 @@ def register_zstack(
     return aligned_stack / int(nframes), nz, nchannels, frame_shifts, plane_shifts
 
 
-def run_zstack_registration(
-    project, session_name, conflicts="append", ch_to_align=0
-):
+def run_zstack_registration(project, session_name, conflicts="append", ops={}):
     """
     Apply motion correction to all zstacks for a single session, create Flexylims
     entries for each registered zstacks
@@ -211,9 +206,12 @@ def run_zstack_registration(
         session_name (str): string matching Flexylims session name
         conflicts (str): string for handling flexilims conflicts, if more than
                 one zstack needs to be registered for session, use conflicts="append"
-        ch_to_align (int): channel to use for calculating shifts
+        ops (dict): dictionary of ops
 
     """
+    ops = load_ops(ops, zstack=True)
+    print(f"Regisering zstacks for session {session_name} from project {project}")
+    print(f"Using ops: {ops}")
     print("Connecting to flexilims...")
     flz_session = flz.get_flexilims_session(project)
     # get experimental session
@@ -247,11 +245,8 @@ def run_zstack_registration(
         # sorting tifs so that they are in order of acquisition
         zstack_tifs = zstack.tif_files
         zstack_tifs.sort()
-
         zstack_tifs = [str(zstack.path_full / tif) for tif in zstack_tifs]
-        registered_stack, nz, nchannels, _, _ = register_zstack(
-            zstack_tifs, ch_to_align
-        )
+        registered_stack, nz, nchannels, _, _ = register_zstack(zstack_tifs, ops)
 
         # create directory for output, if it does not already exist
         if not registered_dataset.path_full.is_dir():
@@ -268,4 +263,5 @@ def run_zstack_registration(
                     tif.write(
                         np.int16(registered_stack[:, :, ich, iplane]), contiguous=True
                     )
+        registered_dataset.extra_attributes = ops
         registered_dataset.update_flexilims(mode="overwrite")
