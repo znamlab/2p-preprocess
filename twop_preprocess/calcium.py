@@ -43,9 +43,7 @@ def run_extraction(flz_session, project, session_name, conflicts, ops):
         conflicts=conflicts,
     )
     # if already on flexilims and not re-processing, then do nothing
-    if (suite2p_dataset.get_flexilims_entry() is not None) and (
-        (conflicts == "skip") and ops["roidetect"] != 1
-    ):
+    if (suite2p_dataset.get_flexilims_entry() is not None) and conflicts == "skip":
         print(
             "Session {} already processed... skipping extraction...".format(
                 exp_session["name"]
