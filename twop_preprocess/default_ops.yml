@@ -6,7 +6,7 @@ dff_ncomponents: 2
 roidetect: 1
 anatomical_only: 3
 pretrained_model: cyto2
-diameter: 13
+diameter_multiplier: 0.01
 flow_threshold: 2
 cellprob_threshold: 0
 # activity-based segmentation parameters

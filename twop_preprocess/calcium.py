@@ -66,6 +66,19 @@ def run_extraction(flz_session, project, session_name, conflicts, ops):
     si_metadata = parse_si_metadata(datapaths[0])
     ops["fs"] = si_metadata["SI.hRoiManager.scanVolumeRate"]
     ops["nplanes"] = si_metadata["SI.hStackManager.numSlices"]
+    # calculate cell diameter based on zoom and pixel size
+    ops["diameter"] = int(
+        round(
+            si_metadata["SI.hRoiManager.pixelsPerLine"]
+            * si_metadata["SI.hRoiManager.scanZoomFactor"]
+            * ops["diameter_multiplier"]
+        )
+    )
+    # print ops
+    print("Running suite2p with the following ops:")
+    for k, v in ops.items():
+        print(f"{k}: {v}")
+
     # run suite2p
     db = {"data_path": datapaths}
     opsEnd = run_s2p(ops=ops, db=db)
