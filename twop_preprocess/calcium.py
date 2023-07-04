@@ -10,6 +10,7 @@ from suite2p.extraction import dcnv
 from sklearn import mixture
 from twop_preprocess.utils import parse_si_metadata, load_ops
 from functools import partial
+from pathlib import Path
 
 print = partial(print, flush=True)
 
@@ -98,6 +99,7 @@ def run_extraction(flz_session, project, session_name, conflicts, ops):
             ops[k] = v
 
     suite2p_dataset.extra_attributes = ops
+    suite2p_dataset.path = str(Path(suite2p_dataset.path) / "suite2p")
     suite2p_dataset.update_flexilims(mode="overwrite")
     return suite2p_dataset, opsEnd
 
@@ -150,7 +152,7 @@ def calculate_dFF(
 
     """
     # Load fluorescence traces
-    dir_path = suite2p_dataset.path_full / "suite2p" / f"plane{iplane}"
+    dir_path = suite2p_dataset.path_full / f"plane{iplane}"
     if ops["ast_neuropil"]:
         F = np.load(dir_path / "Fast.npy")
     else:
@@ -178,8 +180,8 @@ def spike_deconvolution_suite2p(suite2p_dataset, iplane):
 
     """
     # Load the Fast.npy file and ops.npy file
-    Fast_path = suite2p_dataset.path_full / "suite2p" / f"plane{iplane}" / "Fast.npy"
-    ops_path = suite2p_dataset.path_full / "suite2p" / f"plane{iplane}" / "ops.npy"
+    Fast_path = suite2p_dataset.path_full / f"plane{iplane}" / "Fast.npy"
+    ops_path = suite2p_dataset.path_full / f"plane{iplane}" / "ops.npy"
     Fast = np.load(Fast_path)
     ops = np.load(ops_path, allow_pickle=True).tolist()
 
@@ -196,9 +198,7 @@ def spike_deconvolution_suite2p(suite2p_dataset, iplane):
     spks_ast = dcnv.oasis(
         F=Fast, batch_size=ops["batch_size"], tau=ops["tau"], fs=ops["fs"]
     )
-    spks_ast_path = (
-        suite2p_dataset.path_full / "suite2p" / f"plane{iplane}" / "spks_ast.npy"
-    )
+    spks_ast_path = suite2p_dataset.path_full / f"plane{iplane}" / "spks_ast.npy"
     np.save(spks_ast_path, spks_ast)
 
 
@@ -217,7 +217,7 @@ def split_recordings(flz_session, suite2p_dataset, conflicts, iplane):
 
     """
     # load the ops file to find length of individual recordings
-    ops_path = suite2p_dataset.path_full / "suite2p" / f"plane{iplane}" / "ops.npy"
+    ops_path = suite2p_dataset.path_full / f"plane{iplane}" / "ops.npy"
     ops = np.load(ops_path, allow_pickle=True).tolist()
     # get scanimage datasets
     datasets = flz.get_datasets(
@@ -244,7 +244,7 @@ def split_recordings(flz_session, suite2p_dataset, conflicts, iplane):
     first_frames = np.concatenate(([0], last_frames[:-1]))
     # load processed data
     for iplane in range(ops["nplanes"]):
-        plane_path = suite2p_dataset.path_full / "suite2p" / f"plane{iplane}"
+        plane_path = suite2p_dataset.path_full / f"plane{iplane}"
         F, Fneu, spks = (
             np.load(plane_path / "F.npy"),
             np.load(plane_path / "Fneu.npy"),
@@ -320,16 +320,14 @@ def extract_session(
     print("Connecting to flexilims...")
     flz_session = flz.get_flexilims_session(project)
     ops = load_ops(ops)
-
-    print("Running suite2p...", flush=True)
-    suite2p_dataset, opsEnd = run_extraction(flz_session, project, session_name, conflicts, ops)
+    suite2p_dataset, opsEnd = run_extraction(
+        flz_session, project, session_name, conflicts, ops
+    )
 
     for iplane in range(opsEnd["nplanes"]):
         if ops["ast_neuropil"]:
             print("Running ASt neuropil correction...")
-            correct_neuropil(
-                suite2p_dataset.path_full / "suite2p" / ("plane" + str(iplane))
-            )
+            correct_neuropil(suite2p_dataset.path_full / f"plane{iplane}")
         print("Calculating dF/F...")
         calculate_dFF(suite2p_dataset, iplane, ops, verbose=True)
         if ops["ast_neuropil"]:
