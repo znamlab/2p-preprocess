@@ -258,9 +258,11 @@ def split_recordings(flz_session, suite2p_dataset, conflicts, iplane):
                 np.load(plane_path / "spks_ast.npy"),
             )
 
-        for dataset, recording_id, start, end, frame_rate in zip(
-            datapaths, recording_ids, first_frames, last_frames, frame_rates
+        for datapath, recording_id, start, end in zip(
+            datapaths, recording_ids, first_frames, last_frames
         ):
+            si_metadata = parse_si_metadata(datapath)["SI.hRoiManager.scanVolumeRate"]
+
             split_dataset = Dataset.from_origin(
                 project=suite2p_dataset.project,
                 origin_type="recording",
@@ -277,11 +279,10 @@ def split_recordings(flz_session, suite2p_dataset, conflicts, iplane):
                 continue
             # otherwise lets split it
             try:
-                os.makedirs(str(split_dataset.path_full))
+                split_dataset.path_full.mkdir(parents=True, exist_ok=True)
             except OSError:
-                print(
-                    "Error creating directory {}".format(str(split_dataset.path_full))
-                )
+                print(f"Error creating directory {split_dataset.path_full}")
+            np.save(split_dataset.path_full / "si_metadata.npy", si_metadata)
             np.save(split_dataset.path_full / "F.npy", F[:, start:end])
             np.save(split_dataset.path_full / "Fneu.npy", Fneu[:, start:end])
             np.save(split_dataset.path_full / "spks.npy", spks[:, start:end])
@@ -293,7 +294,9 @@ def split_recordings(flz_session, suite2p_dataset, conflicts, iplane):
                     spks_ast[:, start:end],
                 )
             split_dataset.extra_attributes = suite2p_dataset.extra_attributes.copy()
-            split_dataset.extra_attributes["fs"] = frame_rate
+            split_dataset.extra_attributes["fs"] = si_metadata[
+                "SI.hRoiManager.scanVolumeRate"
+            ]
             split_dataset.update_flexilims(mode="overwrite")
             datasets_out.append(split_dataset)
         return datasets_out
