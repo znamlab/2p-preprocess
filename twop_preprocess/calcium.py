@@ -62,7 +62,8 @@ def run_extraction(flz_session, project, session_name, conflicts, ops):
     for _, p in si_datasets.items():
         datapaths.extend(p)
     # set save path
-    ops["save_path0"] = str(suite2p_dataset.path_full)
+    ops["save_path0"] = str(suite2p_dataset.path_full.parent)
+    ops["save_folder"] = suite2p_dataset.dataset_name
     # assume frame rates are the same for all recordings
     si_metadata = parse_si_metadata(datapaths[0])
     ops["fs"] = si_metadata["SI.hRoiManager.scanVolumeRate"]
@@ -99,7 +100,6 @@ def run_extraction(flz_session, project, session_name, conflicts, ops):
             ops[k] = v
 
     suite2p_dataset.extra_attributes = ops
-    suite2p_dataset.path = str(Path(suite2p_dataset.path) / "suite2p")
     suite2p_dataset.update_flexilims(mode="overwrite")
     return suite2p_dataset, opsEnd
 
