@@ -261,7 +261,7 @@ def split_recordings(flz_session, suite2p_dataset, conflicts, iplane):
         for datapath, recording_id, start, end in zip(
             datapaths, recording_ids, first_frames, last_frames
         ):
-            si_metadata = parse_si_metadata(datapath)["SI.hRoiManager.scanVolumeRate"]
+            si_metadata = parse_si_metadata(datapath)
 
             split_dataset = Dataset.from_origin(
                 project=suite2p_dataset.project,
