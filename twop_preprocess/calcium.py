@@ -339,5 +339,5 @@ def extract_session(
         if run_split:
             print("Splitting recordings...")
             split_recordings(
-                flz_session, suite2p_dataset, conflicts="append", iplane=iplane
+                flz_session, suite2p_dataset, conflicts=conflicts, iplane=iplane
             )
