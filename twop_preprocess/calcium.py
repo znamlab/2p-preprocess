@@ -215,8 +215,8 @@ def split_recordings(flz_session, suite2p_dataset, conflicts):
 
     """
     # load the ops file to find length of individual recordings
-    ops_path = suite2p_dataset.path_full / f"plane{iplane}" / "ops.npy"
-    ops = np.load(ops_path, allow_pickle=True).tolist()
+    ops_path = suite2p_dataset.path_full / "plane0" / "ops.npy"
+    ops = np.load(ops_path, allow_pickle=True).item()
     # get scanimage datasets
     datasets = flz.get_datasets(
         suite2p_dataset.origin_id,
@@ -240,65 +240,58 @@ def split_recordings(flz_session, suite2p_dataset, conflicts):
     assert len(datapaths) == len(ops["frames_per_folder"])
     last_frames = np.cumsum(ops["frames_per_folder"])
     first_frames = np.concatenate(([0], last_frames[:-1]))
-    # load processed data
-    for iplane in range(ops["nplanes"]):
-        plane_path = suite2p_dataset.path_full / f"plane{iplane}"
-        F, Fneu, spks = (
-            np.load(plane_path / "F.npy"),
-            np.load(plane_path / "Fneu.npy"),
-            np.load(plane_path / "spks.npy"),
+    datasets_out = []
+    for raw_datapath, recording_id, start, end in zip(
+        datapaths, recording_ids, first_frames, last_frames
+    ):
+        split_dataset = Dataset.from_origin(
+            project=suite2p_dataset.project,
+            origin_type="recording",
+            origin_id=recording_id,
+            dataset_type="suite2p_traces",
+            conflicts=conflicts,
         )
-        datasets_out = []
-        if suite2p_dataset.extra_attributes["ast_neuropil"]:
-            Fast, dff_ast, spks_ast = (
-                np.load(plane_path / "Fast.npy"),
-                np.load(plane_path / "dff_ast.npy"),
-                np.load(plane_path / "spks_ast.npy"),
-            )
-
-        for datapath, recording_id, start, end in zip(
-            datapaths, recording_ids, first_frames, last_frames
-        ):
-            si_metadata = parse_si_metadata(datapath)
-
-            split_dataset = Dataset.from_origin(
-                project=suite2p_dataset.project,
-                origin_type="recording",
-                origin_id=recording_id,
-                dataset_type="suite2p_traces",
-                conflicts=conflicts,
-            )
-
-            if (
-                split_dataset.get_flexilims_entry() is not None
-            ) and conflicts == "skip":
-                print(f"Dataset {split_dataset.name} already split... skipping...")
-                datasets_out.append(split_dataset)
-                continue
+        if (split_dataset.get_flexilims_entry() is not None) and conflicts == "skip":
+            print(f"Dataset {split_dataset.name} already split... skipping...")
+            datasets_out.append(split_dataset)
+            continue
+        split_dataset.path_full.mkdir(parents=True, exist_ok=True)
+        si_metadata = parse_si_metadata(raw_datapath)
+        np.save(split_dataset.path_full / "si_metadata.npy", si_metadata)
+        # load processed data
+        for iplane in range(ops["nplanes"]):
+            suite2p_path = suite2p_dataset.path_full / f"plane{iplane}"
             # otherwise lets split it
+            split_path = split_dataset.path_full / f"plane{iplane}"
             try:
-                split_dataset.path_full.mkdir(parents=True, exist_ok=True)
+                split_path.mkdir(parents=True, exist_ok=True)
             except OSError:
-                print(f"Error creating directory {split_dataset.path_full}")
-            np.save(split_dataset.path_full / "si_metadata.npy", si_metadata)
-            np.save(split_dataset.path_full / "F.npy", F[:, start:end])
-            np.save(split_dataset.path_full / "Fneu.npy", Fneu[:, start:end])
-            np.save(split_dataset.path_full / "spks.npy", spks[:, start:end])
+                print(f"Error creating directory {split_path}")
+            F, Fneu, spks = (
+                np.load(suite2p_path / "F.npy"),
+                np.load(suite2p_path / "Fneu.npy"),
+                np.load(suite2p_path / "spks.npy"),
+            )
             if suite2p_dataset.extra_attributes["ast_neuropil"]:
-                np.save(split_dataset.path_full / "Fast.npy", Fast[:, start:end])
-                np.save(split_dataset.path_full / "dff_ast.npy", dff_ast[:, start:end])
-                np.save(
-                    split_dataset.path_full / "spks_ast.npy",
-                    spks_ast[:, start:end],
+                Fast, dff_ast, spks_ast = (
+                    np.load(suite2p_path / "Fast.npy"),
+                    np.load(suite2p_path / "dff_ast.npy"),
+                    np.load(suite2p_path / "spks_ast.npy"),
                 )
-            if iplane == ops["nplanes"] - 1:
-                split_dataset.extra_attributes = suite2p_dataset.extra_attributes.copy()
-                split_dataset.extra_attributes["fs"] = si_metadata[
-                    "SI.hRoiManager.scanVolumeRate"
-                ]
-                split_dataset.update_flexilims(mode="overwrite")
-                datasets_out.append(split_dataset)
-        return datasets_out
+            np.save(split_path / "F.npy", F[:, start:end])
+            np.save(split_path / "Fneu.npy", Fneu[:, start:end])
+            np.save(split_path / "spks.npy", spks[:, start:end])
+            if suite2p_dataset.extra_attributes["ast_neuropil"]:
+                np.save(split_path / "Fast.npy", Fast[:, start:end])
+                np.save(split_path / "dff_ast.npy", dff_ast[:, start:end])
+                np.save(split_path / "spks_ast.npy", spks_ast[:, start:end])
+        split_dataset.extra_attributes = suite2p_dataset.extra_attributes.copy()
+        split_dataset.extra_attributes["fs"] = si_metadata[
+            "SI.hRoiManager.scanVolumeRate"
+        ]
+        split_dataset.update_flexilims(mode="overwrite")
+        datasets_out.append(split_dataset)
+    return datasets_out
 
 
 def extract_session(
@@ -306,6 +299,7 @@ def extract_session(
     session_name,
     conflicts=None,
     run_split=False,
+    run_extraction=True,
     ops={},
 ):
     """
@@ -316,15 +310,36 @@ def extract_session(
         session_name (str): name of the session
         conflicts (str): how to treat existing processed data
         run_split (bool): whether or not to run splitting for different folders
+        run_extraction (bool): whether or not to run extraction
 
     """
     # get session info from flexilims
     print("Connecting to flexilims...")
     flz_session = flz.get_flexilims_session(project)
     ops = load_ops(ops)
-    suite2p_dataset, opsEnd = run_extraction(
-        flz_session, project, session_name, conflicts, ops
-    )
+    if run_extraction:
+        suite2p_dataset, opsEnd = run_extraction(
+            flz_session, project, session_name, conflicts, ops
+        )
+    else:
+        session_children = flz.get_children(
+            parent_name=session_name,
+            children_datatype="dataset",
+            flexilims_session=flz_session,
+        )
+        suite2p_datasets = session_children[
+            session_children["dataset_type"] == "suite2p_rois"
+        ]
+        if len(suite2p_datasets) == 0:
+            raise ValueError(f"No suite2p dataset found for session {session_name}")
+        elif len(suite2p_datasets) > 1:
+            print(
+                f"{len(suite2p_datasets)} suite2p datasets found for session {session_name}"
+            )
+            print("Splitting the last one...")
+        suite2p_dataset = Dataset.from_dataseries(
+            suite2p_datasets.iloc[-1], flexilims_session=flz_session
+        )
 
     if run_split:
         print("Splitting recordings...")

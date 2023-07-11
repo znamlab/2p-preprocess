@@ -17,4 +17,4 @@ source activate base
 
 conda activate 2p-preprocess
 echo Processing ${SESSION} in project ${PROJECT}
-2p calcium -p ${PROJECT} -s ${SESSION} -c append --run-neuropil y -t ${TAU} --run-split y
+2p calcium -p ${PROJECT} -s ${SESSION} -c ${CONFLICTS} --run-neuropil y -t ${TAU} --run-split y --run-extraction y
