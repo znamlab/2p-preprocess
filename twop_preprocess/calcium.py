@@ -215,8 +215,11 @@ def split_recordings(flz_session, suite2p_dataset, conflicts):
 
     """
     # load the ops file to find length of individual recordings
-    ops_path = suite2p_dataset.path_full / "plane0" / "ops.npy"
-    ops = np.load(ops_path, allow_pickle=True).item()
+    nplanes = int(float(suite2p_dataset.extra_attributes["nplanes"]))
+    ops = []
+    for iplane in range(nplanes):
+        ops_path = suite2p_dataset.path_full / f"plane{iplane}" / "ops.npy"
+        ops.append(np.load(ops_path, allow_pickle=True).item())
     # get scanimage datasets
     datasets = flz.get_datasets(
         suite2p_dataset.origin_id,
@@ -237,13 +240,21 @@ def split_recordings(flz_session, suite2p_dataset, conflicts):
             ]
         )
     # split into individual recordings
-    assert len(datapaths) == len(ops["frames_per_folder"])
-    last_frames = np.cumsum(ops["frames_per_folder"])
-    first_frames = np.concatenate(([0], last_frames[:-1]))
+    assert len(datapaths) == len(ops[0]["frames_per_folder"])
+    # different planes may have different number of frames if recording is stopped mid-volume
+    last_frames = []
+    first_frames = []
+    for ops_plane in ops:
+        last_frames.append(np.cumsum(ops_plane["frames_per_folder"]))
+        first_frames.append(np.concatenate(([0], last_frames[-1][:-1])))
+    last_frames = np.stack(last_frames, axis=1)
+    first_frames = np.stack(first_frames, axis=1)
     datasets_out = []
-    for raw_datapath, recording_id, start, end in zip(
+    for raw_datapath, recording_id, first_frames_rec, last_frames_rec in zip(
         datapaths, recording_ids, first_frames, last_frames
     ):
+        # minimum number of frames across planes
+        nframes = np.min(last_frames_rec - first_frames_rec)
         split_dataset = Dataset.from_origin(
             project=suite2p_dataset.project,
             origin_type="recording",
@@ -259,7 +270,7 @@ def split_recordings(flz_session, suite2p_dataset, conflicts):
         si_metadata = parse_si_metadata(raw_datapath)
         np.save(split_dataset.path_full / "si_metadata.npy", si_metadata)
         # load processed data
-        for iplane in range(ops["nplanes"]):
+        for iplane, start in zip(range(nplanes), first_frames_rec):
             suite2p_path = suite2p_dataset.path_full / f"plane{iplane}"
             # otherwise lets split it
             split_path = split_dataset.path_full / f"plane{iplane}"
@@ -278,6 +289,7 @@ def split_recordings(flz_session, suite2p_dataset, conflicts):
                     np.load(suite2p_path / "dff_ast.npy"),
                     np.load(suite2p_path / "spks_ast.npy"),
                 )
+            end = start + nframes
             np.save(split_path / "F.npy", F[:, start:end])
             np.save(split_path / "Fneu.npy", Fneu[:, start:end])
             np.save(split_path / "spks.npy", spks[:, start:end])
@@ -289,6 +301,7 @@ def split_recordings(flz_session, suite2p_dataset, conflicts):
         split_dataset.extra_attributes["fs"] = si_metadata[
             "SI.hRoiManager.scanVolumeRate"
         ]
+        split_dataset.extra_attributes["nframes"] = nframes
         split_dataset.update_flexilims(mode="overwrite")
         datasets_out.append(split_dataset)
     return datasets_out
