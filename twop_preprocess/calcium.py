@@ -1,5 +1,4 @@
 import numpy as np
-import os
 import datetime
 import flexiznam as flz
 from flexiznam.schema import Dataset
@@ -10,7 +9,7 @@ from suite2p.extraction import dcnv
 from sklearn import mixture
 from twop_preprocess.utils import parse_si_metadata, load_ops
 from functools import partial
-from pathlib import Path
+from tqdm import tqdm
 
 print = partial(print, flush=True)
 
@@ -80,10 +79,20 @@ def run_extraction(flz_session, project, session_name, conflicts, ops):
     print("Running suite2p with the following ops:")
     for k, v in ops.items():
         print(f"{k}: {v}")
-
     # run suite2p
     db = {"data_path": datapaths}
     opsEnd = run_s2p(ops=ops, db=db)
+    # run neuropil correction, dFF calculation and spike deconvolution
+    for iplane in range(opsEnd["nplanes"]):
+        if ops["ast_neuropil"]:
+            print("Running ASt neuropil correction...")
+            correct_neuropil(suite2p_dataset, iplane)
+        print("Calculating dF/F...")
+        calculate_dFF(suite2p_dataset, iplane, ops)
+        if ops["ast_neuropil"]:
+            print("Deconvolve spikes from neuropil corrected trace...")
+            spike_deconvolution_suite2p(suite2p_dataset, iplane)
+
     if "date_proc" in opsEnd:
         opsEnd["date_proc"] = opsEnd["date_proc"].isoformat()
     # update the database
@@ -104,39 +113,30 @@ def run_extraction(flz_session, project, session_name, conflicts, ops):
     return suite2p_dataset, opsEnd
 
 
-def dFF(f, n_components=2, verbose=True):
+def dFF(f, n_components=2):
     """
     Helper function for calculating dF/F from raw fluorescence trace.
     Args:
         f (numpy.ndarray): shape nrois x time, raw fluorescence trace for all rois extracted from suite2p
         n_components (int): number of components for GMM. default 2.
-        verbose (bool): display progress or not. Default True.
 
     Returns:
         dffs (numpy.ndarray): shape nrois x time, dF/F for all rois extracted from suite2p
 
     """
     f0 = np.zeros(f.shape[0])
-    for i in range(f.shape[0]):
+    for i in tqdm(range(f.shape[0])):
         gmm = mixture.GaussianMixture(n_components=n_components, random_state=42).fit(
             f[i].reshape(-1, 1)
         )
         gmm_means = np.sort(gmm.means_[:, 0])
         f0[i] = gmm_means[0]
-        if verbose:
-            if i % 100 == 0:
-                print(f"{i}/{f.shape[0]}", flush=True)
     f0 = f0.reshape(-1, 1)
     dff = (f - f0) / f0
     return dff, f0
 
 
-def calculate_dFF(
-    suite2p_dataset,
-    iplane,
-    ops,
-    verbose=True,
-):
+def calculate_dFF(suite2p_dataset, iplane, ops):
     """
     Calculate dF/F for the whole session with concatenated recordings after neuropil correction.
 
@@ -145,7 +145,6 @@ def calculate_dFF(
             to split
         iplane (int): which plane.
         n_components (int): number of components for GMM. default 2.
-        verbose (bool): display progress or not. Default True.
         ast_neuropil (bool): whether to use ASt neuropil correction or not. Default True.
         neucoeff (float): coefficient for neuropil correction. Only used if ast_neuropil
             is False. Default 0.7.
@@ -160,7 +159,7 @@ def calculate_dFF(
         Fneu = np.load(dir_path / "Fneu.npy")
         F = F - ops["neucoeff"] * Fneu
     # Calculate dFFs and save to the suite2p folder
-    dff, f0 = dFF(F, n_components=ops["dff_ncomponents"], verbose=verbose)
+    dff, f0 = dFF(F, n_components=ops["dff_ncomponents"])
     np.save(
         dir_path / "dff_ast.npy" if ops["ast_neuropil"] else dir_path / "dff.npy", dff
     )
@@ -202,7 +201,7 @@ def spike_deconvolution_suite2p(suite2p_dataset, iplane):
     np.save(spks_ast_path, spks_ast)
 
 
-def split_recordings(flz_session, suite2p_dataset, conflicts, iplane):
+def split_recordings(flz_session, suite2p_dataset, conflicts):
     """
     suite2p concatenates all the recordings in a given session into a single file.
     To facilitate downstream analyses, we cut them back into chunks and add them
@@ -213,7 +212,6 @@ def split_recordings(flz_session, suite2p_dataset, conflicts, iplane):
         suite2p_dataset (Dataset): dataset containing concatenated recordings
             to split
         conflicts (str): defines behavior if recordings have already been split
-        iplane (int): which plane.
 
     """
     # load the ops file to find length of individual recordings
@@ -293,12 +291,13 @@ def split_recordings(flz_session, suite2p_dataset, conflicts, iplane):
                     split_dataset.path_full / "spks_ast.npy",
                     spks_ast[:, start:end],
                 )
-            split_dataset.extra_attributes = suite2p_dataset.extra_attributes.copy()
-            split_dataset.extra_attributes["fs"] = si_metadata[
-                "SI.hRoiManager.scanVolumeRate"
-            ]
-            split_dataset.update_flexilims(mode="overwrite")
-            datasets_out.append(split_dataset)
+            if iplane == ops["nplanes"] - 1:
+                split_dataset.extra_attributes = suite2p_dataset.extra_attributes.copy()
+                split_dataset.extra_attributes["fs"] = si_metadata[
+                    "SI.hRoiManager.scanVolumeRate"
+                ]
+                split_dataset.update_flexilims(mode="overwrite")
+                datasets_out.append(split_dataset)
         return datasets_out
 
 
@@ -327,17 +326,6 @@ def extract_session(
         flz_session, project, session_name, conflicts, ops
     )
 
-    for iplane in range(opsEnd["nplanes"]):
-        if ops["ast_neuropil"]:
-            print("Running ASt neuropil correction...")
-            correct_neuropil(suite2p_dataset.path_full / f"plane{iplane}")
-        print("Calculating dF/F...")
-        calculate_dFF(suite2p_dataset, iplane, ops, verbose=True)
-        if ops["ast_neuropil"]:
-            print("Deconvolve spikes from neuropil corrected trace...")
-            spike_deconvolution_suite2p(suite2p_dataset, iplane)
-        if run_split:
-            print("Splitting recordings...")
-            split_recordings(
-                flz_session, suite2p_dataset, conflicts=conflicts, iplane=iplane
-            )
+    if run_split:
+        print("Splitting recordings...")
+        split_recordings(flz_session, suite2p_dataset, conflicts=conflicts)
