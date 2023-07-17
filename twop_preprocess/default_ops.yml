@@ -1,0 +1,32 @@
+# whether to use ASt model for neuropil correction 
+ast_neuropil: True
+# number of GMM components for F0 estimation
+dff_ncomponents: 2
+# cellpose segmentation parameters
+roidetect: 1
+anatomical_only: 3
+pretrained_model: cyto2
+diameter_multiplier: 0.01
+flow_threshold: 2
+cellprob_threshold: 0
+# activity-based segmentation parameters
+threshold_scaling: 0.5
+denoise: 1
+sparse_mode: 1
+# spike extraction parameters
+baseline_method: maximin
+sig_baseline: 10.0
+win_baseline: 60.0
+tau: 0.7
+# fixed coefficient for neuropil correction if not using ASt model
+neucoeff: 0.7
+# whether to delete the registered bin file
+delete_bin: True
+
+# options for zstack registration
+zstack:
+  ch_to_align: 0
+  iter: 1
+  max_shift: 50
+  align_planes: True
+  bidi_correction: True

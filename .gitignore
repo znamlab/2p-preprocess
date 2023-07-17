@@ -4,3 +4,5 @@ thirdparty
 .DS_Store
 __pycache__
 .idea*
+*.out
+*.ipynb
