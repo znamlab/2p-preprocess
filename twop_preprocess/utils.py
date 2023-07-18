@@ -19,16 +19,14 @@ def parse_si_metadata(tiff_path):
         dict: dictionary of SI parameters
 
     """
-    if not tiff_path.endswith(".tif"):
-        tiffs = [tiff for tiff in os.listdir(tiff_path) if tiff.endswith(".tif")]
+    if tiff_path.suffix != ".tif":
+        tiffs = [tiff_path / tiff for tiff in sorted(tiff_path.glob("*.tif"))]
     else:
         tiffs = [
             tiff_path,
         ]
     if tiffs:
-        tiff_path = str(Path(tiff_path) / tiffs[0])
-        tif = TiffFile(tiff_path)
-        return tif.scanimage_metadata["FrameData"]
+        return TiffFile(tiffs[0]).scanimage_metadata["FrameData"]
     else:
         return None
 
