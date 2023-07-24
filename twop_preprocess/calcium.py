@@ -68,7 +68,10 @@ def run_extraction(flz_session, project, session_name, conflicts, ops):
     # assume frame rates are the same for all recordings
     si_metadata = parse_si_metadata(datapaths[0])
     ops["fs"] = si_metadata["SI.hRoiManager.scanVolumeRate"]
-    ops["nplanes"] = si_metadata["SI.hStackManager.numSlices"]
+    if si_metadata["SI.hStackManager.enable"]:
+        ops["nplanes"] = si_metadata["SI.hStackManager.numSlices"]
+    else:
+        ops["nplanes"] = 1
     # calculate cell diameter based on zoom and pixel size
     ops["diameter"] = int(
         round(
