@@ -10,6 +10,7 @@ from sklearn import mixture
 from twop_preprocess.utils import parse_si_metadata, load_ops
 from functools import partial
 from tqdm import tqdm
+from pathlib import Path
 
 print = partial(print, flush=True)
 
@@ -80,6 +81,9 @@ def run_extraction(flz_session, project, session_name, conflicts, ops):
             * ops["diameter_multiplier"]
         )
     )
+    # create filepaths for binaries
+    for iplane in range(ops["nplanes"]):
+        (Path(ops["save_path0"])/f"suite2p/plane{iplane}").mkdir(parents=True, exist_ok=True)
     # print ops
     print("Running suite2p with the following ops:")
     for k, v in ops.items():
