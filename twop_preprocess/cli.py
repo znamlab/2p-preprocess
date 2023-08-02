@@ -22,7 +22,7 @@ def cli():
     "--run-split", type=bool, default=True, help="Whether to run split recordings"
 )
 @click.option(
-    "--run-extraction", type=bool, default=True, help="Whether to suite2p extraction"
+    "--run-suite2p", type=bool, default=True, help="Whether to suite2p extraction"
 )
 @click.option(
     "--tau", "-t", type=float, help="Decay time constant for spike extraction"
@@ -33,7 +33,7 @@ def calcium(
     conflicts=None,
     run_neuropil=None,
     run_split=True,
-    run_extraction=True,
+    run_suite2p=True,
     tau=None,
 ):
     """Run calcium imaging preprocessing pipeline"""
@@ -50,7 +50,7 @@ def calcium(
         session,
         conflicts=conflicts,
         run_split=run_split,
-        run_extraction=run_extraction,
+        run_suite2p=run_suite2p,
         ops=ops,
     )
 

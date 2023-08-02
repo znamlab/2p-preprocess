@@ -10,6 +10,7 @@ from sklearn import mixture
 from twop_preprocess.utils import parse_si_metadata, load_ops
 from functools import partial
 from tqdm import tqdm
+from pathlib import Path
 
 print = partial(print, flush=True)
 
@@ -51,11 +52,13 @@ def run_extraction(flz_session, project, session_name, conflicts, ops):
         )
         return suite2p_dataset
     # fetch SI datasets
-    si_datasets = flz.get_datasets(
-        exp_session["id"],
-        recording_type="two_photon",  #!Some 2p recording may not be labelled as 'two_photon'
+    si_datasets = flz.get_datasets_recursively(
+        origin_id=exp_session["id"],
+        parent_type="recording",
+        filter_parents={"recording_type": "two_photon"},
         dataset_type="scanimage",
         flexilims_session=flz_session,
+        return_paths=True,
     )
     datapaths = []
     for _, p in si_datasets.items():
@@ -66,7 +69,10 @@ def run_extraction(flz_session, project, session_name, conflicts, ops):
     # assume frame rates are the same for all recordings
     si_metadata = parse_si_metadata(datapaths[0])
     ops["fs"] = si_metadata["SI.hRoiManager.scanVolumeRate"]
-    ops["nplanes"] = si_metadata["SI.hStackManager.numSlices"]
+    if si_metadata["SI.hStackManager.enable"]:
+        ops["nplanes"] = si_metadata["SI.hStackManager.numSlices"]
+    else:
+        ops["nplanes"] = 1
     # calculate cell diameter based on zoom and pixel size
     ops["diameter"] = int(
         round(
@@ -221,11 +227,13 @@ def split_recordings(flz_session, suite2p_dataset, conflicts):
         ops_path = suite2p_dataset.path_full / f"plane{iplane}" / "ops.npy"
         ops.append(np.load(ops_path, allow_pickle=True).item())
     # get scanimage datasets
-    datasets = flz.get_datasets(
-        suite2p_dataset.origin_id,
-        recording_type="two_photon",
+    datasets = flz.get_datasets_recursively(
+        origin_id=suite2p_dataset.origin_id,
+        parent_type="recording",
+        filter_parents={"recording_type": "two_photon"},
         dataset_type="scanimage",
         flexilims_session=flz_session,
+        return_paths=True,
     )
     datapaths = []
     recording_ids = []
@@ -312,7 +320,7 @@ def extract_session(
     session_name,
     conflicts=None,
     run_split=False,
-    run_extraction=True,
+    run_suite2p=True,
     ops={},
 ):
     """
@@ -323,14 +331,14 @@ def extract_session(
         session_name (str): name of the session
         conflicts (str): how to treat existing processed data
         run_split (bool): whether or not to run splitting for different folders
-        run_extraction (bool): whether or not to run extraction
+        run_suite2p (bool): whether or not to run extraction
 
     """
     # get session info from flexilims
     print("Connecting to flexilims...")
     flz_session = flz.get_flexilims_session(project)
     ops = load_ops(ops)
-    if run_extraction:
+    if run_suite2p:
         suite2p_dataset, opsEnd = run_extraction(
             flz_session, project, session_name, conflicts, ops
         )
