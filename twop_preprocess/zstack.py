@@ -9,8 +9,10 @@ import scipy.fft as fft
 from tqdm import tqdm
 from twop_preprocess.utils import parse_si_metadata, load_ops
 from functools import partial
+from pathlib import Path
 
 print = partial(print, flush=True)
+
 
 def phase_corr(
     reference: np.ndarray,
@@ -119,8 +121,9 @@ def register_zstack(tiff_paths, ops):
     registered_stack = np.zeros((nx, ny, nchannels, nz))
     frame_shifts = np.zeros((nframes, 2, nz))
     # process stack one slice at a time
-    for iplane, plane in enumerate(chunked(stack_pages, chunk_size)):
-        print(f"Registering plane {iplane+1} of {nz}", flush=True)
+    for iplane, plane in tqdm(
+        enumerate(chunked(stack_pages, chunk_size)), total=nz, desc="Imaging planes"
+    ):
         data = np.asarray([page.asarray() for page in plane])
         if ops["bidi_correction"]:
             if iplane == 0:
@@ -138,7 +141,7 @@ def register_zstack(tiff_paths, ops):
                 registered_stack[:, :, ich, iplane] = 0
             template_image_fft = fft.fft2(template_image)
             # use reference image to align individual planes
-            for iframe in tqdm(range(nframes)):
+            for iframe in tqdm(range(nframes), leave=False, desc="Frames"):
                 shifts = phase_corr(
                     template_image_fft,
                     data[nchannels * iframe + ops["ch_to_align"], :, :],
@@ -186,11 +189,11 @@ def register_zstack(tiff_paths, ops):
             if shifts[0] > 0:
                 aligned_stack[: int(shifts[0]), :, ich, iplane] = 0
             else:
-                aligned_stack[-int(shifts[0]) :, :, ich, iplane] = 0
+                aligned_stack[int(shifts[0]) :, :, ich, iplane] = 0
             if shifts[1] > 0:
                 aligned_stack[:, : int(shifts[1]), ich, iplane] = 0
             else:
-                aligned_stack[:, -int(shifts[1]) :, ich, iplane] = 0
+                aligned_stack[:, int(shifts[1]) :, ich, iplane] = 0
 
     return aligned_stack / int(nframes), nz, nchannels, frame_shifts, plane_shifts
 
@@ -238,6 +241,7 @@ def run_zstack_registration(project, session_name, conflicts="append", ops={}):
             origin_type="session",
             origin_id=exp_session["id"],
             dataset_type="registered_stack",
+            base_name=zstack.dataset_name + "_registered",
             conflicts=conflicts,
             flexilims_session=flz_session,
         )
@@ -245,23 +249,24 @@ def run_zstack_registration(project, session_name, conflicts="append", ops={}):
         # sorting tifs so that they are in order of acquisition
         zstack_tifs = zstack.tif_files
         zstack_tifs.sort()
-        zstack_tifs = [str(zstack.path_full / tif) for tif in zstack_tifs]
-        registered_stack, nz, nchannels, _, _ = register_zstack(zstack_tifs, ops)
-
-        # create directory for output, if it does not already exist
-        if not registered_dataset.path_full.is_dir():
-            os.makedirs(str(registered_dataset.path_full))
+        zstack_tifs = [zstack.path_full / tif for tif in zstack_tifs]
+        registered_stack, nz, nchannels, frame_shifts, plane_shifts = register_zstack(
+            zstack_tifs, ops
+        )
+        registered_dataset.path = registered_dataset.path.with_suffix(".tif")
 
         # write registered stack to file
-        with TiffWriter(
-            registered_dataset.path_full.joinpath(zstack.dataset_name).with_suffix(
-                ".tif"
-            )
-        ) as tif:
+        with TiffWriter(registered_dataset.path_full) as tif:
             for iplane in range(nz):
                 for ich in range(nchannels):
                     tif.write(
                         np.int16(registered_stack[:, :, ich, iplane]), contiguous=True
                     )
+        np.savez(
+            registered_dataset.path_full.with_suffix(".npz"),
+            frame_shifts=frame_shifts,
+            plane_shifts=plane_shifts,
+            allow_pickle=True,
+        )
         registered_dataset.extra_attributes = ops
         registered_dataset.update_flexilims(mode="overwrite")
