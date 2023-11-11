@@ -1,5 +1,7 @@
 # whether to use ASt model for neuropil correction 
 ast_neuropil: True
+# whether to estimate the offset for each recording
+correct_offset: False
 # number of GMM components for F0 estimation
 dff_ncomponents: 2
 # cellpose segmentation parameters

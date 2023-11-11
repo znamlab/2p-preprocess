@@ -11,6 +11,7 @@ from twop_preprocess.utils import parse_si_metadata, load_ops
 from functools import partial
 from tqdm import tqdm
 from pathlib import Path
+from tifffile import TiffFile
 
 print = partial(print, flush=True)
 
@@ -117,6 +118,35 @@ def run_extraction(flz_session, project, session_name, conflicts, ops):
     suite2p_dataset.extra_attributes = ops
     suite2p_dataset.update_flexilims(mode="overwrite")
     return suite2p_dataset, opsEnd
+
+
+def estimate_offset(datapath, n_components=3):
+    """
+    Estimate the offset for a given tiff file using a GMM with n_components.
+        
+    Args:
+        datapath (str): path to the tiff file
+        n_components (int): number of components for GMM. default 3.
+
+    Returns:
+        offset (float): estimated offset
+
+    """
+    # find the first tiff at the path
+    tiffs = list(datapath.glob("*.tif"))
+    if len(tiffs) == 0:
+        raise ValueError(f"No tiffs found at {datapath}")
+    tiff = tiffs[0]
+    # load the tiff using tifffile
+    with TiffFile(tiff) as tif:
+        # get the first frame
+        frame = tif.asarray(key=0)
+    # find the offset
+    gmm = mixture.GaussianMixture(n_components=n_components, random_state=42).fit(
+        frame.reshape(-1, 1)
+    )
+    gmm_means = np.sort(gmm.means_[:, 0])
+    return gmm_means[0]
 
 
 def dFF(f, n_components=2):
