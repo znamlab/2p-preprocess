@@ -207,6 +207,35 @@ def spike_deconvolution_suite2p(suite2p_dataset, iplane):
     np.save(spks_ast_path, spks_ast)
 
 
+def get_recording_frames(suite2p_dataset):
+    """
+    Get the first and last frames of each recording in the session.
+
+    Args:
+        suite2p_dataset (Dataset): dataset containing concatenated recordings
+    
+    Returns:
+        first_frames (numpy.ndarray): shape nrecordings x nplanes, first frame of each recording
+        last_frames (numpy.ndarray): shape nrecordings x nplanes, last frame of each recording
+
+    """
+    # load the ops file to find length of individual recordings
+    nplanes = int(float(suite2p_dataset.extra_attributes["nplanes"]))
+    ops = []
+    for iplane in range(nplanes):
+        ops_path = suite2p_dataset.path_full / f"plane{iplane}" / "ops.npy"
+        ops.append(np.load(ops_path, allow_pickle=True).item())
+    # different planes may have different number of frames if recording is stopped mid-volume
+    last_frames = []
+    first_frames = []
+    for ops_plane in ops:
+        last_frames.append(np.cumsum(ops_plane["frames_per_folder"]))
+        first_frames.append(np.concatenate(([0], last_frames[-1][:-1])))
+    last_frames = np.stack(last_frames, axis=1)
+    first_frames = np.stack(first_frames, axis=1)
+    return first_frames, last_frames
+        
+    
 def split_recordings(flz_session, suite2p_dataset, conflicts):
     """
     suite2p concatenates all the recordings in a given session into a single file.
@@ -220,12 +249,6 @@ def split_recordings(flz_session, suite2p_dataset, conflicts):
         conflicts (str): defines behavior if recordings have already been split
 
     """
-    # load the ops file to find length of individual recordings
-    nplanes = int(float(suite2p_dataset.extra_attributes["nplanes"]))
-    ops = []
-    for iplane in range(nplanes):
-        ops_path = suite2p_dataset.path_full / f"plane{iplane}" / "ops.npy"
-        ops.append(np.load(ops_path, allow_pickle=True).item())
     # get scanimage datasets
     datasets = flz.get_datasets_recursively(
         origin_id=suite2p_dataset.origin_id,
@@ -247,17 +270,8 @@ def split_recordings(flz_session, suite2p_dataset, conflicts):
                 for this_path in paths
             ]
         )
-    # split into individual recordings
-    assert len(datapaths) == len(ops[0]["frames_per_folder"])
-    # different planes may have different number of frames if recording is stopped mid-volume
-    last_frames = []
-    first_frames = []
-    for ops_plane in ops:
-        last_frames.append(np.cumsum(ops_plane["frames_per_folder"]))
-        first_frames.append(np.concatenate(([0], last_frames[-1][:-1])))
-    last_frames = np.stack(last_frames, axis=1)
-    first_frames = np.stack(first_frames, axis=1)
     datasets_out = []
+    first_frames, last_frames = get_recording_frames(suite2p_dataset)
     for raw_datapath, recording_id, first_frames_rec, last_frames_rec in zip(
         datapaths, recording_ids, first_frames, last_frames
     ):
