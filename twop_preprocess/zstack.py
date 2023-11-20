@@ -4,12 +4,13 @@ import flexiznam as flz
 from flexiznam.schema import Dataset
 import itertools
 from tifffile import TiffFile, TiffWriter
-from more_itertools import chunked
+from more_itertools import chunked, distribute
 import scipy.fft as fft
 from tqdm import tqdm
 from twop_preprocess.utils import parse_si_metadata, load_ops
 from functools import partial
 from pathlib import Path
+
 
 print = partial(print, flush=True)
 
@@ -104,8 +105,12 @@ def register_zstack(tiff_paths, ops):
     """
     # get the aquisition params from the first .tif file
     si_dict = parse_si_metadata(tiff_paths[0])
-    nchannels = len(si_dict["SI.hChannels.channelSave"])
-    assert nchannels > ops["ch_to_align"]
+    if isinstance(si_dict["SI.hChannels.channelSave"], int):
+        nchannels = si_dict["SI.hChannels.channelSave"]
+        ops["ch_to_align"] = 0
+    else:
+        nchannels = len(si_dict["SI.hChannels.channelSave"])
+        assert nchannels > ops["ch_to_align"]
     # get a list of stacks from the acquisition
     stack_list = [TiffFile(tiff_path) for tiff_path in tiff_paths]
     # chain the the pages from the stack
@@ -119,47 +124,104 @@ def register_zstack(tiff_paths, ops):
     nz = int(si_dict["SI.hStackManager.actualNumSlices"])
 
     registered_stack = np.zeros((nx, ny, nchannels, nz))
-    frame_shifts = np.zeros((nframes, 2, nz))
-    # process stack one slice at a time
-    for iplane, plane in tqdm(
-        enumerate(chunked(stack_pages, chunk_size)), total=nz, desc="Imaging planes"
-    ):
-        data = np.asarray([page.asarray() for page in plane])
-        if ops["bidi_correction"]:
-            if iplane == 0:
-                bidi_shift = estimate_bidi_correction(data[ops["ch_to_align"], :, :])
-                print(f"Estimated bidi shift: {bidi_shift}", flush=True)
-            data = apply_bidi_correction(data, bidi_shift)
-        # generate reference image for the current slice
-        for i in range(ops["iter"]):
-            if i == 0:
-                template_image = np.mean(
-                    data[ops["ch_to_align"] :: nchannels, :, :], axis=0
-                )
-            else:
-                template_image = registered_stack[:, :, ops["ch_to_align"], iplane]
-                registered_stack[:, :, ich, iplane] = 0
-            template_image_fft = fft.fft2(template_image)
-            # use reference image to align individual planes
-            for iframe in tqdm(range(nframes), leave=False, desc="Frames"):
-                shifts = phase_corr(
-                    template_image_fft,
-                    data[nchannels * iframe + ops["ch_to_align"], :, :],
-                    max_shift=ops["max_shift"],
-                    whiten=True,
-                    fft_ref=False,
-                )[0]
-                frame_shifts[iframe, :, iplane] = shifts
-                for ich in range(nchannels):
-                    registered_stack[:, :, ich, iplane] += np.roll(
-                        data[nchannels * iframe + ich, :, :],
-                        (int(shifts[0]), int(shifts[1])),
-                        axis=(0, 1),
+
+    # process stack one slice at a time (for sequentially imaged volumes)
+    if ops["sequential_volumes"]:
+        print("Registering stack as a sequence of volumes", flush=True)
+        nvolumes = si_dict["SI.hStackManager.actualNumVolumes"]
+        frame_shifts = np.zeros((nvolumes, 2, nz))
+        for iplane, plane in tqdm(
+            enumerate(distribute(nz, chunked(stack_pages, chunk_size))),
+            total=nz,
+            desc="Imaging planes",
+        ):
+            data = np.asarray([page.asarray() for p in plane for page in p])
+            if ops["bidi_correction"]:
+                if iplane == 0:
+                    bidi_shift = estimate_bidi_correction(
+                        data[ops["ch_to_align"], :, :]
                     )
+                    print(f"Estimated bidi shift: {bidi_shift}", flush=True)
+                data = apply_bidi_correction(data, bidi_shift)
+            # generate reference image for the current slice
+            for i in range(ops["iter"]):
+                if i == 0:
+                    template_image = np.mean(
+                        data[ops["ch_to_align"] :: nchannels, :, :], axis=0
+                    )
+                else:
+                    template_image = registered_stack[:, :, ops["ch_to_align"], iplane]
+                    registered_stack[:, :, ich, iplane] = 0
+                template_image_fft = fft.fft2(template_image)
+                # use reference image to align individual planes
+                for iframe in tqdm(range(nvolumes), leave=False, desc="Frames"):
+                    shifts = phase_corr(
+                        template_image_fft,
+                        data[nchannels * iframe + ops["ch_to_align"], :, :],
+                        max_shift=ops["max_shift"],
+                        whiten=False,
+                        fft_ref=False,
+                    )[0]
+                    frame_shifts[iframe, :, iplane] = shifts
+                    for ich in range(nchannels):
+                        registered_stack[:, :, ich, iplane] += np.roll(
+                            data[nchannels * iframe + ich, :, :],
+                            (int(shifts[0]), int(shifts[1])),
+                            axis=(0, 1),
+                        )
+    else:
+        # process stack one slice at a time (for sequentially imaged planes)
+        frame_shifts = np.zeros((nframes, 2, nz))
+        for iplane, plane in tqdm(
+            enumerate(chunked(stack_pages, chunk_size)), total=nz, desc="Imaging planes"
+        ):
+            data = np.asarray([page.asarray() for page in plane])
+            if ops["bidi_correction"]:
+                if iplane == 0:
+                    bidi_shift = estimate_bidi_correction(
+                        data[ops["ch_to_align"], :, :]
+                    )
+                    print(f"Estimated bidi shift: {bidi_shift}", flush=True)
+                data = apply_bidi_correction(data, bidi_shift)
+            # generate reference image for the current slice
+            for i in range(ops["iter"]):
+                if i == 0:
+                    template_image = np.mean(
+                        data[ops["ch_to_align"] :: nchannels, :, :], axis=0
+                    )
+                else:
+                    template_image = registered_stack[:, :, ops["ch_to_align"], iplane]
+                    registered_stack[:, :, ich, iplane] = 0
+                template_image_fft = fft.fft2(template_image)
+                # use reference image to align individual planes
+                for iframe in tqdm(range(nframes), leave=False, desc="Frames"):
+                    shifts = phase_corr(
+                        template_image_fft,
+                        data[nchannels * iframe + ops["ch_to_align"], :, :],
+                        max_shift=ops["max_shift"],
+                        whiten=False,
+                        fft_ref=False,
+                    )[0]
+                    frame_shifts[iframe, :, iplane] = shifts
+                    for ich in range(nchannels):
+                        registered_stack[:, :, ich, iplane] += np.roll(
+                            data[nchannels * iframe + ich, :, :],
+                            (int(shifts[0]), int(shifts[1])),
+                            axis=(0, 1),
+                        )
+
     plane_shifts = np.zeros((2, nz))
-    if not ops["align_planes"]:
+    if not ops["align_planes"] and not ops["sequential_volumes"]:
         return (
             registered_stack / int(nframes),
+            nz,
+            nchannels,
+            frame_shifts,
+            plane_shifts,
+        )
+    elif not ops["align_planes"] and ops["sequential_volumes"]:
+        return (
+            registered_stack / int(nvolumes),
             nz,
             nchannels,
             frame_shifts,
@@ -194,7 +256,14 @@ def register_zstack(tiff_paths, ops):
                 aligned_stack[:, : int(shifts[1]), ich, iplane] = 0
             else:
                 aligned_stack[:, int(shifts[1]) :, ich, iplane] = 0
-
+    if ops["align_planes"] and ops["sequential_volumes"]:
+        return (
+            aligned_stack / int(nvolumes),
+            nz,
+            nchannels,
+            frame_shifts,
+            plane_shifts,
+        )
     return aligned_stack / int(nframes), nz, nchannels, frame_shifts, plane_shifts
 
 
@@ -231,6 +300,12 @@ def run_zstack_registration(project, session_name, conflicts="append", ops={}):
         flexilims_session=flz_session,
     )
 
+    if (
+        ops["dataset_name"] is not None
+        and ops["dataset_name"] in zstacks["name"].values
+    ):
+        zstacks = zstacks[zstacks.name == ops["dataset_name"]]
+
     for _, zstack in zstacks.iterrows():
         zstack = Dataset.from_flexilims(
             name=zstack.name, project=project, flexilims_session=flz_session
@@ -255,6 +330,10 @@ def run_zstack_registration(project, session_name, conflicts="append", ops={}):
         )
         registered_dataset.path = registered_dataset.path.with_suffix(".tif")
 
+        if not registered_dataset.path_full.parent.exists():
+            os.makedirs(registered_dataset.path_full.parent)
+
+        registered_stack = np.clip(np.copy(registered_stack), a_min=0, a_max=None)
         # write registered stack to file
         with TiffWriter(registered_dataset.path_full) as tif:
             for iplane in range(nz):
