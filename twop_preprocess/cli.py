@@ -25,6 +25,9 @@ def cli():
     "--run-suite2p", type=bool, default=True, help="Whether to suite2p extraction"
 )
 @click.option(
+    "--run-dff", type=bool, default=True, help="Whether to run dff extraction"
+)
+@click.option(
     "--tau", "-t", type=float, help="Decay time constant for spike extraction"
 )
 def calcium(
@@ -34,6 +37,7 @@ def calcium(
     run_neuropil=None,
     run_split=True,
     run_suite2p=True,
+    run_dff=True,
     tau=None,
 ):
     """Run calcium imaging preprocessing pipeline"""
@@ -51,6 +55,7 @@ def calcium(
         conflicts=conflicts,
         run_split=run_split,
         run_suite2p=run_suite2p,
+        run_dff=run_dff,
         ops=ops,
     )
 

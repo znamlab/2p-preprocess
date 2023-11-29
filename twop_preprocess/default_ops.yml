@@ -15,6 +15,11 @@ cellprob_threshold: 0
 threshold_scaling: 0.5
 denoise: 1
 sparse_mode: 1
+# detrending parameters
+detrend: False
+detrend_win: 60.0
+detrend_pctl: 20.0
+detrend_method: subtract
 # spike extraction parameters
 baseline_method: maximin
 sig_baseline: 10.0
