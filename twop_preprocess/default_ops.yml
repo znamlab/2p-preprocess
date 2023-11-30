@@ -1,4 +1,4 @@
-# whether to use ASt model for neuropil correction 
+# whether to use ASt model for neuropil correction
 ast_neuropil: True
 # number of GMM components for F0 estimation
 dff_ncomponents: 2
@@ -22,6 +22,8 @@ tau: 0.7
 neucoeff: 0.7
 # whether to delete the registered bin file
 delete_bin: True
+# path to custom classifier
+classifier_path: /nemo/lab/znamenskiyp/home/users/cypranc/2p-preprocess/classifier_gcamp8m.npy
 
 # options for zstack registration
 zstack:
@@ -30,3 +32,5 @@ zstack:
   max_shift: 50
   align_planes: True
   bidi_correction: True
+  sequential_volumes: False
+  dataset_name: None
