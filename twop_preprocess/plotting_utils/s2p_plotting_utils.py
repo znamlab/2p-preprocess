@@ -10,7 +10,21 @@ from scipy.stats import kde, pearsonr
 # Declare matplotlib display settings
 import matplotlib as mpl
 
-jet = matplotlib.cm.get_cmap("jet").copy()
+mpl.rcParams.update(
+    {
+        "axes.spines.left": True,
+        "axes.spines.bottom": True,
+        "axes.spines.top": False,
+        "axes.spines.right": False,
+        "legend.frameon": False,
+        "figure.subplot.wspace": 0.01,
+        "figure.subplot.hspace": 0.01,
+        "figure.figsize": (18, 13),
+        "ytick.major.left": True,
+    }
+)
+jet = mpl.cm.get_cmap("jet").copy()
+jet.set_bad(color="k")
 
 
 def load_s2p_output(output_dir):
@@ -182,7 +196,7 @@ def plot_roi_and_neuropil(f, f_neu, spks, ops, stat, which_roi, fname, out_dir):
     img_ax.title.set_text("ROI index %s" % which_roi)
 
     # Get pixels for each neuropil
-    _, neu_ipix = masks.create_masks(ops=ops, stats=stat)
+    _, neu_ipix = masks.create_masks(stats=stat, Lx=ops["Lx"], Ly=ops["Ly"], ops=ops)
 
     # Convert neuropil pixel indices into mask
     neu_mask = np.zeros(ops["Ly"] * ops["Lx"])
