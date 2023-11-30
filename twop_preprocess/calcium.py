@@ -111,7 +111,7 @@ def run_extraction(flz_session, project, session_name, conflicts, ops):
     return suite2p_dataset
 
 
-def run_dff(suite2p_dataset, ops):
+def extract_dff(suite2p_dataset, ops):
     """
     Correct offsets, detrend, calculate dF/F and deconvolve spikes for the whole session.
 
@@ -508,7 +508,7 @@ def extract_session(
         )
     if run_dff:
         print("Calculating dF/F...")
-        run_dff(suite2p_dataset, ops)
+        extract_dff(suite2p_dataset, ops)
 
     if run_split:
         print("Splitting recordings...")
