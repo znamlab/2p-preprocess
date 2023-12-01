@@ -37,3 +37,4 @@ zstack:
   max_shift: 50
   align_planes: True
   bidi_correction: True
+  sequential_volumes: False
