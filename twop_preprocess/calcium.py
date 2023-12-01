@@ -414,7 +414,7 @@ def split_recordings(flz_session, suite2p_dataset, conflicts):
             conflicts=conflicts,
         )
         if (split_dataset.get_flexilims_entry() is not None) and conflicts == "skip":
-            print(f"Dataset {split_dataset.name} already split... skipping...")
+            print(f"Dataset {split_dataset.full_name} already split... skipping...")
             datasets_out.append(split_dataset)
             continue
         split_dataset.path_full.mkdir(parents=True, exist_ok=True)
