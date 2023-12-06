@@ -190,9 +190,15 @@ def register_zstack(tiff_paths, ops):
     # align planes to each other
     print("Aligning planes to each other", flush=True)
     for iplane in range(1, nz):
+        previous_shifts = plane_shifts[:, iplane - 1]
+        target = np.roll(
+                registered_stack[:, :, ops["ch_to_align"], iplane],
+                (int(previous_shifts[0]), int(previous_shifts[1])),
+                axis=(0, 1),
+            )    
         shifts = phase_corr(
             aligned_stack[:, :, ops["ch_to_align"], iplane - 1],
-            registered_stack[:, :, ops["ch_to_align"], iplane],
+            target,
             max_shift=ops["max_shift"],
             whiten=True,
             fft_ref=True,
@@ -201,16 +207,19 @@ def register_zstack(tiff_paths, ops):
         for ich in range(nchannels):
             aligned_stack[:, :, ich, iplane] = np.roll(
                 registered_stack[:, :, ich, iplane],
-                (int(shifts[0]), int(shifts[1])),
+                (
+                    int(shifts[0] + previous_shifts[0]), 
+                    int(shifts[1] + previous_shifts[1])
+                ),
                 axis=(0, 1),
             )
             if shifts[0] > 0:
                 aligned_stack[: int(shifts[0]), :, ich, iplane] = 0
-            else:
+            elif shifts[0] < 0:
                 aligned_stack[int(shifts[0]) :, :, ich, iplane] = 0
             if shifts[1] > 0:
                 aligned_stack[:, : int(shifts[1]), ich, iplane] = 0
-            else:
+            elif shifts[1] < 0:
                 aligned_stack[:, int(shifts[1]) :, ich, iplane] = 0
     if ops["align_planes"] and ops["sequential_volumes"]:
         return (
