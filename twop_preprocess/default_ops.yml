@@ -38,3 +38,5 @@ zstack:
   align_planes: True
   bidi_correction: True
   sequential_volumes: False
+  pick_ref: False
+  pick_ref_percentile: 50

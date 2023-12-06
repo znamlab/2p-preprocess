@@ -9,7 +9,6 @@ import scipy.fft as fft
 from tqdm import tqdm
 from twop_preprocess.utils import parse_si_metadata, load_ops
 from functools import partial
-from pathlib import Path
 
 
 print = partial(print, flush=True)
@@ -144,22 +143,29 @@ def register_zstack(tiff_paths, ops):
         # generate reference image for the current slice
         for i in range(ops["iter"]):
             if i == 0:
-                template_image = np.mean(
-                    data[ops["ch_to_align"] :: nchannels, :, :], axis=0
-                )
+                if ops["pick_ref"]:
+                    ref_frames = data[ops["ch_to_align"] :: nchannels, :, :]
+                    m = np.reshape(ref_frames, (nvolumes, -1))
+                    c = np.sum(np.corrcoef(m), axis=1)
+                    good_frames = c > np.percentile(c, ops["pick_ref_percentile"])
+                    template_image = np.mean(ref_frames[good_frames, :, :], axis=0)
+                else:
+                    template_image = np.mean(
+                        data[ops["ch_to_align"] :: nchannels, :, :], axis=0
+                    )
             else:
-                template_image = registered_stack[:, :, ops["ch_to_align"], iplane]
-                registered_stack[:, :, ich, iplane] = 0
+                template_image = registered_stack[:, :, ops["ch_to_align"], iplane].copy()
+                registered_stack[:, :, :, iplane] = 0
             template_image_fft = fft.fft2(template_image)
             # use reference image to align individual planes
             for iframe in tqdm(range(nvolumes), leave=False, desc="Frames"):
-                shifts = phase_corr(
+                shifts, cc = phase_corr(
                     template_image_fft,
                     data[nchannels * iframe + ops["ch_to_align"], :, :],
                     max_shift=ops["max_shift"],
                     whiten=False,
                     fft_ref=False,
-                )[0]
+                )
                 frame_shifts[iframe, :, iplane] = shifts
                 for ich in range(nchannels):
                     registered_stack[:, :, ich, iplane] += np.roll(

@@ -97,7 +97,7 @@ def zstack(
 ):
     """Run zstack registration"""
     from twop_preprocess.zstack import run_zstack_registration
-
+    from twop_preprocess.utils import load_ops
     ops = {
         "ch_to_align": channel,
         "max_shift": max_shift,
@@ -109,4 +109,5 @@ def zstack(
     }
     # delete None values
     ops = {k: v for k, v in ops.items() if v is not None}
+    ops = load_ops(ops, zstack=True)
     run_zstack_registration(project, session, conflicts=conflicts, ops=ops)
