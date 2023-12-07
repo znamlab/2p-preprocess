@@ -1,5 +1,7 @@
 # whether to use ASt model for neuropil correction 
 ast_neuropil: True
+# whether to estimate the offset for each recording
+correct_offset: False
 # number of GMM components for F0 estimation
 dff_ncomponents: 2
 # cellpose segmentation parameters
@@ -13,6 +15,11 @@ cellprob_threshold: 0
 threshold_scaling: 0.5
 denoise: 1
 sparse_mode: 1
+# detrending parameters
+detrend: False
+detrend_win: 60.0
+detrend_pctl: 20.0
+detrend_method: subtract
 # spike extraction parameters
 baseline_method: maximin
 sig_baseline: 10.0
@@ -30,3 +37,6 @@ zstack:
   max_shift: 50
   align_planes: True
   bidi_correction: True
+  sequential_volumes: False
+  pick_ref: False
+  pick_ref_percentile: 50

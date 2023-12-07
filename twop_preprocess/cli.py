@@ -25,6 +25,9 @@ def cli():
     "--run-suite2p", type=bool, default=True, help="Whether to suite2p extraction"
 )
 @click.option(
+    "--run-dff", type=bool, default=True, help="Whether to run dff extraction"
+)
+@click.option(
     "--tau", "-t", type=float, help="Decay time constant for spike extraction"
 )
 def calcium(
@@ -34,6 +37,7 @@ def calcium(
     run_neuropil=None,
     run_split=True,
     run_suite2p=True,
+    run_dff=True,
     tau=None,
 ):
     """Run calcium imaging preprocessing pipeline"""
@@ -51,6 +55,7 @@ def calcium(
         conflicts=conflicts,
         run_split=run_split,
         run_suite2p=run_suite2p,
+        run_dff=run_dff,
         ops=ops,
     )
 
@@ -72,6 +77,12 @@ def calcium(
     type=bool,
     help="Whether to apply bidirectional correction",
 )
+@click.option(
+    "--sequential-volumes",
+    type=bool,
+    help="Whether stack was imaged as a sequence of volumes rather than planes",
+)
+@click.option("--dataset_name", default=None, help="Flexilims name of the dataset")
 def zstack(
     project,
     session,
@@ -81,17 +92,22 @@ def zstack(
     align_planes=None,
     iter=None,
     bidi_correction=None,
+    sequential_volumes=None,
+    dataset_name=None,
 ):
     """Run zstack registration"""
     from twop_preprocess.zstack import run_zstack_registration
-
+    from twop_preprocess.utils import load_ops
     ops = {
         "ch_to_align": channel,
         "max_shift": max_shift,
         "align_planes": align_planes,
         "iter": iter,
         "bidi_correction": bidi_correction,
+        "sequential_volumes": sequential_volumes,
+        "dataset_name": dataset_name,
     }
     # delete None values
     ops = {k: v for k, v in ops.items() if v is not None}
+    ops = load_ops(ops, zstack=True)
     run_zstack_registration(project, session, conflicts=conflicts, ops=ops)
