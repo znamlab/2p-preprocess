@@ -1,4 +1,4 @@
-name: 2p-preprocess_test3
+name: 2p-preprocess
 channels:
   - pytorch
   - numba
