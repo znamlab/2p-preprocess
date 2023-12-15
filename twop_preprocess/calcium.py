@@ -13,7 +13,7 @@ from tqdm import tqdm
 from tifffile import TiffFile
 from numpy.lib.stride_tricks import sliding_window_view
 from pathlib import Path
-
+from numba import njit, prange
 
 print = partial(print, flush=True)
 
@@ -200,6 +200,14 @@ def correct_offset(datapath, offsets, first_frames, last_frames):
     return F
 
 
+@njit(parallel=True)
+def rolling_percentile(arr, window, percentile):
+    output = np.empty(len(arr) - window + 1)
+    for i in prange(len(output)):
+        output[i] = np.percentile(arr[i : i + window], percentile)
+    return output
+
+
 def detrend(F, first_frames, last_frames, ops, fs):
     """
     Detrend the concatenated fluorescence trace for each recording.
@@ -216,17 +224,22 @@ def detrend(F, first_frames, last_frames, ops, fs):
     """
     win_frames = int(ops["detrend_win"] * fs)
     for i, (start, end) in enumerate(zip(first_frames, last_frames)):
-        rolling_baseline = np.pad(
-            np.percentile(sliding_window_view(F[:, start:end], win_frames, axis=-1), ops["detrend_pctl"], axis=2), 
-            ((0,0), (win_frames//2, win_frames//2 - 1)),
-            mode='edge',
-        )
-        if i == 0:
-            first_recording_baseline = np.median(rolling_baseline, axis=1)[:, np.newaxis]
-        if ops["detrend_method"] == "subtract":
-            F[:, start:end] -= rolling_baseline - first_recording_baseline
-        else:
-            F[:, start:end] /= rolling_baseline / first_recording_baseline
+        for j in range(F.shape[0]):
+            rolling_baseline = np.pad(
+                rolling_percentile(
+                    F[j, start:end], 
+                    win_frames,
+                    ops["detrend_pctl"],
+                ),
+                (win_frames//2, win_frames//2 - 1),
+                mode='edge',
+            )
+            if i == 0:
+                first_recording_baseline = np.median(rolling_baseline)
+            if ops["detrend_method"] == "subtract":
+                F[j, start:end] -= rolling_baseline - first_recording_baseline
+            else:
+                F[j, start:end] /= rolling_baseline / first_recording_baseline
     return F
 
 
