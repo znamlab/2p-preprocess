@@ -146,7 +146,8 @@ def extract_dff(suite2p_dataset, ops):
         calculate_dFF(dpath, F, Fneu, ops)
         if ops["ast_neuropil"]:
             print("Deconvolve spikes from neuropil corrected trace...")
-            spike_deconvolution_suite2p(suite2p_dataset, iplane)    
+            spike_deconvolution_suite2p(suite2p_dataset, iplane, ops)  
+              
 
 
 def estimate_offset(datapath, n_components=3):
@@ -312,23 +313,23 @@ def calculate_dFF(dpath, F, Fneu, ops):
     np.save(dpath / "f0_ast.npy" if ops["ast_neuropil"] else dpath / "f0.npy", f0)
 
 
-def spike_deconvolution_suite2p(suite2p_dataset, iplane):
+def spike_deconvolution_suite2p(suite2p_dataset, iplane, ops={}):
     """
     Run spike deconvolution on the concatenated recordings after ASt neuropil correction.
 
     Args:
         suite2p_dataset (Dataset): dataset containing concatenated recordings
         iplane (int): which plane to run on
-        baseline (str): method for baseline estimation before spike deconvolution. Default 'maximin'.
-        sig_baseline (float): standard deviation of gaussian with which to smooth. Default 10.0.
-        win_baseline (float): window in which to compute max/min filters in seconds. Default 60.0.
+        ops (dict): dictionary of suite2p settings
 
     """
     # Load the Fast.npy file and ops.npy file
     Fast_path = suite2p_dataset.path_full / f"plane{iplane}" / "Fast.npy"
-    ops_path = suite2p_dataset.path_full / f"plane{iplane}" / "ops.npy"
+    suite2p_ops_path = suite2p_dataset.path_full / f"plane{iplane}" / "ops.npy"
     Fast = np.load(Fast_path)
-    ops = np.load(ops_path, allow_pickle=True).tolist()
+    suite2p_ops = np.load(suite2p_ops_path, allow_pickle=True).tolist()
+    suite2p_ops.update(ops)
+    ops = suite2p_ops
 
     # baseline operation
     Fast = dcnv.preprocess(
@@ -519,6 +520,7 @@ def extract_session(
         suite2p_dataset = Dataset.from_dataseries(
             suite2p_datasets.iloc[-1], flexilims_session=flz_session
         )
+
     if run_dff:
         print("Calculating dF/F...")
         extract_dff(suite2p_dataset, ops)
