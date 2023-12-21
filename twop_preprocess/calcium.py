@@ -420,17 +420,37 @@ def split_recordings(flz_session, suite2p_dataset, conflicts):
     ):
         # minimum number of frames across planes
         nframes = np.min(last_frames_rec - first_frames_rec)
-        split_dataset = Dataset.from_origin(
-            project=suite2p_dataset.project,
-            origin_type="recording",
-            origin_id=recording_id,
-            dataset_type="suite2p_traces",
-            conflicts=conflicts,
-        )
-        if (split_dataset.get_flexilims_entry() is not None) and conflicts == "skip":
+        # get the path for split dataset
+        if conflicts == "overwrite":
+            split_dataset = flz.get_datasets(
+                origin_id=recording_id,
+                dataset_type="suite2p_traces",
+                project_id=suite2p_dataset.project,
+                flexilims_session=flz_session,
+                return_dataseries=False,
+            )
+            recording_name = flz.get_entity(datatype="recording",flexilims_session=flz_session,id=recording_id).name
+            if len(split_dataset) > 0:
+                print(
+                    f"{len(split_dataset)} suite2p datasets found for recording {recording_name}"
+                )
+                print("Overwriting the last one...")
+                split_dataset = split_dataset[-1]
+            continue 
+            
+        elif (split_dataset.get_flexilims_entry() is not None) and conflicts == "skip":
             print(f"Dataset {split_dataset.full_name} already split... skipping...")
             datasets_out.append(split_dataset)
-            continue
+            continue  
+        
+        else: 
+            split_dataset = Dataset.from_origin(
+                project=suite2p_dataset.project,
+                origin_type="recording",
+                origin_id=recording_id,
+                dataset_type="suite2p_traces",
+                conflicts=conflicts,
+            )
         split_dataset.path_full.mkdir(parents=True, exist_ok=True)
         si_metadata = parse_si_metadata(raw_datapath)
         np.save(split_dataset.path_full / "si_metadata.npy", si_metadata)
