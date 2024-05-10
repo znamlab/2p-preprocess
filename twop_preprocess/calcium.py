@@ -415,6 +415,7 @@ def split_recordings(flz_session, suite2p_dataset, conflicts):
     first_frames, last_frames = get_recording_frames(suite2p_dataset)
     nplanes = int(float(suite2p_dataset.extra_attributes["nplanes"]))
 
+    split_datasets = []
     for raw_datapath, recording_id, first_frames_rec, last_frames_rec in zip(
         datapaths, recording_ids, first_frames, last_frames
     ):
@@ -428,25 +429,19 @@ def split_recordings(flz_session, suite2p_dataset, conflicts):
             flexilims_session=flz_session,
             return_dataseries=False,
         )
+        
+        recording_name = flz.get_entity(datatype="recording",flexilims_session=flz_session,id=recording_id).name
         if len(split_dataset) > 0:
-            recording_name = flz.get_entity(datatype="recording",flexilims_session=flz_session,id=recording_id).name
-            # find the most recent dataset if there are more than 1 datasets
-            if len(split_dataset) > 1:
-                print(
-                    f"WARNING:{len(split_dataset)} suite2p datasets found for recording {recording_name}"
-                )
-                split_dataset = split_dataset[
-                    np.argmax([datetime.datetime.strptime(i.created,'%Y-%m-%d %H:%M:%S')
-                               for i in split_dataset])]
-            else:
-                split_dataset = split_dataset[0]
-                
+            print(
+                f"WARNING:{len(split_dataset)} suite2p datasets found for recording {recording_name}"
+            )
+            split_dataset = split_dataset[
+                np.argmax([datetime.datetime.strptime(i.created,'%Y-%m-%d %H:%M:%S')
+                            for i in split_dataset])]
+            print(split_dataset)
             if conflicts == "overwrite":
-                if len(split_dataset) > 1:
-                    print(f"Overwriting the last dataset {split_dataset.full_name}...")
-                continue 
-                
-            elif (split_dataset.get_flexilims_entry() is not None) and conflicts == "skip":
+                print(f"Overwriting the last dataset {split_dataset.full_name}...")
+            elif (split_dataset.get_flexilims_entry() is not None) and (conflicts == "skip"):
                 print(f"Dataset {split_dataset.full_name} already split... skipping...")
                 datasets_out.append(split_dataset)
                 continue  
@@ -459,7 +454,7 @@ def split_recordings(flz_session, suite2p_dataset, conflicts):
                     dataset_type="suite2p_traces",
                     conflicts=conflicts,
                 )
-        else: 
+        else:
             split_dataset = Dataset.from_origin(
                 project=suite2p_dataset.project,
                 origin_type="recording",
@@ -467,6 +462,7 @@ def split_recordings(flz_session, suite2p_dataset, conflicts):
                 dataset_type="suite2p_traces",
                 conflicts=conflicts,
             )
+            
         split_dataset.path_full.mkdir(parents=True, exist_ok=True)
         si_metadata = parse_si_metadata(raw_datapath)
         np.save(split_dataset.path_full / "si_metadata.npy", si_metadata)
@@ -494,10 +490,12 @@ def split_recordings(flz_session, suite2p_dataset, conflicts):
             np.save(split_path / "F.npy", F[:, start:end])
             np.save(split_path / "Fneu.npy", Fneu[:, start:end])
             np.save(split_path / "spks.npy", spks[:, start:end])
+            print("saved")
             if suite2p_dataset.extra_attributes["ast_neuropil"]:
                 np.save(split_path / "Fast.npy", Fast[:, start:end])
                 np.save(split_path / "dff_ast.npy", dff_ast[:, start:end])
                 np.save(split_path / "spks_ast.npy", spks_ast[:, start:end])
+                print("saved")
         split_dataset.extra_attributes = suite2p_dataset.extra_attributes.copy()
         split_dataset.extra_attributes["fs"] = si_metadata[
             "SI.hRoiManager.scanVolumeRate"
