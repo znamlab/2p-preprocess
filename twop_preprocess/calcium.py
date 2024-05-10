@@ -536,14 +536,13 @@ def extract_session(
             flz_session, project, session_name, conflicts, ops
         )
     else:
-        session_children = flz.get_children(
-            parent_name=session_name,
-            children_datatype="dataset",
-            flexilims_session=flz_session,
-        )
-        suite2p_datasets = session_children[
-            session_children["dataset_type"] == "suite2p_rois"
-        ]
+        suite2p_datasets = flz.get_datasets(
+                    origin_name=session_name,
+                    dataset_type="suite2p_rois",
+                    project_id=project,
+                    flexilims_session=flz_session,
+                    return_dataseries=False,
+                )
         if len(suite2p_datasets) == 0:
             raise ValueError(f"No suite2p dataset found for session {session_name}")
         elif len(suite2p_datasets) > 1:
@@ -551,9 +550,11 @@ def extract_session(
                 f"{len(suite2p_datasets)} suite2p datasets found for session {session_name}"
             )
             print("Splitting the last one...")
-        suite2p_dataset = Dataset.from_dataseries(
-            suite2p_datasets.iloc[-1], flexilims_session=flz_session
-        )
+            suite2p_dataset = suite2p_datasets[
+                np.argmax([datetime.datetime.strptime(i.created,'%Y-%m-%d %H:%M:%S')
+                            for i in suite2p_datasets])]
+        else:
+            suite2p_dataset = suite2p_datasets[0]
 
     if run_dff:
         print("Calculating dF/F...")
