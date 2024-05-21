@@ -266,7 +266,8 @@ def run_zstack_registration(project, session_name, conflicts="append", ops={}):
     )
 
     if (
-        ops["dataset_name"] is not None
+        "dataset_name" in ops.keys()
+        and ops["dataset_name"] is not None
         and ops["dataset_name"] in zstacks["name"].values
     ):
         zstacks = zstacks[zstacks.name == ops["dataset_name"]]
