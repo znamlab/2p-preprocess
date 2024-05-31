@@ -1,9 +1,9 @@
 # whether to use ASt model for neuropil correction 
 ast_neuropil: True
 # whether to estimate the offset for each recording
-correct_offset: False
+correct_offset: True
 # number of GMM components for F0 estimation
-dff_ncomponents: 2
+dff_ncomponents: 3
 # cellpose segmentation parameters
 roidetect: 1
 anatomical_only: 3
@@ -16,7 +16,7 @@ threshold_scaling: 0.5
 denoise: 1
 sparse_mode: 1
 # detrending parameters
-detrend: False
+detrend: True
 detrend_win: 60.0
 detrend_pctl: 20.0
 detrend_method: subtract
