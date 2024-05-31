@@ -415,22 +415,54 @@ def split_recordings(flz_session, suite2p_dataset, conflicts):
     first_frames, last_frames = get_recording_frames(suite2p_dataset)
     nplanes = int(float(suite2p_dataset.extra_attributes["nplanes"]))
 
+    split_datasets = []
     for raw_datapath, recording_id, first_frames_rec, last_frames_rec in zip(
         datapaths, recording_ids, first_frames, last_frames
     ):
         # minimum number of frames across planes
         nframes = np.min(last_frames_rec - first_frames_rec)
-        split_dataset = Dataset.from_origin(
-            project=suite2p_dataset.project,
-            origin_type="recording",
+        # get the path for split dataset
+        split_dataset = flz.get_datasets(
             origin_id=recording_id,
             dataset_type="suite2p_traces",
-            conflicts=conflicts,
+            project_id=suite2p_dataset.project,
+            flexilims_session=flz_session,
+            return_dataseries=False,
         )
-        if (split_dataset.get_flexilims_entry() is not None) and conflicts == "skip":
-            print(f"Dataset {split_dataset.full_name} already split... skipping...")
-            datasets_out.append(split_dataset)
-            continue
+        
+        recording_name = flz.get_entity(datatype="recording",flexilims_session=flz_session,id=recording_id).name
+        if len(split_dataset) > 0:
+            print(
+                f"WARNING:{len(split_dataset)} suite2p datasets found for recording {recording_name}"
+            )
+            split_dataset = split_dataset[
+                np.argmax([datetime.datetime.strptime(i.created,'%Y-%m-%d %H:%M:%S')
+                            for i in split_dataset])]
+            print(split_dataset)
+            if conflicts == "overwrite":
+                print(f"Overwriting the last dataset {split_dataset.full_name}...")
+            elif (split_dataset.get_flexilims_entry() is not None) and (conflicts == "skip"):
+                print(f"Dataset {split_dataset.full_name} already split... skipping...")
+                datasets_out.append(split_dataset)
+                continue  
+            
+            else: 
+                split_dataset = Dataset.from_origin(
+                    project=suite2p_dataset.project,
+                    origin_type="recording",
+                    origin_id=recording_id,
+                    dataset_type="suite2p_traces",
+                    conflicts=conflicts,
+                )
+        else:
+            split_dataset = Dataset.from_origin(
+                project=suite2p_dataset.project,
+                origin_type="recording",
+                origin_id=recording_id,
+                dataset_type="suite2p_traces",
+                conflicts=conflicts,
+            )
+            
         split_dataset.path_full.mkdir(parents=True, exist_ok=True)
         si_metadata = parse_si_metadata(raw_datapath)
         np.save(split_dataset.path_full / "si_metadata.npy", si_metadata)
@@ -502,14 +534,13 @@ def extract_session(
             flz_session, project, session_name, conflicts, ops
         )
     else:
-        session_children = flz.get_children(
-            parent_name=session_name,
-            children_datatype="dataset",
-            flexilims_session=flz_session,
-        )
-        suite2p_datasets = session_children[
-            session_children["dataset_type"] == "suite2p_rois"
-        ]
+        suite2p_datasets = flz.get_datasets(
+                    origin_name=session_name,
+                    dataset_type="suite2p_rois",
+                    project_id=project,
+                    flexilims_session=flz_session,
+                    return_dataseries=False,
+                )
         if len(suite2p_datasets) == 0:
             raise ValueError(f"No suite2p dataset found for session {session_name}")
         elif len(suite2p_datasets) > 1:
@@ -517,9 +548,11 @@ def extract_session(
                 f"{len(suite2p_datasets)} suite2p datasets found for session {session_name}"
             )
             print("Splitting the last one...")
-        suite2p_dataset = Dataset.from_dataseries(
-            suite2p_datasets.iloc[-1], flexilims_session=flz_session
-        )
+            suite2p_dataset = suite2p_datasets[
+                np.argmax([datetime.datetime.strptime(i.created,'%Y-%m-%d %H:%M:%S')
+                            for i in suite2p_datasets])]
+        else:
+            suite2p_dataset = suite2p_datasets[0]
 
     if run_dff:
         print("Calculating dF/F...")
