@@ -490,12 +490,10 @@ def split_recordings(flz_session, suite2p_dataset, conflicts):
             np.save(split_path / "F.npy", F[:, start:end])
             np.save(split_path / "Fneu.npy", Fneu[:, start:end])
             np.save(split_path / "spks.npy", spks[:, start:end])
-            print("saved")
             if suite2p_dataset.extra_attributes["ast_neuropil"]:
                 np.save(split_path / "Fast.npy", Fast[:, start:end])
                 np.save(split_path / "dff_ast.npy", dff_ast[:, start:end])
                 np.save(split_path / "spks_ast.npy", spks_ast[:, start:end])
-                print("saved")
         split_dataset.extra_attributes = suite2p_dataset.extra_attributes.copy()
         split_dataset.extra_attributes["fs"] = si_metadata[
             "SI.hRoiManager.scanVolumeRate"
