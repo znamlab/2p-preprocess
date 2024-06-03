@@ -228,7 +228,7 @@ def detrend(F, first_frames, last_frames, ops, fs):
         rec_rolling_baseline  = np.zeros_like(F[:, start:end])
         for j in range(F.shape[0]):
             rolling_baseline = np.pad(
-                twop.rolling_percentile(
+                rolling_percentile(
                     F[j, start:end], 
                     win_frames,
                     ops["detrend_pctl"],
