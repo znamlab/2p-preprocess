@@ -225,6 +225,7 @@ def detrend(F, first_frames, last_frames, ops, fs):
     """
     win_frames = int(ops["detrend_win"] * fs)
     for i, (start, end) in enumerate(zip(first_frames, last_frames)):
+        rec_rolling_baseline  = np.zeros_like(F[:, start:end])
         for j in range(F.shape[0]):
             rolling_baseline = np.pad(
                 rolling_percentile(
@@ -235,12 +236,16 @@ def detrend(F, first_frames, last_frames, ops, fs):
                 (win_frames//2, win_frames//2 - 1),
                 mode='edge',
             )
-            if i == 0:
-                first_recording_baseline = np.median(rolling_baseline)
-            if ops["detrend_method"] == "subtract":
-                F[j, start:end] -= rolling_baseline - first_recording_baseline
-            else:
-                F[j, start:end] /= rolling_baseline / first_recording_baseline
+
+            rec_rolling_baseline[j, :] = rolling_baseline
+
+        if i == 0:
+            first_recording_baseline = np.median(rec_rolling_baseline, axis = 1)
+            first_recording_baseline = first_recording_baseline.reshape(-1, 1)  
+        if ops["detrend_method"] == "subtract":
+            F[:, start:end] -= rec_rolling_baseline - first_recording_baseline
+        else:
+            F[:, start:end] /= rec_rolling_baseline / first_recording_baseline
     return F
 
 
