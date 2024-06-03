@@ -26,10 +26,14 @@ and for the repo itself. Environments are created in each users home directory.
 `run_suite2p.sh` and `run_suite2p_gpu.sh` contain example scripts that first runs the standard run_suite2p pipeline and then applies neuropil correction using the AST model.
 If running neuropil correction using the AST model, using a GPU node is recommended.
 
-To start the slurm job, navigate to the `2p-preprocess` directory and run the
-`sbatch` script, passing the session details as environment variables, e.g.:
+To start the slurm job, navigate to the `2p-preprocess` directory.
+Put the steps you want to run to y, and the steps you don’t want to run to n, e.g.:
 ```
-sbatch --export=PROJECT=test,SESSION=PZAJ2.1c_S20210513 run_suite2p_gpu.sh
+--run-suite2p n --run-neuropil y --run-dff y
+```
+and run the`sbatch` script, passing the session details as environment variables, e.g.:
+```
+sbatch --export=PROJECT=test,SESSION=PZAJ2.1c_S20210513,CONFLICTS=skip,TAU=0.7 run_suite2p_gpu.sh
 ```
 
 # ASt model
