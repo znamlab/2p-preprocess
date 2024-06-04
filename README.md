@@ -12,19 +12,13 @@ cd 2p-preprocess
 conda env create -f environment.yml
 
 conda activate 2p-preprocess
-conda install pip
 pip install -e .
 pip install --upgrade "jax[cuda11_local]" -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
 pip install optax
 conda deactivate
 ```
 
-Current fix for package version conflict:
-- downgrade suite2p to ver 0.12.1 `pip install suite2p==0.12.1`
-- downgrade numpy to ver 1.21.1  `pip install numpy==1.21.1`
-- install jax-cuda11-cudnn8.2 `pip install jaxlib==0.4.7+cuda11.cudnn82 -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html`
-- downgrade jax to ver 0.4.7 or 0.4.8 `pip install jax==0.4.7`
-- uninstall nvidia-cublas `pip uninstall nvidia-cublas-cu11`
+Until we sort out whether we can use the newest jax in the cluster (whoever does it gets a coffee) as that's what limits us from updating the versions, there is an environment with the explicit working versions for all the dependencies in June 2024 as `environment.yaml`. Use if there are version conflicts.  
 
 This should install the dependencies and create conda environments for suite2p
 and for the repo itself. Environments are created in each users home directory.
@@ -32,10 +26,14 @@ and for the repo itself. Environments are created in each users home directory.
 `run_suite2p.sh` and `run_suite2p_gpu.sh` contain example scripts that first runs the standard run_suite2p pipeline and then applies neuropil correction using the AST model.
 If running neuropil correction using the AST model, using a GPU node is recommended.
 
-To start the slurm job, navigate to the `2p-preprocess` directory and run the
-`sbatch` script, passing the session details as environment variables, e.g.:
+To start the slurm job, navigate to the `2p-preprocess` directory.
+Put the steps you want to run to y, and the steps you don’t want to run to n, e.g.:
 ```
-sbatch --export=PROJECT=test,SESSION=PZAJ2.1c_S20210513 run_suite2p_gpu.sh
+--run-suite2p n --run-neuropil y --run-dff y
+```
+and run the`sbatch` script, passing the session details as environment variables, e.g.:
+```
+sbatch --export=PROJECT=test,SESSION=PZAJ2.1c_S20210513,CONFLICTS=skip,TAU=0.7 run_suite2p_gpu.sh
 ```
 
 # ASt model

@@ -13,7 +13,7 @@ from tqdm import tqdm
 from tifffile import TiffFile
 from numpy.lib.stride_tricks import sliding_window_view
 from pathlib import Path
-
+from numba import njit, prange
 
 print = partial(print, flush=True)
 
@@ -146,7 +146,8 @@ def extract_dff(suite2p_dataset, ops):
         calculate_dFF(dpath, F, Fneu, ops)
         if ops["ast_neuropil"]:
             print("Deconvolve spikes from neuropil corrected trace...")
-            spike_deconvolution_suite2p(suite2p_dataset, iplane)    
+            spike_deconvolution_suite2p(suite2p_dataset, iplane, ops)  
+              
 
 
 def estimate_offset(datapath, n_components=3):
@@ -200,6 +201,14 @@ def correct_offset(datapath, offsets, first_frames, last_frames):
     return F
 
 
+@njit(parallel=True)
+def rolling_percentile(arr, window, percentile):
+    output = np.empty(len(arr) - window + 1)
+    for i in prange(len(output)):
+        output[i] = np.percentile(arr[i : i + window], percentile)
+    return output
+
+
 def detrend(F, first_frames, last_frames, ops, fs):
     """
     Detrend the concatenated fluorescence trace for each recording.
@@ -216,17 +225,27 @@ def detrend(F, first_frames, last_frames, ops, fs):
     """
     win_frames = int(ops["detrend_win"] * fs)
     for i, (start, end) in enumerate(zip(first_frames, last_frames)):
-        rolling_baseline = np.pad(
-            np.percentile(sliding_window_view(F[:, start:end], win_frames, axis=-1), ops["detrend_pctl"], axis=2), 
-            ((0,0), (win_frames//2, win_frames//2 - 1)),
-            mode='edge',
-        )
+        rec_rolling_baseline  = np.zeros_like(F[:, start:end])
+        for j in range(F.shape[0]):
+            rolling_baseline = np.pad(
+                rolling_percentile(
+                    F[j, start:end], 
+                    win_frames,
+                    ops["detrend_pctl"],
+                ),
+                (win_frames//2, win_frames//2 - 1),
+                mode='edge',
+            )
+
+            rec_rolling_baseline[j, :] = rolling_baseline
+
         if i == 0:
-            first_recording_baseline = np.median(rolling_baseline, axis=1)[:, np.newaxis]
+            first_recording_baseline = np.median(rec_rolling_baseline, axis = 1)
+            first_recording_baseline = first_recording_baseline.reshape(-1, 1)  
         if ops["detrend_method"] == "subtract":
-            F[:, start:end] -= rolling_baseline - first_recording_baseline
+            F[:, start:end] -= rec_rolling_baseline - first_recording_baseline
         else:
-            F[:, start:end] /= rolling_baseline / first_recording_baseline
+            F[:, start:end] /= rec_rolling_baseline / first_recording_baseline
     return F
 
 
@@ -299,23 +318,23 @@ def calculate_dFF(dpath, F, Fneu, ops):
     np.save(dpath / "f0_ast.npy" if ops["ast_neuropil"] else dpath / "f0.npy", f0)
 
 
-def spike_deconvolution_suite2p(suite2p_dataset, iplane):
+def spike_deconvolution_suite2p(suite2p_dataset, iplane, ops={}):
     """
     Run spike deconvolution on the concatenated recordings after ASt neuropil correction.
 
     Args:
         suite2p_dataset (Dataset): dataset containing concatenated recordings
         iplane (int): which plane to run on
-        baseline (str): method for baseline estimation before spike deconvolution. Default 'maximin'.
-        sig_baseline (float): standard deviation of gaussian with which to smooth. Default 10.0.
-        win_baseline (float): window in which to compute max/min filters in seconds. Default 60.0.
+        ops (dict): dictionary of suite2p settings
 
     """
     # Load the Fast.npy file and ops.npy file
     Fast_path = suite2p_dataset.path_full / f"plane{iplane}" / "Fast.npy"
-    ops_path = suite2p_dataset.path_full / f"plane{iplane}" / "ops.npy"
+    suite2p_ops_path = suite2p_dataset.path_full / f"plane{iplane}" / "ops.npy"
     Fast = np.load(Fast_path)
-    ops = np.load(ops_path, allow_pickle=True).tolist()
+    suite2p_ops = np.load(suite2p_ops_path, allow_pickle=True).tolist()
+    suite2p_ops.update(ops)
+    ops = suite2p_ops
 
     # baseline operation
     Fast = dcnv.preprocess(
@@ -401,22 +420,54 @@ def split_recordings(flz_session, suite2p_dataset, conflicts):
     first_frames, last_frames = get_recording_frames(suite2p_dataset)
     nplanes = int(float(suite2p_dataset.extra_attributes["nplanes"]))
 
+    split_datasets = []
     for raw_datapath, recording_id, first_frames_rec, last_frames_rec in zip(
         datapaths, recording_ids, first_frames, last_frames
     ):
         # minimum number of frames across planes
         nframes = np.min(last_frames_rec - first_frames_rec)
-        split_dataset = Dataset.from_origin(
-            project=suite2p_dataset.project,
-            origin_type="recording",
+        # get the path for split dataset
+        split_dataset = flz.get_datasets(
             origin_id=recording_id,
             dataset_type="suite2p_traces",
-            conflicts=conflicts,
+            project_id=suite2p_dataset.project,
+            flexilims_session=flz_session,
+            return_dataseries=False,
         )
-        if (split_dataset.get_flexilims_entry() is not None) and conflicts == "skip":
-            print(f"Dataset {split_dataset.full_name} already split... skipping...")
-            datasets_out.append(split_dataset)
-            continue
+        
+        recording_name = flz.get_entity(datatype="recording",flexilims_session=flz_session,id=recording_id).name
+        if len(split_dataset) > 0:
+            print(
+                f"WARNING:{len(split_dataset)} suite2p datasets found for recording {recording_name}"
+            )
+            split_dataset = split_dataset[
+                np.argmax([datetime.datetime.strptime(i.created,'%Y-%m-%d %H:%M:%S')
+                            for i in split_dataset])]
+            print(split_dataset)
+            if conflicts == "overwrite":
+                print(f"Overwriting the last dataset {split_dataset.full_name}...")
+            elif (split_dataset.get_flexilims_entry() is not None) and (conflicts == "skip"):
+                print(f"Dataset {split_dataset.full_name} already split... skipping...")
+                datasets_out.append(split_dataset)
+                continue  
+            
+            else: 
+                split_dataset = Dataset.from_origin(
+                    project=suite2p_dataset.project,
+                    origin_type="recording",
+                    origin_id=recording_id,
+                    dataset_type="suite2p_traces",
+                    conflicts=conflicts,
+                )
+        else:
+            split_dataset = Dataset.from_origin(
+                project=suite2p_dataset.project,
+                origin_type="recording",
+                origin_id=recording_id,
+                dataset_type="suite2p_traces",
+                conflicts=conflicts,
+            )
+            
         split_dataset.path_full.mkdir(parents=True, exist_ok=True)
         si_metadata = parse_si_metadata(raw_datapath)
         np.save(split_dataset.path_full / "si_metadata.npy", si_metadata)
@@ -488,14 +539,13 @@ def extract_session(
             flz_session, project, session_name, conflicts, ops
         )
     else:
-        session_children = flz.get_children(
-            parent_name=session_name,
-            children_datatype="dataset",
-            flexilims_session=flz_session,
-        )
-        suite2p_datasets = session_children[
-            session_children["dataset_type"] == "suite2p_rois"
-        ]
+        suite2p_datasets = flz.get_datasets(
+                    origin_name=session_name,
+                    dataset_type="suite2p_rois",
+                    project_id=project,
+                    flexilims_session=flz_session,
+                    return_dataseries=False,
+                )
         if len(suite2p_datasets) == 0:
             raise ValueError(f"No suite2p dataset found for session {session_name}")
         elif len(suite2p_datasets) > 1:
@@ -503,9 +553,12 @@ def extract_session(
                 f"{len(suite2p_datasets)} suite2p datasets found for session {session_name}"
             )
             print("Splitting the last one...")
-        suite2p_dataset = Dataset.from_dataseries(
-            suite2p_datasets.iloc[-1], flexilims_session=flz_session
-        )
+            suite2p_dataset = suite2p_datasets[
+                np.argmax([datetime.datetime.strptime(i.created,'%Y-%m-%d %H:%M:%S')
+                            for i in suite2p_datasets])]
+        else:
+            suite2p_dataset = suite2p_datasets[0]
+
     if run_dff:
         print("Calculating dF/F...")
         extract_dff(suite2p_dataset, ops)
