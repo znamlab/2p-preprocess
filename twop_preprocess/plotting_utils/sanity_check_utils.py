@@ -15,11 +15,11 @@ def plot_trace(F, rois, plot_baseline=False, baseline=0, ncols=2, icol=0, lineco
                 plt.plot(baseline[roi, :], color="r")
                 
                 
-def plot_raw_trace(F, random_rois, Fneu=[]):
+def plot_raw_trace(F, random_rois, Fneu=[], titles=["F", "Fneu"]):
     plt.figure(figsize=(10, 3*len(random_rois)))
-    plot_trace(F, random_rois, ncols=2, icol=0, title="F")
+    plot_trace(F, random_rois, ncols=2, icol=0, title=titles[0])
     if len(Fneu)>0:
-        plot_trace(Fneu, random_rois, ncols=2, icol=1, title="Fneu")
+        plot_trace(Fneu, random_rois, ncols=2, icol=1, title=titles[1])
     plt.tight_layout()
     
     
@@ -39,5 +39,5 @@ def plot_dff(Fast, dff, F0, random_rois):
     for i, roi in enumerate(random_rois):
         plt.subplot2grid((len(random_rois), 3), (i, 2))
         plt.hist(dff[i,:],bins=50)
-        plt.title(f"mode {np.round(stats.mode(dff[i,:])[0],2)}")
+        plt.title(f"median {np.round(np.median(dff[i,:]),2)}, mode {np.round(stats.mode(dff[i,:])[0][0],2)}")
     plt.tight_layout()
