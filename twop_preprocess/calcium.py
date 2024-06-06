@@ -141,6 +141,7 @@ def extract_dff(suite2p_dataset, ops):
         Fneu = np.load(dpath / "Fneu.npy")
         if ops["sanity_plots"]:
             os.makedirs(dpath / "sanity_plots", exist_ok=True)
+            np.random.seed(0)
             random_rois = np.random.choice(F.shape[0], ops["plot_nrois"], replace=False)
             sanity.plot_raw_trace(F, random_rois, Fneu)
             plt.savefig(dpath / "sanity_plots/raw_trace.png")
