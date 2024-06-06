@@ -171,7 +171,7 @@ def extract_dff(suite2p_dataset, ops):
             correct_neuropil(dpath, F, Fneu)
             Fast = np.load(dpath / "Fast.npy")
             if ops["sanity_plots"]:
-                sanity.plot_raw_trace(F, Fast, random_rois, titles=["F","Fast"])
+                sanity.plot_raw_trace(F, random_rois, Fast, titles=["F","Fast"])
                 plt.savefig(dpath / "sanity_plots/neuropil_corrected.png")
                 
         print("Calculating dF/F...")
@@ -183,7 +183,7 @@ def extract_dff(suite2p_dataset, ops):
         if ops["sanity_plots"]:
             F0 = np.load(dpath / "f0_ast.npy" if ops["ast_neuropil"] else dpath / "f0.npy")
             sanity.plot_dff(Fast, dff, F0, random_rois)
-            plt.savefig(dpath / "sanity_plots/dffs.png")
+            plt.savefig(dpath / f"sanity_plots/dffs_n{ops["dff_ncomponents"]}.png")
             
         if ops["ast_neuropil"]:
             print("Deconvolve spikes from neuropil corrected trace...")
@@ -354,6 +354,7 @@ def calculate_dFF(dpath, F, Fneu, ops):
     if not ops["ast_neuropil"]:
         F = F - ops["neucoeff"] * Fneu
     # Calculate dFFs and save to the suite2p folder
+    print(f"n components for dFF calculation: {ops['dff_ncomponents']}")
     dff, f0 = dFF(F, n_components=ops["dff_ncomponents"])
     np.save(
         dpath / "dff_ast.npy" if ops["ast_neuropil"] else dpath / "dff.npy", dff
