@@ -171,11 +171,14 @@ def extract_dff(suite2p_dataset, ops):
             correct_neuropil(dpath, F, Fneu)
             Fast = np.load(dpath / "Fast.npy")
             if ops["sanity_plots"]:
-                sanity.plot_raw_trace(Fast, random_rois)
+                sanity.plot_raw_trace(F, Fast, random_rois, titles=["F","Fast"])
                 plt.savefig(dpath / "sanity_plots/neuropil_corrected.png")
                 
         print("Calculating dF/F...")
-        calculate_dFF(dpath, F, Fneu, ops)
+        if ops["ast_neuropil"]:
+            calculate_dFF(dpath, Fast, Fneu, ops)
+        else:
+            calculate_dFF(dpath, F, Fneu, ops)
         dff = np.load(dpath / "dff_ast.npy" if ops["ast_neuropil"] else dpath / "dff.npy")
         if ops["sanity_plots"]:
             F0 = np.load(dpath / "f0_ast.npy" if ops["ast_neuropil"] else dpath / "f0.npy")
