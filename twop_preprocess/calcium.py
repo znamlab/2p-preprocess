@@ -42,13 +42,37 @@ def run_extraction(flz_session, project, session_name, conflicts, ops):
     )
     if exp_session is None:
         raise ValueError(f"Session {session_name} not found on flexilims")
-    suite2p_dataset = Dataset.from_origin(
-        project=project,
-        origin_type="session",
-        origin_id=exp_session["id"],
-        dataset_type="suite2p_rois",
-        conflicts=conflicts,
-    )
+    
+    # fetch an existing suite2p dataset or create a new suite2p dataset
+    if conflicts == "overwrite":
+        suite2p_datasets = flz.get_datasets(
+                origin_name=session_name,
+                dataset_type="suite2p_rois",
+                project_id=project,
+                flexilims_session=flz_session,
+                return_dataseries=False,
+            )
+        if len(suite2p_datasets) == 0:
+            raise ValueError(f"No suite2p dataset found for session {session_name}. Cannot overwrite.")
+        elif len(suite2p_datasets) > 1:
+            print(
+                f"{len(suite2p_datasets)} suite2p datasets found for session {session_name}"
+            )
+            print("Overwriting the last one...")
+            suite2p_dataset = suite2p_datasets[
+                np.argmax([datetime.datetime.strptime(i.created,'%Y-%m-%d %H:%M:%S')
+                            for i in suite2p_datasets])]
+        else:
+            suite2p_dataset = suite2p_datasets[0]
+            
+    else: 
+        suite2p_dataset = Dataset.from_origin(
+            project=project,
+            origin_type="session",
+            origin_id=exp_session["id"],
+            dataset_type="suite2p_rois",
+            conflicts=conflicts,
+        )
     # if already on flexilims and not re-processing, then do nothing
     if (suite2p_dataset.get_flexilims_entry() is not None) and conflicts == "skip":
         print(
@@ -57,6 +81,7 @@ def run_extraction(flz_session, project, session_name, conflicts, ops):
             )
         )
         return suite2p_dataset
+    
     # fetch SI datasets
     si_datasets = flz.get_datasets_recursively(
         origin_id=exp_session["id"],
