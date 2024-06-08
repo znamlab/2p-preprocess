@@ -184,7 +184,7 @@ def extract_dff(suite2p_dataset, ops):
         if ops["sanity_plots"]:
             F0 = np.load(dpath / "f0_ast.npy" if ops["ast_neuropil"] else dpath / "f0.npy")
             sanity.plot_dff(Fast, dff, F0, random_rois)
-            plt.savefig(dpath / f"sanity_plots/dffs_n{ops["dff_ncomponents"]}.png")
+            plt.savefig(dpath / f'sanity_plots/dffs_n{ops["dff_ncomponents"]}.png')
             
         if ops["ast_neuropil"]:
             print("Deconvolve spikes from neuropil corrected trace...")
