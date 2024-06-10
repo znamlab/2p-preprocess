@@ -33,11 +33,13 @@ def plot_detrended_trace(F_original, F_trend, F_detrended, Fneu_original, Fneu_t
     
     
 def plot_dff(Fast, dff, F0, random_rois):
-    plt.figure(figsize=(15, 3*len(random_rois)))
-    plot_trace(Fast, random_rois, plot_baseline=True, baseline=F0, ncols=3, icol=0, title="Fast")
-    plot_trace(dff, random_rois, ncols=3, icol=1, title="dff")
+    plt.figure(figsize=(20, 3*len(random_rois)))
+    plot_trace(Fast, random_rois, plot_baseline=True, baseline=F0, ncols=4, icol=0, title="Fast")
+    plot_trace(dff, random_rois, ncols=4, icol=1, title="dff")
+    plot_trace(dff[:,5000:6000],random_rois, ncols=4, icol=2, title="dff")
+    rounded_dff = np.round(dff,2)
     for i, roi in enumerate(random_rois):
-        plt.subplot2grid((len(random_rois), 3), (i, 2))
+        plt.subplot2grid((len(random_rois), 4), (i, 3))
         plt.hist(dff[i,:],bins=50)
-        plt.title(f"median {np.round(np.median(dff[i,:]),2)}, mode {np.round(stats.mode(dff[i,:])[0][0],2)}")
+        plt.title(f"median {np.round(np.median(rounded_dff[i,:]),2)}, mode {np.round(stats.mode(rounded_dff[i,:])[0][0],2)}")
     plt.tight_layout()
