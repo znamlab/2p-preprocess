@@ -4,24 +4,22 @@ channels:
   - numba
   - conda-forge
 dependencies:
-  - python>=3.8,<3.9
+  - python=3.8
   - pip
   - mkl
   - numpy
   - numba
   - matplotlib
   - scikit-learn
-  - h5py=2.10.0
+  - h5py
   - pip:
-    - scipy>=1.4.0
+    - scipy
     - pyqt5
-    - pyqt5.sip
-    - pyqt5-tools
-    - torch>=1.7.1
+    - torch=2.0.1
     - natsort
-    - rastermap>0.1.0
+    - rastermap
     - tifffile
-    - scanimage-tiff-reader>=1.4.1
+    - scanimage-tiff-reader
     - pyqtgraph
     - importlib-metadata
     - paramiko

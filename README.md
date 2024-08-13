@@ -12,30 +12,25 @@ cd 2p-preprocess
 conda env create -f environment.yml
 
 conda activate 2p-preprocess
-conda install pip
 pip install -e .
-pip install --upgrade "jax[cuda11_local]" -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
-pip install optax
+pip install -U "jax[cuda12_pip]" -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
+pip install optax=0.1.2
 conda deactivate
 ```
 
-Current fix for package version conflict:
-- downgrade suite2p to ver 0.12.1 `pip install suite2p==0.12.1`
-- downgrade numpy to ver 1.21.1  `pip install numpy==1.21.1`
-- install jax-cuda11-cudnn8.2 `pip install jaxlib==0.4.7+cuda11.cudnn82 -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html`
-- downgrade jax to ver 0.4.7 or 0.4.8 `pip install jax==0.4.7`
-- uninstall nvidia-cublas `pip uninstall nvidia-cublas-cu11`
-
-This should install the dependencies and create conda environments for suite2p
-and for the repo itself. Environments are created in each users home directory.
+This should install the dependencies and create conda environments for `suite2p` and for the repo itself. Environments are created in each users home directory. Note that the version of `torch` generated issues and the version of `optax` conflicted with `python=3.8`. The python version is enforced because `suite2p` does not want to bring their dependencies forward. 
 
 `run_suite2p.sh` and `run_suite2p_gpu.sh` contain example scripts that first runs the standard run_suite2p pipeline and then applies neuropil correction using the AST model.
 If running neuropil correction using the AST model, using a GPU node is recommended.
 
-To start the slurm job, navigate to the `2p-preprocess` directory and run the
-`sbatch` script, passing the session details as environment variables, e.g.:
+To start the slurm job, navigate to the `2p-preprocess` directory.
+Put the steps you want to run to y, and the steps you don’t want to run to n, e.g.:
 ```
-sbatch --export=PROJECT=test,SESSION=PZAJ2.1c_S20210513 run_suite2p_gpu.sh
+--run-suite2p n --run-neuropil y --run-dff y
+```
+and run the`sbatch` script, passing the session details as environment variables, e.g.:
+```
+sbatch --export=PROJECT=depth_mismatch_seq,SESSION=BRAC9057.4j_S20240517,CONFLICTS=overwrite,TAU=0.7 run_suite2p_gpu.sh
 ```
 
 # ASt model
