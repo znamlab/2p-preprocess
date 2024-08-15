@@ -4,6 +4,7 @@ import flexiznam as flz
 from flexiznam.schema import Dataset
 import itertools
 from tifffile import TiffFile, TiffWriter
+from itertools import chain
 from more_itertools import chunked, distribute
 import scipy.fft as fft
 from tqdm import tqdm
@@ -105,12 +106,24 @@ def register_zstack(tiff_paths, ops):
     # chain the the pages from the stack
     stack_pages = itertools.chain(*[stack.pages for stack in stack_list])
     nframes = int(si_dict["SI.hStackManager.framesPerSlice"])
-
+            
     chunk_size = nframes * nchannels
 
     nx = int(si_dict["SI.hRoiManager.pixelsPerLine"])
     ny = int(si_dict["SI.hRoiManager.linesPerFrame"])
     nz = int(si_dict["SI.hStackManager.actualNumSlices"])
+
+    # if the zstack is split into multiple acquisitions to be concatenated, then get the total number of z planes
+    if ops["zstack_concat"]:
+        for dataset in ops["dataset_name"]:
+            # get the ScanImage acquisition string for each dataset
+            si_acquisition = "_" + dataset.split("_")[-1] + "_"
+            if si_acquisition in str(tiff_paths[0]):
+                pass
+            else:
+                tiff_paths_subset = [tiff_path for tiff_path in tiff_paths if si_acquisition in str(tiff_path)]
+                tmp = parse_si_metadata(tiff_paths_subset[0])
+                nz += int(tmp["SI.hStackManager.actualNumSlices"])
 
     registered_stack = np.zeros((nx, ny, nchannels, nz))
     
@@ -270,11 +283,31 @@ def run_zstack_registration(project, session_name, conflicts="append", ops={}):
         and ops["dataset_name"] is not None
         and ops["dataset_name"] in zstacks["name"].values
     ):
-        zstacks = zstacks[zstacks.name == ops["dataset_name"]]
+        zstacks = zstacks[zstacks["name"].isin(ops["dataset_name"])]
 
-    for _, zstack in zstacks.iterrows():
+    zstack_tifs = []
+
+    for i in np.arange(zstacks.shape[0]):
+        row = zstacks.iloc[i]
         zstack = Dataset.from_flexilims(
-            name=zstack.name, project=project, flexilims_session=flz_session
+            name=row.name, project=project, flexilims_session=flz_session
+        )
+        # sorting tifs so that they are in order of acquisition
+        tmp = zstack.tif_files
+        tmp.sort()
+        zstack_tifs.append([zstack.path_full / tif for tif in tmp])
+
+        if ops["zstack_concat"] and (i < zstacks.shape[0]-1):
+            continue 
+
+        # unnest the list before passing to register_zstack
+        try:
+            zstack_tifs = list(chain(*zstack_tifs))
+        except TypeError:
+            pass
+
+        registered_stack, nz, nchannels, frame_shifts, plane_shifts = register_zstack(
+            zstack_tifs, ops
         )
 
         registered_dataset = Dataset.from_origin(
@@ -285,15 +318,8 @@ def run_zstack_registration(project, session_name, conflicts="append", ops={}):
             base_name=zstack.dataset_name + "_registered",
             conflicts=conflicts,
             flexilims_session=flz_session,
-        )
+        )  
 
-        # sorting tifs so that they are in order of acquisition
-        zstack_tifs = zstack.tif_files
-        zstack_tifs.sort()
-        zstack_tifs = [zstack.path_full / tif for tif in zstack_tifs]
-        registered_stack, nz, nchannels, frame_shifts, plane_shifts = register_zstack(
-            zstack_tifs, ops
-        )
         registered_dataset.path = registered_dataset.path.with_suffix(".tif")
 
         if not registered_dataset.path_full.parent.exists():
@@ -306,7 +332,7 @@ def run_zstack_registration(project, session_name, conflicts="append", ops={}):
                 for ich in range(nchannels):
                     tif.write(
                         np.int16(registered_stack[:, :, ich, iplane]), contiguous=True
-                    )
+                )
         np.savez(
             registered_dataset.path_full.with_suffix(".npz"),
             frame_shifts=frame_shifts,
@@ -315,3 +341,7 @@ def run_zstack_registration(project, session_name, conflicts="append", ops={}):
         )
         registered_dataset.extra_attributes = ops
         registered_dataset.update_flexilims(mode="overwrite")
+
+        # Clear out the list of zstack tifs for the next iteration
+        if ops["zstack_concat"]==False:
+            zstack_tifs=[]
