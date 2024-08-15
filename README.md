@@ -14,7 +14,7 @@ conda env create -f environment.yml
 conda activate 2p-preprocess
 pip install -e .
 pip install -U "jax[cuda12_pip]" -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
-pip install optax=0.1.2
+pip install optax==0.1.2
 conda deactivate
 ```
 
