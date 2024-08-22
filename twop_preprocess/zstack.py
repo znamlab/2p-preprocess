@@ -294,7 +294,6 @@ def run_zstack_registration(project, session_name, conflicts="append", ops={}):
         # sorting tifs so that they are in order of acquisition
         zstack_tifs = [zstack.path_full / tif for tif in sorted(zstack.tif_files)]
         print(f"Registering zstack {zstack_name}")
-        print(f"Using tiffs: {zstack_tifs}")
         if ops["zstack_concat"]:
             all_zstack_tifs.extend(zstack_tifs)
             if i < zstacks.shape[0] - 1:
