@@ -82,8 +82,15 @@ def calcium(
     type=bool,
     help="Whether stack was imaged as a sequence of volumes rather than planes",
 )
-@click.option("--zstack-concat", type=bool, default=False, help="Whether to concatenate the zstacks in dataset_name")
-@click.option("--dataset_name", default=None, help="Flexilims name of the dataset", nargs=-1)
+@click.option(
+    "--zstack-concat",
+    type=bool,
+    default=False,
+    help="Whether to concatenate the zstacks in dataset_name",
+)
+@click.option(
+    "--datasets", default=None, help="Flexilims name of the datasets", nargs=-1
+)
 def zstack(
     project,
     session,
@@ -94,12 +101,13 @@ def zstack(
     iter=None,
     bidi_correction=None,
     sequential_volumes=None,
-    dataset_name=None,
+    datasets=None,
     zstack_concat=None,
 ):
     """Run zstack registration"""
     from twop_preprocess.zstack import run_zstack_registration
     from twop_preprocess.utils import load_ops
+
     ops = {
         "ch_to_align": channel,
         "max_shift": max_shift,
@@ -107,10 +115,11 @@ def zstack(
         "iter": iter,
         "bidi_correction": bidi_correction,
         "sequential_volumes": sequential_volumes,
-        "dataset_name": dataset_name,
         "zstack_concat": zstack_concat,
     }
     # delete None values
     ops = {k: v for k, v in ops.items() if v is not None}
     ops = load_ops(ops, zstack=True)
-    run_zstack_registration(project, session, conflicts=conflicts, ops=ops)
+    run_zstack_registration(
+        project, session, conflicts=conflicts, datasets=datasets, ops=ops
+    )
