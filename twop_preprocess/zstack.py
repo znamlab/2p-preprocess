@@ -4,6 +4,7 @@ import flexiznam as flz
 from flexiznam.schema import Dataset
 import itertools
 from tifffile import TiffFile, TiffWriter
+from itertools import chain
 from more_itertools import chunked, distribute
 import scipy.fft as fft
 from tqdm import tqdm
@@ -112,8 +113,24 @@ def register_zstack(tiff_paths, ops):
     ny = int(si_dict["SI.hRoiManager.linesPerFrame"])
     nz = int(si_dict["SI.hStackManager.actualNumSlices"])
 
+    # if the zstack is split into multiple acquisitions to be concatenated, then get the total number of z planes
+    if ops["zstack_concat"]:
+        for dataset in ops["datasets"]:
+            # get the ScanImage acquisition string for each dataset
+            si_acquisition = "_" + dataset.split("_")[-1] + "_"
+            if si_acquisition in str(tiff_paths[0]):
+                pass
+            else:
+                tiff_paths_subset = [
+                    tiff_path
+                    for tiff_path in tiff_paths
+                    if si_acquisition in str(tiff_path)
+                ]
+                tmp = parse_si_metadata(tiff_paths_subset[0])
+                nz += int(tmp["SI.hStackManager.actualNumSlices"])
+
     registered_stack = np.zeros((nx, ny, nchannels, nz))
-    
+
     # process stack one slice at a time (for sequentially imaged volumes)
     if ops["sequential_volumes"]:
         print("Registering stack as a sequence of volumes", flush=True)
@@ -135,9 +152,7 @@ def register_zstack(tiff_paths, ops):
             data = np.asarray([page.asarray() for page in plane])
         if ops["bidi_correction"]:
             if iplane == 0:
-                bidi_shift = estimate_bidi_correction(
-                    data[ops["ch_to_align"], :, :]
-                )
+                bidi_shift = estimate_bidi_correction(data[ops["ch_to_align"], :, :])
                 print(f"Estimated bidi shift: {bidi_shift}", flush=True)
             data = apply_bidi_correction(data, bidi_shift)
         # generate reference image for the current slice
@@ -154,7 +169,9 @@ def register_zstack(tiff_paths, ops):
                         data[ops["ch_to_align"] :: nchannels, :, :], axis=0
                     )
             else:
-                template_image = registered_stack[:, :, ops["ch_to_align"], iplane].copy()
+                template_image = registered_stack[
+                    :, :, ops["ch_to_align"], iplane
+                ].copy()
                 registered_stack[:, :, :, iplane] = 0
             template_image_fft = fft.fft2(template_image)
             # use reference image to align individual planes
@@ -173,7 +190,7 @@ def register_zstack(tiff_paths, ops):
                         (int(shifts[0]), int(shifts[1])),
                         axis=(0, 1),
                     )
-    
+
     plane_shifts = np.zeros((2, nz))
     if not ops["align_planes"]:
         return (
@@ -192,10 +209,10 @@ def register_zstack(tiff_paths, ops):
     for iplane in range(1, nz):
         previous_shifts = plane_shifts[:, iplane - 1]
         target = np.roll(
-                registered_stack[:, :, ops["ch_to_align"], iplane],
-                (int(previous_shifts[0]), int(previous_shifts[1])),
-                axis=(0, 1),
-            )    
+            registered_stack[:, :, ops["ch_to_align"], iplane],
+            (int(previous_shifts[0]), int(previous_shifts[1])),
+            axis=(0, 1),
+        )
         shifts = phase_corr(
             aligned_stack[:, :, ops["ch_to_align"], iplane - 1],
             target,
@@ -208,8 +225,8 @@ def register_zstack(tiff_paths, ops):
             aligned_stack[:, :, ich, iplane] = np.roll(
                 registered_stack[:, :, ich, iplane],
                 (
-                    int(shifts[0] + previous_shifts[0]), 
-                    int(shifts[1] + previous_shifts[1])
+                    int(shifts[0] + previous_shifts[0]),
+                    int(shifts[1] + previous_shifts[1]),
                 ),
                 axis=(0, 1),
             )
@@ -255,7 +272,6 @@ def run_zstack_registration(project, session_name, conflicts="append", ops={}):
     exp_session = flz.get_entity(
         datatype="session", name=session_name, flexilims_session=flz_session
     )
-
     # get all zstacks from session
     zstacks = flz.get_entities(
         datatype="dataset",
@@ -264,17 +280,31 @@ def run_zstack_registration(project, session_name, conflicts="append", ops={}):
         query_value="zstack",
         flexilims_session=flz_session,
     )
-
-    if (
-        ops["dataset_name"] is not None
-        and ops["dataset_name"] in zstacks["name"].values
-    ):
-        zstacks = zstacks[zstacks.name == ops["dataset_name"]]
-
-    for _, zstack in zstacks.iterrows():
-        zstack = Dataset.from_flexilims(
-            name=zstack.name, project=project, flexilims_session=flz_session
+    if ops["datasets"] is not None:
+        assert np.all(
+            [dataset in zstacks["name"].values for dataset in ops["datasets"]]
         )
+        zstacks = zstacks[zstacks["name"].isin(ops["datasets"])]
+
+    all_zstack_tifs = []
+    for i, zstack_name in enumerate(zstacks["name"].values):
+        zstack = Dataset.from_flexilims(
+            name=zstack_name, project=project, flexilims_session=flz_session
+        )
+        # sorting tifs so that they are in order of acquisition
+        zstack_tifs = [zstack.path_full / tif for tif in sorted(zstack.tif_files)]
+        print(f"Registering zstack {zstack_name}")
+        if ops["zstack_concat"]:
+            all_zstack_tifs.extend(zstack_tifs)
+            if i < zstacks.shape[0] - 1:
+                continue
+            registered_stack, nz, nchannels, frame_shifts, plane_shifts = (
+                register_zstack(all_zstack_tifs, ops)
+            )
+        else:
+            registered_stack, nz, nchannels, frame_shifts, plane_shifts = (
+                register_zstack(zstack_tifs, ops)
+            )
 
         registered_dataset = Dataset.from_origin(
             project=project,
@@ -286,13 +316,6 @@ def run_zstack_registration(project, session_name, conflicts="append", ops={}):
             flexilims_session=flz_session,
         )
 
-        # sorting tifs so that they are in order of acquisition
-        zstack_tifs = zstack.tif_files
-        zstack_tifs.sort()
-        zstack_tifs = [zstack.path_full / tif for tif in zstack_tifs]
-        registered_stack, nz, nchannels, frame_shifts, plane_shifts = register_zstack(
-            zstack_tifs, ops
-        )
         registered_dataset.path = registered_dataset.path.with_suffix(".tif")
 
         if not registered_dataset.path_full.parent.exists():

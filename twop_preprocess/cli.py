@@ -82,7 +82,15 @@ def calcium(
     type=bool,
     help="Whether stack was imaged as a sequence of volumes rather than planes",
 )
-@click.option("--dataset_name", default=None, help="Flexilims name of the dataset")
+@click.option(
+    "--zstack-concat",
+    is_flag=True,
+    default=False,
+    help="Whether to concatenate the zstacks in dataset_name",
+)
+@click.option(
+    "--datasets", default=None, help="Flexilims name of the datasets", multiple=True
+)
 def zstack(
     project,
     session,
@@ -93,11 +101,13 @@ def zstack(
     iter=None,
     bidi_correction=None,
     sequential_volumes=None,
-    dataset_name=None,
+    datasets=None,
+    zstack_concat=None,
 ):
     """Run zstack registration"""
     from twop_preprocess.zstack import run_zstack_registration
     from twop_preprocess.utils import load_ops
+
     ops = {
         "ch_to_align": channel,
         "max_shift": max_shift,
@@ -105,7 +115,8 @@ def zstack(
         "iter": iter,
         "bidi_correction": bidi_correction,
         "sequential_volumes": sequential_volumes,
-        "dataset_name": dataset_name,
+        "zstack_concat": zstack_concat,
+        "datasets": datasets,
     }
     # delete None values
     ops = {k: v for k, v in ops.items() if v is not None}

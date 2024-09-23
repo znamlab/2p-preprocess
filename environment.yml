@@ -15,7 +15,7 @@ dependencies:
   - pip:
     - scipy
     - pyqt5
-    - torch=2.0.1
+    - torch==2.0.1
     - natsort
     - rastermap
     - tifffile
