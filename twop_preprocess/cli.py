@@ -34,7 +34,7 @@ def cli():
     "--keep-binary", is_flag=True, default=False, help="Whether to keep binary files"
 )
 @click.option(
-    "--roi-detect",
+    "--roidetect",
     type=bool,
     default=True,
     help="Whether to run ROI detection on the suite2p output",
