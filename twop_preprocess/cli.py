@@ -57,7 +57,7 @@ def calcium(
     ops = {
         "tau": tau,
         "ast_neuropil": run_neuropil,
-        "keep_movie_raw": keep_binary,
+        "delete_bin": not keep_binary,
         "roidetect": roidetect,
     }
     # delete None values
