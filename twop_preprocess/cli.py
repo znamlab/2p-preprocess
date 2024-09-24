@@ -30,6 +30,9 @@ def cli():
 @click.option(
     "--tau", "-t", type=float, help="Decay time constant for spike extraction"
 )
+@click.option(
+    "--keep-binary", is_flag=True, default=False, help="Whether to keep binary files"
+)
 def calcium(
     project,
     session,
@@ -38,6 +41,7 @@ def calcium(
     run_split=True,
     run_suite2p=True,
     run_dff=True,
+    keep_binary=False,
     tau=None,
 ):
     """Run calcium imaging preprocessing pipeline"""
@@ -46,6 +50,7 @@ def calcium(
     ops = {
         "tau": tau,
         "ast_neuropil": run_neuropil,
+        "keep_movie_raw": keep_binary,
     }
     # delete None values
     ops = {k: v for k, v in ops.items() if v is not None}
