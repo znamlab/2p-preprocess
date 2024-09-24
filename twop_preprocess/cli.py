@@ -48,7 +48,7 @@ def calcium(
     run_suite2p=True,
     run_dff=True,
     keep_binary=False,
-    roi_detect=True,
+    roidetect=True,
     tau=None,
 ):
     """Run calcium imaging preprocessing pipeline"""
@@ -58,7 +58,7 @@ def calcium(
         "tau": tau,
         "ast_neuropil": run_neuropil,
         "keep_movie_raw": keep_binary,
-        "roi_detect": roi_detect,
+        "roidetect": roidetect,
     }
     # delete None values
     ops = {k: v for k, v in ops.items() if v is not None}
