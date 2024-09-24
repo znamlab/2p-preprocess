@@ -33,6 +33,12 @@ def cli():
 @click.option(
     "--keep-binary", is_flag=True, default=False, help="Whether to keep binary files"
 )
+@click.option(
+    "--roi-detect",
+    type=bool,
+    default=True,
+    help="Whether to run ROI detection on the suite2p output",
+)
 def calcium(
     project,
     session,
@@ -42,6 +48,7 @@ def calcium(
     run_suite2p=True,
     run_dff=True,
     keep_binary=False,
+    roi_detect=True,
     tau=None,
 ):
     """Run calcium imaging preprocessing pipeline"""
@@ -51,6 +58,7 @@ def calcium(
         "tau": tau,
         "ast_neuropil": run_neuropil,
         "keep_movie_raw": keep_binary,
+        "roi_detect": roi_detect,
     }
     # delete None values
     ops = {k: v for k, v in ops.items() if v is not None}
