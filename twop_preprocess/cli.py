@@ -30,6 +30,15 @@ def cli():
 @click.option(
     "--tau", "-t", type=float, help="Decay time constant for spike extraction"
 )
+@click.option(
+    "--keep-binary", is_flag=True, default=False, help="Whether to keep binary files"
+)
+@click.option(
+    "--roidetect",
+    type=bool,
+    default=True,
+    help="Whether to run ROI detection on the suite2p output",
+)
 def calcium(
     project,
     session,
@@ -38,6 +47,8 @@ def calcium(
     run_split=True,
     run_suite2p=True,
     run_dff=True,
+    keep_binary=False,
+    roidetect=True,
     tau=None,
 ):
     """Run calcium imaging preprocessing pipeline"""
@@ -46,6 +57,8 @@ def calcium(
     ops = {
         "tau": tau,
         "ast_neuropil": run_neuropil,
+        "delete_bin": not keep_binary,
+        "roidetect": roidetect,
     }
     # delete None values
     ops = {k: v for k, v in ops.items() if v is not None}
@@ -84,7 +97,7 @@ def calcium(
 )
 @click.option(
     "--zstack-concat",
-    type=bool,
+    is_flag=True,
     default=False,
     help="Whether to concatenate the zstacks in datasets",
 )
@@ -116,6 +129,7 @@ def zstack(
         "bidi_correction": bidi_correction,
         "sequential_volumes": sequential_volumes,
         "zstack_concat": zstack_concat,
+        "datasets": datasets,
     }
     # delete None values
     ops = {k: v for k, v in ops.items() if v is not None}

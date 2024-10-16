@@ -115,7 +115,7 @@ def register_zstack(tiff_paths, ops):
 
     # if the zstack is split into multiple acquisitions to be concatenated, then get the total number of z planes
     if ops["zstack_concat"]:
-        for dataset in ops["dataset_name"]:
+        for dataset in ops["datasets"]:
             # get the ScanImage acquisition string for each dataset
             si_acquisition = "_" + dataset.split("_")[-1] + "_"
             if si_acquisition in str(tiff_paths[0]):
@@ -249,9 +249,7 @@ def register_zstack(tiff_paths, ops):
     return aligned_stack / int(nframes), nz, nchannels, frame_shifts, plane_shifts
 
 
-def run_zstack_registration(
-    project, session_name, datasets=None, conflicts="append", ops={}
-):
+def run_zstack_registration(project, session_name, conflicts="append", ops={}):
     """
     Apply motion correction to all zstacks for a single session, create Flexylims
     entries for each registered zstacks
@@ -282,13 +280,13 @@ def run_zstack_registration(
         query_value="zstack",
         flexilims_session=flz_session,
     )
-    zstacks.reset_index(drop=True, inplace=True)
-    if datasets is not None:
-        assert np.all([dataset in zstacks["name"].values for dataset in datasets])
-        zstacks = zstacks[zstacks["name"].isin(datasets)]
+    if ops["datasets"] is not None:
+        assert np.all(
+            [dataset in zstacks["name"].values for dataset in ops["datasets"]]
+        )
+        zstacks = zstacks[zstacks["name"].isin(ops["datasets"])]
 
     all_zstack_tifs = []
-
     for i, row in zstacks.iterrows():
         print(f"Registering {row['name']}")
         zstack = Dataset.from_flexilims(
@@ -297,7 +295,7 @@ def run_zstack_registration(
         # sorting tifs so that they are in order of acquisition
         zstack.tif_files.sort()
         zstack_tifs = [zstack.path_full / tif for tif in zstack.tif_files]
-
+        
         if ops["zstack_concat"]:
             all_zstack_tifs.extend(zstack_tifs)
             if i < zstacks.shape[0] - 1:
