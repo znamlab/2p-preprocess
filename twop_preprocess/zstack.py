@@ -287,13 +287,14 @@ def run_zstack_registration(project, session_name, conflicts="append", ops={}):
         zstacks = zstacks[zstacks["name"].isin(ops["datasets"])]
 
     all_zstack_tifs = []
-    for i, zstack_name in enumerate(zstacks["name"].values):
+    for i, row in zstacks.iterrows():
         zstack = Dataset.from_flexilims(
-            name=zstack_name, project=project, flexilims_session=flz_session
+            name=row['name'], project=project, flexilims_session=flz_session
         )
         # sorting tifs so that they are in order of acquisition
-        zstack_tifs = [zstack.path_full / tif for tif in sorted(zstack.tif_files)]
-        print(f"Registering zstack {zstack_name}")
+        zstack.tif_files.sort()
+        zstack_tifs = [zstack.path_full / tif for tif in zstack.tif_files]
+        
         if ops["zstack_concat"]:
             all_zstack_tifs.extend(zstack_tifs)
             if i < zstacks.shape[0] - 1:

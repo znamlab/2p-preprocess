@@ -99,10 +99,10 @@ def calcium(
     "--zstack-concat",
     is_flag=True,
     default=False,
-    help="Whether to concatenate the zstacks in dataset_name",
+    help="Whether to concatenate the zstacks in datasets",
 )
-@click.option(
-    "--datasets", default=None, help="Flexilims name of the datasets", multiple=True
+@click.argument(
+    "--datasets", nargs=-1, required=False,
 )
 def zstack(
     project,
@@ -134,4 +134,4 @@ def zstack(
     # delete None values
     ops = {k: v for k, v in ops.items() if v is not None}
     ops = load_ops(ops, zstack=True)
-    run_zstack_registration(project, session, conflicts=conflicts, ops=ops)
+    run_zstack_registration(project=project, session_name=session, conflicts=conflicts, ops=ops)
