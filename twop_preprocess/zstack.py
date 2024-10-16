@@ -287,10 +287,10 @@ def run_zstack_registration(project, session_name, conflicts="append", ops={}):
         zstacks = zstacks[zstacks["name"].isin(ops["datasets"])]
 
     all_zstack_tifs = []
-    for i, row in zstacks.iterrows():
-        print(f"Registering {row['name']}")
+    for i, zstack_name in enumerate(zstacks["name"].values):
+        print(f"Registering {zstack_name}")
         zstack = Dataset.from_flexilims(
-            name=row['name'], project=project, flexilims_session=flz_session
+            name=zstack_name, project=project, flexilims_session=flz_session
         )
         # sorting tifs so that they are in order of acquisition
         zstack.tif_files.sort()
