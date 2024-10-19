@@ -285,7 +285,8 @@ def run_zstack_registration(project, session_name, conflicts="append", ops={}):
             [dataset in zstacks["name"].values for dataset in ops["datasets"]]
         )
         zstacks = zstacks[zstacks["name"].isin(ops["datasets"])]
-
+        zstacks = zstacks.reindex(ops["datasets"])
+        
     all_zstack_tifs = []
     for i, zstack_name in enumerate(zstacks["name"].values):
         print(f"Registering {zstack_name}")

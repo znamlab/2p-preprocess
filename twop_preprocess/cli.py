@@ -97,8 +97,8 @@ def calcium(
 )
 @click.option(
     "--zstack-concat",
-    is_flag=True,
-    default=True,
+    type=bool,
+    default=False,
     help="Whether to concatenate the zstacks in datasets",
 )
 @click.argument(
