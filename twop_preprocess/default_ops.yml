@@ -37,7 +37,7 @@ zstack:
   max_shift: 50
   align_planes: True
   bidi_correction: True
-  datasets:
+  datasets: null
   sequential_volumes: False
   pick_ref: True
   pick_ref_percentile: 75
