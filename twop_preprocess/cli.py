@@ -121,6 +121,9 @@ def zstack(
     from twop_preprocess.zstack import run_zstack_registration
     from twop_preprocess.utils import load_ops
 
+    if not datasets:
+        datasets = None
+        
     ops = {
         "ch_to_align": channel,
         "max_shift": max_shift,
