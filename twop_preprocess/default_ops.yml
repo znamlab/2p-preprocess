@@ -3,14 +3,14 @@ ast_neuropil: True
 # whether to estimate the offset for each recording
 correct_offset: True
 # number of GMM components for F0 estimation
-dff_ncomponents: 3
+dff_ncomponents: 2
 # cellpose segmentation parameters
 roidetect: 1
 anatomical_only: 3
 pretrained_model: cyto2
 diameter_multiplier: 0.01
-flow_threshold: 2
-cellprob_threshold: 0
+flow_threshold: 2 #2
+cellprob_threshold: 0 #0
 # activity-based segmentation parameters
 threshold_scaling: 0.5
 denoise: 1
@@ -41,3 +41,7 @@ zstack:
   sequential_volumes: False
   pick_ref: True
   pick_ref_percentile: 75
+
+# options for visualization
+sanity_plots: True
+plot_nrois: 10
