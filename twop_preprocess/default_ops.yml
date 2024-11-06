@@ -39,3 +39,7 @@ zstack:
   sequential_volumes: False
   pick_ref: True
   pick_ref_percentile: 75
+
+# options for visualization
+sanity_plots: True
+plot_nrois: 10

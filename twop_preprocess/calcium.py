@@ -1,4 +1,5 @@
 import numpy as np
+import os
 import datetime
 import flexiznam as flz
 from flexiznam.schema import Dataset
@@ -14,6 +15,8 @@ from tifffile import TiffFile
 from numpy.lib.stride_tricks import sliding_window_view
 from pathlib import Path
 from numba import njit, prange
+import matplotlib.pyplot as plt
+from twop_preprocess.plotting_utils import sanity_check_utils as sanity
 
 print = partial(print, flush=True)
 
@@ -39,13 +42,37 @@ def run_extraction(flz_session, project, session_name, conflicts, ops):
     )
     if exp_session is None:
         raise ValueError(f"Session {session_name} not found on flexilims")
-    suite2p_dataset = Dataset.from_origin(
-        project=project,
-        origin_type="session",
-        origin_id=exp_session["id"],
-        dataset_type="suite2p_rois",
-        conflicts=conflicts,
-    )
+    
+    # fetch an existing suite2p dataset or create a new suite2p dataset
+    if conflicts == "overwrite":
+        suite2p_datasets = flz.get_datasets(
+                origin_name=session_name,
+                dataset_type="suite2p_rois",
+                project_id=project,
+                flexilims_session=flz_session,
+                return_dataseries=False,
+            )
+        if len(suite2p_datasets) == 0:
+            raise ValueError(f"No suite2p dataset found for session {session_name}. Cannot overwrite.")
+        elif len(suite2p_datasets) > 1:
+            print(
+                f"{len(suite2p_datasets)} suite2p datasets found for session {session_name}"
+            )
+            print("Overwriting the last one...")
+            suite2p_dataset = suite2p_datasets[
+                np.argmax([datetime.datetime.strptime(i.created,'%Y-%m-%d %H:%M:%S')
+                            for i in suite2p_datasets])]
+        else:
+            suite2p_dataset = suite2p_datasets[0]
+            
+    else: 
+        suite2p_dataset = Dataset.from_origin(
+            project=project,
+            origin_type="session",
+            origin_id=exp_session["id"],
+            dataset_type="suite2p_rois",
+            conflicts=conflicts,
+        )
     # if already on flexilims and not re-processing, then do nothing
     if (suite2p_dataset.get_flexilims_entry() is not None) and conflicts == "skip":
         print(
@@ -54,6 +81,7 @@ def run_extraction(flz_session, project, session_name, conflicts, ops):
             )
         )
         return suite2p_dataset
+    
     # fetch SI datasets
     si_datasets = flz.get_datasets_recursively(
         origin_id=exp_session["id"],
@@ -109,8 +137,8 @@ def run_extraction(flz_session, project, session_name, conflicts, ops):
     suite2p_dataset.extra_attributes = ops
     suite2p_dataset.update_flexilims(mode="overwrite")
     return suite2p_dataset
-
-
+        
+        
 def extract_dff(suite2p_dataset, ops):
     """
     Correct offsets, detrend, calculate dF/F and deconvolve spikes for the whole session.
@@ -123,9 +151,12 @@ def extract_dff(suite2p_dataset, ops):
     first_frames, last_frames = get_recording_frames(suite2p_dataset)
     offsets = []
     for datapath in suite2p_dataset.extra_attributes["data_path"]:
+        datapath = os.path.join(flz.PARAMETERS["data_root"]["raw"],
+                                *datapath.split(os.path.sep)[-4:]) # add the raw path from flexiznam config
         if ops["correct_offset"]:
             offsets.append(estimate_offset(datapath))
             print(f"Estimated offset for {datapath} is {offsets[-1]}")
+            np.save(suite2p_dataset.path_full / "offsets.npy", offsets)
         else:
             offsets.append(0)
 
@@ -133,17 +164,55 @@ def extract_dff(suite2p_dataset, ops):
     # run neuropil correction, dFF calculation and spike deconvolution
     for iplane in range(int(suite2p_dataset.extra_attributes["nplanes"])):
         dpath = suite2p_dataset.path_full / f"plane{iplane}"
+        F = np.load(dpath / "F.npy")
+        Fneu = np.load(dpath / "Fneu.npy")
+        if ops["sanity_plots"]:
+            os.makedirs(dpath / "sanity_plots", exist_ok=True)
+            np.random.seed(0)
+            random_rois = np.random.choice(F.shape[0], ops["plot_nrois"], replace=False)
+            sanity.plot_raw_trace(F, random_rois, Fneu)
+            plt.savefig(dpath / "sanity_plots/raw_trace.png")
         F = correct_offset(dpath / "F.npy", offsets, first_frames[:, iplane], last_frames[:, iplane])
-        Fneu = correct_offset(dpath / "Fneu.npy", offsets, first_frames[:, iplane], last_frames[:, iplane])   
+        Fneu = correct_offset(dpath / "Fneu.npy", offsets, first_frames[:, iplane], last_frames[:, iplane])  
+        if ops["sanity_plots"]:
+            sanity.plot_raw_trace(F, random_rois, Fneu)
+            plt.savefig(dpath / "sanity_plots/offset_corrected.png")
+            
         if ops["detrend"]:
             print("Detrending...")
-            F = detrend(F, first_frames[:, iplane], last_frames[:, iplane], ops, fs)
-            Fneu = detrend(Fneu, first_frames[:, iplane], last_frames[:, iplane], ops, fs)     
+            F_offset_corrected = F.copy()
+            Fneu_offset_corrected = Fneu.copy()
+            F, F_trend = detrend(F, first_frames[:, iplane], last_frames[:, iplane], ops, fs)
+            Fneu, Fneu_trend = detrend(Fneu, first_frames[:, iplane], last_frames[:, iplane], ops, fs)     
+            if ops["sanity_plots"]:
+                sanity.plot_detrended_trace(F_offset_corrected, 
+                                            F_trend, 
+                                            F, 
+                                            Fneu_offset_corrected, 
+                                            Fneu_trend, 
+                                            Fneu, 
+                                            random_rois)
+                plt.savefig(dpath / "sanity_plots/detrended.png")
+                
         if ops["ast_neuropil"]:
             print("Running ASt neuropil correction...")
             correct_neuropil(dpath, F, Fneu)
+            Fast = np.load(dpath / "Fast.npy")
+            if ops["sanity_plots"]:
+                sanity.plot_raw_trace(F, random_rois, Fast, titles=["F","Fast"])
+                plt.savefig(dpath / "sanity_plots/neuropil_corrected.png")
+                
         print("Calculating dF/F...")
-        calculate_dFF(dpath, F, Fneu, ops)
+        if ops["ast_neuropil"]:
+            calculate_dFF(dpath, Fast, Fneu, ops)
+        else:
+            calculate_dFF(dpath, F, Fneu, ops)
+        dff = np.load(dpath / "dff_ast.npy" if ops["ast_neuropil"] else dpath / "dff.npy")
+        if ops["sanity_plots"]:
+            F0 = np.load(dpath / "f0_ast.npy" if ops["ast_neuropil"] else dpath / "f0.npy")
+            sanity.plot_dff(Fast, dff, F0, random_rois)
+            plt.savefig(dpath / f'sanity_plots/dffs_n{ops["dff_ncomponents"]}.png')
+            
         if ops["ast_neuropil"]:
             print("Deconvolve spikes from neuropil corrected trace...")
             spike_deconvolution_suite2p(suite2p_dataset, iplane, ops)  
@@ -224,6 +293,7 @@ def detrend(F, first_frames, last_frames, ops, fs):
 
     """
     win_frames = int(ops["detrend_win"] * fs)
+    all_rec_baseline = np.zeros_like(F)
     for i, (start, end) in enumerate(zip(first_frames, last_frames)):
         rec_rolling_baseline  = np.zeros_like(F[:, start:end])
         for j in range(F.shape[0]):
@@ -246,7 +316,8 @@ def detrend(F, first_frames, last_frames, ops, fs):
             F[:, start:end] -= rec_rolling_baseline - first_recording_baseline
         else:
             F[:, start:end] /= rec_rolling_baseline / first_recording_baseline
-    return F
+        all_rec_baseline[:, start:end] = rec_rolling_baseline
+    return F, all_rec_baseline
 
 
 def correct_neuropil(dpath, Fr, Fn):
@@ -311,6 +382,7 @@ def calculate_dFF(dpath, F, Fneu, ops):
     if not ops["ast_neuropil"]:
         F = F - ops["neucoeff"] * Fneu
     # Calculate dFFs and save to the suite2p folder
+    print(f"n components for dFF calculation: {ops['dff_ncomponents']}")
     dff, f0 = dFF(F, n_components=ops["dff_ncomponents"])
     np.save(
         dpath / "dff_ast.npy" if ops["ast_neuropil"] else dpath / "dff.npy", dff
@@ -404,7 +476,7 @@ def split_recordings(flz_session, suite2p_dataset, conflicts):
         flexilims_session=flz_session,
         return_paths=True,
     )
-    datapaths = []
+    datapaths = [] 
     recording_ids = []
     frame_rates = []
     for recording, paths in datasets.items():

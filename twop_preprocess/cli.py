@@ -97,12 +97,12 @@ def calcium(
 )
 @click.option(
     "--zstack-concat",
-    is_flag=True,
+    type=bool,
     default=False,
     help="Whether to concatenate the zstacks in datasets",
 )
 @click.argument(
-    "--datasets", nargs=-1, required=False,
+    "datasets", nargs=-1, required=False,
 )
 def zstack(
     project,
@@ -121,6 +121,9 @@ def zstack(
     from twop_preprocess.zstack import run_zstack_registration
     from twop_preprocess.utils import load_ops
 
+    if not datasets:
+        datasets = None
+        
     ops = {
         "ch_to_align": channel,
         "max_shift": max_shift,
@@ -134,4 +137,6 @@ def zstack(
     # delete None values
     ops = {k: v for k, v in ops.items() if v is not None}
     ops = load_ops(ops, zstack=True)
-    run_zstack_registration(project=project, session_name=session, conflicts=conflicts, ops=ops)
+    run_zstack_registration(
+        project=project, session_name=session, conflicts=conflicts, ops=ops
+    )
