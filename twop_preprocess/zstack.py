@@ -302,16 +302,9 @@ def run_zstack_registration(project, session_name, conflicts="append", ops={}):
         )
         zstacks = zstacks[zstacks["name"].isin(ops["datasets"])]
         zstacks = zstacks.reindex(ops["datasets"])
-<<<<<<< Updated upstream
-        
-    all_zstack_tifs = []
-    for i, zstack_name in enumerate(zstacks["name"].values):
-        print(f"Registering {zstack_name}")
-=======
 
     all_zstack_tifs = []
     for i, zstack_name in enumerate(zstacks["name"].values):
->>>>>>> Stashed changes
         zstack = Dataset.from_flexilims(
             name=zstack_name, project=project, flexilims_session=flz_session
         )
