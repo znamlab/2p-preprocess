@@ -141,7 +141,6 @@ def register_zstack(tiff_paths, ops):
                         for tiff_path in tiff_paths
                         if si_acquisition in str(tiff_path)
                     ]
-                    print("found it here!")
                     tmp = parse_si_metadata(tiff_paths_subset[0])
                     nz += int(tmp["SI.hStackManager.actualNumSlices"])
 
