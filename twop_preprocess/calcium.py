@@ -297,13 +297,19 @@ def detrend(F, first_frames, last_frames, ops, fs):
     for i, (start, end) in enumerate(zip(first_frames, last_frames)):
         rec_rolling_baseline  = np.zeros_like(F[:, start:end])
         for j in range(F.shape[0]):
+            pad_front = win_frames // 2
+            pad_end = win_frames // 2 - 1
+
+            if ops["nplanes"] == 1:
+                pad_end += 1
+    
             rolling_baseline = np.pad(
                 rolling_percentile(
                     F[j, start:end], 
                     win_frames,
                     ops["detrend_pctl"],
                 ),
-                (win_frames//2, win_frames//2 - 1),
+                (pad_front, pad_end),
                 mode='edge',
             )
 
