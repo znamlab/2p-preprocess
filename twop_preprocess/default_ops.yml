@@ -4,13 +4,14 @@ ast_neuropil: True
 correct_offset: True
 # number of GMM components for F0 estimation
 dff_ncomponents: 2
+dff_ncomponents: 2
 # cellpose segmentation parameters
 roidetect: 1
 anatomical_only: 3
 pretrained_model: cyto2
 diameter_multiplier: 0.01
-flow_threshold: 2 #2
-cellprob_threshold: 0 #0
+flow_threshold: 3
+cellprob_threshold: -2
 # activity-based segmentation parameters
 threshold_scaling: 0.5
 denoise: 0
@@ -27,8 +28,6 @@ win_baseline: 60.0
 tau: 0.7
 # fixed coefficient for neuropil correction if not using ASt model
 neucoeff: 0.7
-# whether to delete the registered bin file
-delete_bin: True
 
 # options for zstack registration
 zstack:
