@@ -41,5 +41,5 @@ def plot_dff(Fast, dff, F0, random_rois):
     for i, roi in enumerate(random_rois):
         plt.subplot2grid((len(random_rois), 4), (i, 3))
         plt.hist(dff[i,:],bins=50)
-        plt.title(f"median {np.round(np.median(rounded_dff[i,:]),2)}, mode {np.round(stats.mode(rounded_dff[i,:])[0][0],2)}")
+        plt.title(f"median {np.round(np.median(rounded_dff[i,:]),2)}")
     plt.tight_layout()
