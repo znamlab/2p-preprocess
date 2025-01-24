@@ -237,13 +237,14 @@ def reextract_session(session, masks, flz_session, conflicts="abort"):
         np.save(target_dir / "stat.npy", np.array([]), allow_pickle=True)
         np.save(target_dir / "ops.npy", ops)
 
-    suite2p_ds_annotated.update_flexilims(mode="update")
-
     print("Calculating dF/F...")
     extract_dff(suite2p_ds_annotated, ops)
 
     print("Splitting recordings...")
     split_recordings(flz_session, suite2p_ds_annotated, conflicts="overwrite")
+
+    suite2p_ds_annotated.update_flexilims(mode="update")
+
     return all_original_masks
 
 
