@@ -156,7 +156,19 @@ def reextract_masks(masks, suite2p_ds):
     return merged_masks, all_original_masks, all_F, all_Fneu, all_stat, all_ops
 
 
-def reextract_session(session, masks, flz_session):
+def reextract_session(session, masks, flz_session, conflicts="abort"):
+    """Reextract masks and fluorescence traces for a session.
+
+    Args:
+        session (str): name of the session
+        masks (ndarray): Z x X x Y array of masks to be reextracted
+        flz_session (Flexilims): flexilims session
+        conflicts (str, optional): defines behavior if recordings have already been
+            reextracted. One of `abort`, `skip`, `append`, `overwrite`. Default `abort`
+
+    Returns:
+        ndarray: merged masks
+    """
     suite2p_ds = flz.get_children(
         flexilims_session=flz_session,
         parent_name=session,
@@ -168,15 +180,13 @@ def reextract_session(session, masks, flz_session):
         origin_type="session",
         origin_name=session,
         dataset_type="suite2p_rois",
-        conflicts="append",
+        conflicts=conflicts,
         flexilims_session=flz_session,
         verbose=True,
+        base_name="suite2p_rois_annotated",
     )
+
     suite2p_ds_annotated.extra_attributes = suite2p_ds.extra_attributes
-    updated_genealogy = list(suite2p_ds_annotated.genealogy)
-    updated_genealogy[-1] = "suite2p_rois_annotated"
-    suite2p_ds_annotated.genealogy = updated_genealogy
-    suite2p_ds_annotated.path = suite2p_ds.path.parent / "suite2p_rois_annotated"
 
     source_dir = suite2p_ds.path_full / "combined"
     target_dir = suite2p_ds_annotated.path_full / "combined"
