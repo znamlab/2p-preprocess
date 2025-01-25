@@ -21,27 +21,9 @@ from numba import njit, prange
 import matplotlib.pyplot as plt
 from twop_preprocess.plotting_utils import sanity_check_utils as sanity
 import shutil
-from flexiznam.config import PARAMETERS
+
 
 print = partial(print, flush=True)
-
-
-def get_processed_path(data_path):
-    """Return the path to the processed data.
-
-    Args:
-        data_path (str): Relative path to data
-
-    Returns:
-        pathlib.Path: Path to processed data
-
-    """
-    project = Path(data_path).parts[0]
-    if project in PARAMETERS["project_paths"].keys():
-        processed_path = Path(PARAMETERS["project_paths"][project]["processed"])
-    else:
-        processed_path = Path(PARAMETERS["data_root"]["processed"])
-    return processed_path / data_path
 
 
 def get_weights(ops):
@@ -144,7 +126,7 @@ def reextract_masks(masks, suite2p_ds):
                     circular=ops.get("circular_neuropil", False),
                 )[0]
             print(f"extracting fluorescence for plane {iplane}")
-            ops["reg_file"] = get_processed_path(
+            ops["reg_file"] = flz.get_processed_path(
                 project + ops["reg_file"].split(project, 1)[1]
             )
             stat_orig[0]["iplane"] = iplane
