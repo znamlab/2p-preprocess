@@ -175,7 +175,8 @@ def reextract_session(session, masks, flz_session, conflicts="abort"):
     if target_dir.exists():
         if conflicts == "overwrite":
             print(f"{target_dir} already exists, overwriting!")
-            Path.unlink(target_dir / "ops.npy")
+            if (target_dir / "ops.npy").exists():
+                Path.unlink(target_dir / "ops.npy")
         elif conflicts == "skip":
             print(f"{target_dir} already exists, skipping!")
             # TODO: load and return the masks
