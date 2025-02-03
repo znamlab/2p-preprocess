@@ -1,4 +1,4 @@
-# whether to use ASt model for neuropil correction 
+# whether to use ASt model for neuropil correction
 ast_neuropil: True
 # whether to estimate the offset for each recording
 correct_offset: True
@@ -13,7 +13,7 @@ flow_threshold: 2 #2
 cellprob_threshold: 0 #0
 # activity-based segmentation parameters
 threshold_scaling: 0.5
-denoise: 1
+denoise: 0
 sparse_mode: 1
 # detrending parameters
 detrend: True
