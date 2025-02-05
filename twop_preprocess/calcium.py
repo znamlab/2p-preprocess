@@ -624,7 +624,7 @@ def calculate_dFF(dpath, F, Fneu, ops):
 
 def spike_deconvolution_suite2p(suite2p_dataset, iplane, ops={}, ast_neuropil=True):
     """
-    Run spike deconvolution on the concatenated recordings after ASt neuropil correction.
+    Run spike deconvolution on the concatenated recordings after ASt neuropil correction
 
     Args:
         suite2p_dataset (Dataset): dataset containing concatenated recordings
@@ -689,7 +689,9 @@ def get_recording_frames(suite2p_dataset):
     return first_frames, last_frames
 
 
-def split_recordings(flz_session, suite2p_dataset, conflicts):
+def split_recordings(
+    flz_session, suite2p_dataset, conflicts, base_name="suite2p_traces"
+):
     """
     suite2p concatenates all the recordings in a given session into a single file.
     To facilitate downstream analyses, we cut them back into chunks and add them
@@ -700,6 +702,8 @@ def split_recordings(flz_session, suite2p_dataset, conflicts):
         suite2p_dataset (Dataset): dataset containing concatenated recordings
             to split
         conflicts (str): defines behavior if recordings have already been split
+        base_name (str, optional): base name for the split datasets. Default
+            "suite2p_traces"
 
     """
     # get scanimage datasets
@@ -738,6 +742,7 @@ def split_recordings(flz_session, suite2p_dataset, conflicts):
             project_id=suite2p_dataset.project,
             flexilims_session=flz_session,
             return_dataseries=False,
+            base_name=base_name,
         )
 
         recording_name = flz.get_entity(
@@ -745,7 +750,8 @@ def split_recordings(flz_session, suite2p_dataset, conflicts):
         ).name
         if len(split_dataset) > 0:
             print(
-                f"WARNING:{len(split_dataset)} suite2p datasets found for recording {recording_name}"
+                f"WARNING:{len(split_dataset)} suite2p datasets found for recording"
+                + f" {recording_name}. Will use the last one."
             )
             split_dataset = split_dataset[
                 np.argmax(
@@ -772,6 +778,7 @@ def split_recordings(flz_session, suite2p_dataset, conflicts):
                     origin_id=recording_id,
                     dataset_type="suite2p_traces",
                     conflicts=conflicts,
+                    base_name=base_name,
                 )
         else:
             split_dataset = Dataset.from_origin(
@@ -780,6 +787,7 @@ def split_recordings(flz_session, suite2p_dataset, conflicts):
                 origin_id=recording_id,
                 dataset_type="suite2p_traces",
                 conflicts=conflicts,
+                base_name=base_name,
             )
 
         split_dataset.path_full.mkdir(parents=True, exist_ok=True)
