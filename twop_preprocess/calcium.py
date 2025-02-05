@@ -51,35 +51,27 @@ def reextract_masks(masks, suite2p_ds):
 
     Returns:
         merged_masks (ndarray): merged masks
-        all_original_masks (list): list of original masks IDs corresponding to each plane
+        all_original_masks (list): list of original masks IDs corresponding to each
+            plane
         all_F (list): list of F traces for each plane
         all_Fneu (list): list of Fneu traces
         all_stat (list): list of stats
         all_ops (list): list of ops
 
     """
-    if "Lx" in suite2p_ds.extra_attributes.keys():
-        Lx = int(suite2p_ds.extra_attributes["Lx"])
-        Ly = int(suite2p_ds.extra_attributes["Ly"])
-    else:
-        Lx = int(suite2p_ds.extra_attributes["lx"])
-        Ly = int(suite2p_ds.extra_attributes["ly"])
+    # There is case issue on some flexilims dataset, get the correct case first, but
+    # try lower case if it fails
+    Lx = int(suite2p_ds.extra_attributes.get("Lx", suite2p_ds.extra_attributes["lx"]))
+    Ly = int(suite2p_ds.extra_attributes.get("Ly", suite2p_ds.extra_attributes["ly"]))
     nplanes = int(suite2p_ds.extra_attributes["nplanes"])
 
+    # Calculate the number of rows and columns for the merged masks
     nX = np.ceil(np.sqrt(Ly * Lx * nplanes) / Lx)
     nX = int(nX)
     nY = np.ceil(nplanes / nX).astype(int)
 
+    # Initialize outputs
     merged_masks = np.zeros((Ly * nY, Lx * nX))
-
-    stat_orig = [
-        dict(
-            xpix=np.array((0,)),
-            ypix=np.array((0,)),
-            lam=np.array((1.0,)),
-            med=np.array(()),
-        ),
-    ]
     all_original_masks = []
     all_F = []
     all_Fneu = []
@@ -335,7 +327,7 @@ def run_extraction(flz_session, project, session_name, conflicts, ops):
         print(f"{k}: {v}")
     # run suite2p
     db = {"data_path": datapaths}
-    opsEnd = run_s2p(ops=ops, db=db)
+    opsEnd = suite2p.run_s2p(ops=ops, db=db)
     if "date_proc" in opsEnd:
         opsEnd["date_proc"] = opsEnd["date_proc"].isoformat()
     # update the database
