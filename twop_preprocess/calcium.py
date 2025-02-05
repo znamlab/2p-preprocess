@@ -20,7 +20,7 @@ from pathlib import Path
 from numba import njit, prange
 import matplotlib.pyplot as plt
 from twop_preprocess.plotting_utils import sanity_check_utils as sanity
-import shutil
+import warnings
 
 
 print = partial(print, flush=True)
