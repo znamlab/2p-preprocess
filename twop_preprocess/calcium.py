@@ -27,17 +27,47 @@ print = partial(print, flush=True)
 
 
 def get_weights(ops):
-    if "meanImgE" in ops:
-        img = ops["meanImgE"]
+    """Get the weights for the suite2p detection.
+
+    suite2p does not extract raw fluorescence traces, but rather uses a weighted sum of
+    the raw fluorescence traces to detect ROIs. This function calculates the weights
+    as in suite2p.detection.anatomical.select_rois (L161).
+    For anatomical == 3 the weights are the intensity of each pixel relative to the
+    1st and 99th percentile of the mean image + 0.1.
+
+    Args:
+        ops (dict): suite2p ops dictionary
+
+    Returns:
+        weights (numpy.ndarray): weights for the suite2p detection
+    """
+    mean_img = ops["meanImg"]
+    if ops.get("denoise", 1):
+        warnings.warn("Calculating weights on non-denoised data. F will change")
+
+    if ops["anatomical_only"] == 1:
+        raise NotImplementedError("anatomical_only=1 not implemented.")
+        img = np.log(np.maximum(1e-3, max_proj / np.maximum(1e-3, mean_img)))
+        weights = max_proj
+    elif ops["anatomical_only"] == 2:
+        # img = mean_img
+        weights = 0.1 + np.clip(
+            (mean_img - np.percentile(mean_img, 1))
+            / (np.percentile(mean_img, 99) - np.percentile(mean_img, 1)),
+            0,
+            1,
+        )
+    elif ops["anatomical_only"] == 3:
+        weights = 0.1 + np.clip(
+            (mean_img - np.percentile(mean_img, 1))
+            / (np.percentile(mean_img, 99) - np.percentile(mean_img, 1)),
+            0,
+            1,
+        )
     else:
-        img = ops["meanImg"]
-        print("no enhanced mean image, using mean image instead")
-    weights = 0.1 + np.clip(
-        (img - np.percentile(img, 1))
-        / (np.percentile(img, 99) - np.percentile(img, 1)),
-        0,
-        1,
-    )
+        raise NotImplementedError("Non anatomical not implemented. Requires max_proj")
+        img = max_proj.copy()
+        weights = max_proj
     return weights
 
 
