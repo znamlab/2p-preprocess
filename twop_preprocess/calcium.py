@@ -173,13 +173,20 @@ def reextract_session(session, masks, flz_session, conflicts="abort"):
     Returns:
         ndarray: merged masks
     """
-    suite2p_ds = flz.get_children(
+    # get initial suite2p dataset
+    suite2p_ds = flz.get_datasets(
         flexilims_session=flz_session,
-        parent_name=session,
-        children_datatype="dataset",
-        filter={"dataset_type": "suite2p_rois"},
-    ).iloc[0]
-    suite2p_ds = flz.Dataset.from_dataseries(suite2p_ds, flz_session)
+        origin_name=session,
+        dataset_type="suite2p_rois",
+        return_dataseries=True,
+    )
+    suite2p_ds = suite2p_ds[~suite2p_ds.name.str.contains("annotated")]
+    assert (
+        len(suite2p_ds) == 1
+    ), f"Found {len(suite2p_ds)} suite2p datasets for session {session}"
+    suite2p_ds = flz.Dataset.from_dataseries(suite2p_ds.iloc[0], flz_session)
+
+    # create or load a new suite2p dataset
     suite2p_ds_annotated = flz.Dataset.from_origin(
         origin_type="session",
         origin_name=session,
@@ -189,23 +196,18 @@ def reextract_session(session, masks, flz_session, conflicts="abort"):
         verbose=True,
         base_name="suite2p_rois_annotated",
     )
-
     suite2p_ds_annotated.extra_attributes = suite2p_ds.extra_attributes
 
-    source_dir = suite2p_ds.path_full / "combined"
+    # handle conflicts
     target_dir = suite2p_ds_annotated.path_full / "combined"
     if target_dir.exists():
         if conflicts == "overwrite":
             print(f"{target_dir} already exists, overwriting!")
-            if (target_dir / "ops.npy").exists():
-                Path.unlink(target_dir / "ops.npy")
         elif conflicts == "skip":
             print(f"{target_dir} already exists, skipping!")
-            # TODO: load and return the masks
-            raise NotImplementedError("Skipping not implemented yet")
+            return suite2p_ds_annotated
         else:
             raise ValueError(f"{target_dir} already exists, cannot append!")
-
     target_dir.mkdir(exist_ok=True, parents=True)
 
     shutil.copy(str(source_dir / "ops.npy"), str(target_dir / "ops.npy"))
