@@ -1,5 +1,6 @@
 import numpy as np
 import os
+import re
 import datetime
 import flexiznam as flz
 from flexiznam.schema import Dataset
@@ -766,8 +767,15 @@ def split_recordings(
             project_id=suite2p_dataset.project,
             flexilims_session=flz_session,
             return_dataseries=False,
-            base_name=base_name,
         )
+        # Dataset name must be basename + _NUMBER for the split datasets
+        regexp = re.compile(f"{base_name}_[0-9]+")
+        split_dataset = [
+            i
+            for i in split_dataset
+            if regexp.match(i.dataset_name) is not None
+            and i.dataset_name.split("_")[-1].isnumeric()
+        ]
 
         recording_name = flz.get_entity(
             datatype="recording", flexilims_session=flz_session, id=recording_id
