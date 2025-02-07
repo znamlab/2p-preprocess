@@ -6,12 +6,9 @@ import flexiznam as flz
 from flexiznam.schema import Dataset
 from twop_preprocess.neuropil.ast_model import ast_model
 import itertools
-from suite2p import run_s2p
+import suite2p
+import suite2p.detection.anatomical
 from suite2p.extraction import dcnv
-from suite2p.extraction.masks import create_cell_pix, create_neuropil_masks
-from suite2p.detection.anatomical import masks_to_stats
-from suite2p.detection import roi_stats
-from suite2p.gui.drawroi import masks_and_traces
 from sklearn import mixture
 from twop_preprocess.utils import parse_si_metadata, load_ops
 from functools import partial
@@ -104,61 +101,55 @@ def reextract_masks(masks, suite2p_ds):
     # Initialize outputs
     merged_masks = np.zeros((Ly * nY, Lx * nX))
     all_original_masks = []
-    all_F = []
-    all_Fneu = []
     all_stat = []
     all_ops = []
-    project = suite2p_ds.project
+
     for iplane, masks_plane in enumerate(masks):
+        if not np.any(masks_plane):
+            print(f"No masks for plane {iplane}. Skipping")
+            continue
+        # get new mask values
         original_mask_values, reordered_masks = np.unique(
             masks_plane, return_inverse=True
         )
+        # np.unique return_inverse returns the flattened array, so we need to reshape it
         reordered_masks = reordered_masks.reshape(masks_plane.shape).astype(int)
+
+        # Add the reordered masks to the merged masks
         iX = iplane % nX
         iY = int(iplane / nX)
         merged_masks[iY * Ly : (iY + 1) * Ly, iX * Lx : (iX + 1) * Lx] = reordered_masks
-        all_original_masks.append(original_mask_values[original_mask_values > 0])
-        ops = np.load(
-            suite2p_ds.path_full / f"plane{iplane}" / "ops.npy", allow_pickle=True
-        ).item()
 
-        if np.max(masks_plane) > 0:
-            stat = list(masks_to_stats(reordered_masks, get_weights(ops)))
-            stat = roi_stats(
-                stat,
-                Ly,
-                Lx,
-                aspect=ops.get("aspect", None),
-                diameter=ops.get("diameter", None),
-                do_crop=ops.get("soma_crop", 1),
+        all_original_masks.append(original_mask_values[original_mask_values > 0])
+        path2ops = suite2p_ds.path_full / f"plane{iplane}" / "ops.npy"
+        ops = np.load(path2ops, allow_pickle=True).item()
+
+        if iplane in ops["ignore_flyback"]:
+            print(f"Skipping flyback plane {iplane}")
+            continue
+
+        # create ROIs stat
+        stat = list(
+            suite2p.detection.anatomical.masks_to_stats(
+                reordered_masks, get_weights(ops)
             )
-            cell_pix = create_cell_pix(
-                stat, Ly=Ly, Lx=Lx, lam_percentile=ops.get("lam_percentile", 50.0)
-            )
-            for roi in stat:
-                roi["neuropil_mask"] = create_neuropil_masks(
-                    ypixs=[
-                        roi["ypix"],
-                    ],
-                    xpixs=[
-                        roi["xpix"],
-                    ],
-                    cell_pix=cell_pix,
-                    inner_neuropil_radius=ops["inner_neuropil_radius"],
-                    min_neuropil_pixels=ops["min_neuropil_pixels"],
-                    circular=ops.get("circular_neuropil", False),
-                )[0]
-            print(f"extracting fluorescence for plane {iplane}")
-            ops["reg_file"] = flz.get_processed_path(
-                project + ops["reg_file"].split(project, 1)[1]
-            )
-            stat_orig[0]["iplane"] = iplane
-            F, Fneu, _, _, _, ops, stat = masks_and_traces(ops, stat, stat_orig)
-            all_F.append(F)
-            all_Fneu.append(Fneu)
-            all_stat.append(stat)
-            all_ops.append(ops)
-    return merged_masks, all_original_masks, all_F, all_Fneu, all_stat, all_ops
+        )
+        stat = suite2p.detection.roi_stats(
+            stat,
+            Ly,
+            Lx,
+            aspect=ops.get("aspect", None),
+            diameter=ops.get("diameter", None),
+            do_crop=ops.get("soma_crop", 1),
+        )
+        for i in range(len(stat)):
+            stat[i]["iplane"] = iplane
+        all_stat.append(stat)
+
+        ops = suite2p.run_plane(ops, ops_path=str(path2ops.resolve()), stat=stat)
+        all_ops.append(ops)
+    save_folder = Path(ops["save_path0"]) / ops["save_folder"]
+    return merged_masks, all_original_masks, all_stat, all_ops
 
 
 def reextract_session(session, masks, flz_session, conflicts="abort"):
@@ -211,30 +202,123 @@ def reextract_session(session, masks, flz_session, conflicts="abort"):
             raise ValueError(f"{target_dir} already exists, cannot append!")
     target_dir.mkdir(exist_ok=True, parents=True)
 
-    shutil.copy(str(source_dir / "ops.npy"), str(target_dir / "ops.npy"))
+    # check if the binary still exist
+    re_register = False
+    # load one random ops file to get the project path
+    ops = np.load(suite2p_ds.path_full / "plane0" / "ops.npy", allow_pickle=True).item()
+    project = suite2p_ds.project
+    fast_disk = flz.get_processed_path(project) / ops["fast_disk"].split(project)[1][1:]
+    fast_disk /= "suite2p"
+    empty_planes = [not np.any(m) for m in masks]
+    for iplane in range(len(masks)):
+        bin_file = fast_disk / f"plane{iplane}" / "data.bin"
+        if bin_file.exists():
+            continue
+        # Check if there are masks in this plane
+        if empty_planes[iplane]:
+            print(f"No masks for plane {iplane}. Skipping")
+            continue
+        re_register = True
+
+    # Copy ops to the target directory and check if binaries exist
+    ori_path = str(suite2p_ds.path)
+    new_path = str(suite2p_ds_annotated.path)
+    for subdir in suite2p_ds.path_full.iterdir():
+        if not subdir.name.startswith("plane"):
+            continue
+        planei = int(subdir.name[5:])
+        if empty_planes[planei]:
+            print(f"No masks for plane {planei}. Not creating ops")
+            continue
+        if not subdir.is_dir():
+            continue
+        source_ops_file = subdir / "ops.npy"
+        if not source_ops_file.exists():
+            continue
+
+        # we replace all mentions to the original path with the new path
+        ori_ops = np.load(source_ops_file, allow_pickle=True).item()
+        ops = dict()
+        for k, v in ori_ops.items():
+            if isinstance(v, str) and (ori_path in v):
+                ops[k] = v.replace(ori_path, new_path)
+            elif isinstance(v, str) and (suite2p_ds.dataset_name in v):
+                ops[k] = v.replace(
+                    suite2p_ds.dataset_name, suite2p_ds_annotated.dataset_name
+                )
+            elif isinstance(v, Path) and (ori_path in str(v)):
+                ops[k] = v.with_name(v.name.replace(ori_path, new_path))
+            else:
+                ops[k] = v
+        # Add the empty planes to the ignore_flyback field
+        ops["ignore_flyback"] = list(np.where(empty_planes)[0])
+
+        # Always keep raw and bin files, manually delete if needed
+        ops["keep_movie_raw"] = True
+        ops["delete_bin"] = False
+
+        # do_registration must > 1 to force redo
+        if re_register:
+            ops["do_registration"] = 2
+        else:
+            ops["do_registration"] = 1
+
+        # make a copy in the target directory
+        target_dir = suite2p_ds_annotated.path_full / subdir.name
+        target_dir.mkdir(exist_ok=True)
+        np.save(target_dir / "ops.npy", ops, allow_pickle=True)
+
+    if re_register:  # We need to ensure the raw also exists
+        print(f"Binary files not found. Force re-registration", flush=True)
+        # we need to convert the tiff to binary to be able to re-register
+        # copy from the last opened ops all the necessary fields which are identical for
+        # all planes
+        mini_ops = ops.copy()
+        plane_dpt = [
+            "meanImg",
+            "save_path",
+            "ops_path",
+            "reg_file",
+            "frames_per_folder",
+            "nframes",
+            "frames_per_file",
+        ]
+        for key in ops:
+            if isinstance(ops[key], str) and "plane" in ops[key]:
+                mini_ops.pop(key)
+            elif key in plane_dpt:
+                mini_ops.pop(key)
+        ops = suite2p.io.tiff_to_binary(mini_ops)
+
+    # Reextract masks and fluorescence traces
     (
         merged_masks,
         all_original_masks,
-        all_F,
-        all_Fneu,
         all_stat,
         all_ops,
-    ) = reextract_masks(masks.astype(int), suite2p_ds)
-    planes = []
+    ) = reextract_masks(masks.astype(int), suite2p_ds_annotated)
+
+    # Save the mask correspondance for each plane and new mask stats
     np.save(
         target_dir / "stat.npy", np.concatenate(all_stat, axis=0), allow_pickle=True
     )
-    for F, Fneu, stat, ops in zip(all_F, all_Fneu, all_stat, all_ops):
+    # mask for each plane have different length, cannot save a single array
+    np.savez(
+        suite2p_ds_annotated.path_full / "original_masks.npz",
+        **{f"plane{i}": mask for i, mask in enumerate(all_original_masks)},
+    )
+    np.save(suite2p_ds_annotated.path_full / "merged_masks.npy", merged_masks)
+
+    planes = []
+    for stat, ops in zip(all_stat, all_ops):
         target_dir = suite2p_ds_annotated.path_full / f"plane{stat[0]['iplane']}"
         target_dir.mkdir(exist_ok=True)
-        np.save(target_dir / "F.npy", F)
-        np.save(target_dir / "Fneu.npy", Fneu)
-        np.save(target_dir / "stat.npy", stat, allow_pickle=True)
-        np.save(target_dir / "ops.npy", ops)
         spike_deconvolution_suite2p(
             suite2p_ds_annotated, stat[0]["iplane"], ops, ast_neuropil=False
         )
         planes.append(stat[0]["iplane"])
+
+    # Add empty plane 0 if it is not in the list of planes
     if 0 not in planes:
         print("No plane 0 found, adding empty plane 0")
         target_dir = suite2p_ds_annotated.path_full / "plane0"
@@ -249,11 +333,17 @@ def reextract_session(session, masks, flz_session, conflicts="abort"):
     extract_dff(suite2p_ds_annotated, ops)
 
     print("Splitting recordings...")
-    split_recordings(flz_session, suite2p_ds_annotated, conflicts="overwrite")
+    split_recordings(
+        flz_session,
+        suite2p_ds_annotated,
+        conflicts="overwrite",
+        base_name="suite2p_traces_annotated",
+    )
 
+    print("Updating flexilims...")
     suite2p_ds_annotated.update_flexilims(mode="update")
 
-    return all_original_masks
+    return suite2p_ds_annotated
 
 
 def run_extraction(flz_session, project, session_name, conflicts, ops):
