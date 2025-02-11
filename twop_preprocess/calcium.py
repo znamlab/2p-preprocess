@@ -189,6 +189,8 @@ def reextract_session(session, masks, flz_session, conflicts="abort"):
         base_name="suite2p_rois_annotated",
     )
     suite2p_ds_annotated.extra_attributes = suite2p_ds.extra_attributes
+    # add a flag to the dataset to indicate that it is annotated
+    suite2p_ds_annotated.extra_attributes["annotated"] = True
 
     # handle conflicts
     target_dir = suite2p_ds_annotated.path_full / "combined"
