@@ -340,6 +340,7 @@ def reextract_session(session, masks, flz_session, conflicts="abort"):
         suite2p_ds_annotated,
         conflicts="overwrite",
         base_name="suite2p_traces_annotated",
+        extra_attributes=dict(annotated=True)
     )
 
     print("Updating flexilims...")
@@ -807,7 +808,7 @@ def get_recording_frames(suite2p_dataset):
 
 
 def split_recordings(
-    flz_session, suite2p_dataset, conflicts, base_name="suite2p_traces"
+    flz_session, suite2p_dataset, conflicts, base_name="suite2p_traces", extra_attributes=None
 ):
     """
     suite2p concatenates all the recordings in a given session into a single file.
@@ -821,6 +822,8 @@ def split_recordings(
         conflicts (str): defines behavior if recordings have already been split
         base_name (str, optional): base name for the split datasets. Default
             "suite2p_traces"
+        extra_attributes (dict, optional): Extra attributes to add to the split datasets
+            on flexilims. Used only for identification. Default None.
 
     """
     # get scanimage datasets
@@ -844,83 +847,44 @@ def split_recordings(
                 for this_path in paths
             ]
         )
-    datasets_out = []
+
     first_frames, last_frames = get_recording_frames(suite2p_dataset)
     nplanes = int(float(suite2p_dataset.extra_attributes["nplanes"]))
+    
+    datasets_out = []
     for raw_datapath, recording_id, first_frames_rec, last_frames_rec in zip(
         datapaths, recording_ids, first_frames, last_frames
     ):
-        # minimum number of frames across planes
-        nframes = np.min(last_frames_rec - first_frames_rec)
         # get the path for split dataset
-        split_dataset = flz.get_datasets(
+        split_dataset = flz.Dataset.from_origin(
             origin_id=recording_id,
             dataset_type="suite2p_traces",
-            project_id=suite2p_dataset.project,
+            base_name=base_name,
             flexilims_session=flz_session,
-            return_dataseries=False,
+            conflicts=conflicts,
         )
-        # Dataset name must be basename + _NUMBER for the split datasets
-        regexp = re.compile(f"{base_name}_[0-9]+")
-        split_dataset = [
-            i
-            for i in split_dataset
-            if regexp.match(i.dataset_name) is not None
-            and i.dataset_name.split("_")[-1].isnumeric()
+        # Set the extra_attributes to match that of suite2p    
+        # minimum number of frames across planes
+        nframes = np.min(last_frames_rec - first_frames_rec)
+        si_metadata = parse_si_metadata(raw_datapath)
+        split_dataset.extra_attributes = suite2p_dataset.extra_attributes.copy()
+        split_dataset.extra_attributes["fs"] = si_metadata[
+            "SI.hRoiManager.scanVolumeRate"
         ]
-
-        recording_name = flz.get_entity(
-            datatype="recording", flexilims_session=flz_session, id=recording_id
-        ).name
-        if len(split_dataset) > 0:
+        split_dataset.extra_attributes["nframes"] = nframes
+        if extra_attributes is not None:
+            split_dataset.extra_attributes.update(dict(extra_attributes))
+        if (split_dataset.flexilims_status() == "up-to-date") and (conflicts == "skip"):
             print(
-                f"WARNING:{len(split_dataset)} suite2p datasets found for recording"
-                + f" {recording_name}. Will use the last one."
+                f"Dataset {split_dataset.dataset_name} already exists... skipping..."
             )
-            split_dataset = split_dataset[
-                np.argmax(
-                    [
-                        datetime.datetime.strptime(i.created, "%Y-%m-%d %H:%M:%S")
-                        for i in split_dataset
-                    ]
-                )
-            ]
-            print(split_dataset)
-            if conflicts == "overwrite":
-                print(f"Overwriting the last dataset {split_dataset.full_name}...")
-            elif (split_dataset.get_flexilims_entry() is not None) and (
-                conflicts == "skip"
-            ):
-                print(f"Dataset {split_dataset.full_name} already split... skipping...")
-                datasets_out.append(split_dataset)
-                continue
-
-            else:
-                split_dataset = Dataset.from_origin(
-                    project=suite2p_dataset.project,
-                    origin_type="recording",
-                    origin_id=recording_id,
-                    dataset_type="suite2p_traces",
-                    conflicts=conflicts,
-                    base_name=base_name,
-                )
-        else:
-            split_dataset = Dataset.from_origin(
-                project=suite2p_dataset.project,
-                origin_type="recording",
-                origin_id=recording_id,
-                dataset_type="suite2p_traces",
-                conflicts=conflicts,
-                base_name=base_name,
-            )
+            continue
 
         split_dataset.path_full.mkdir(parents=True, exist_ok=True)
-        si_metadata = parse_si_metadata(raw_datapath)
         np.save(split_dataset.path_full / "si_metadata.npy", si_metadata)
         # load processed data
         for iplane, start in zip(range(nplanes), first_frames_rec):
             suite2p_path = suite2p_dataset.path_full / f"plane{iplane}"
-            # otherwise lets split it
             split_path = split_dataset.path_full / f"plane{iplane}"
             try:
                 split_path.mkdir(parents=True, exist_ok=True)
@@ -948,11 +912,7 @@ def split_recordings(
                 np.save(split_path / "Fast.npy", Fast[:, start:end])
                 np.save(split_path / "dff_ast.npy", dff_ast[:, start:end])
                 np.save(split_path / "spks_ast.npy", spks_ast[:, start:end])
-        split_dataset.extra_attributes = suite2p_dataset.extra_attributes.copy()
-        split_dataset.extra_attributes["fs"] = si_metadata[
-            "SI.hRoiManager.scanVolumeRate"
-        ]
-        split_dataset.extra_attributes["nframes"] = nframes
+
         split_dataset.update_flexilims(mode="overwrite")
         datasets_out.append(split_dataset)
     return datasets_out
