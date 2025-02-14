@@ -1,6 +1,7 @@
 import os
 from pathlib import Path
 from typing import Sequence, Dict, Any
+import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy.stats import kde, pearsonr
@@ -21,7 +22,7 @@ mpl.rcParams.update({
     'figure.figsize': (18, 13),
     'ytick.major.left': True,
 })
-jet = mpl.cm.get_cmap("jet").copy()
+jet = matplotlib.colormaps.get_cmap("jet").copy()
 jet.set_bad(color='k')
 
 
