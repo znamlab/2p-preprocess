@@ -101,9 +101,7 @@ def calcium(
     default=False,
     help="Whether to concatenate the zstacks in datasets",
 )
-@click.argument(
-    "datasets", nargs=-1, required=False,
-)
+@click.argument("datasets", nargs=-1, required=False)
 def zstack(
     project,
     session,
@@ -123,7 +121,7 @@ def zstack(
 
     if not datasets:
         datasets = None
-        
+
     ops = {
         "ch_to_align": channel,
         "max_shift": max_shift,

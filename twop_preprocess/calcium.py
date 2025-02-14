@@ -340,7 +340,7 @@ def reextract_session(session, masks, flz_session, conflicts="abort"):
         suite2p_ds_annotated,
         conflicts="overwrite",
         base_name="suite2p_traces_annotated",
-        extra_attributes=dict(annotated=True)
+        extra_attributes=dict(annotated=True),
     )
 
     print("Updating flexilims...")
@@ -808,7 +808,11 @@ def get_recording_frames(suite2p_dataset):
 
 
 def split_recordings(
-    flz_session, suite2p_dataset, conflicts, base_name="suite2p_traces", extra_attributes=None
+    flz_session,
+    suite2p_dataset,
+    conflicts,
+    base_name="suite2p_traces",
+    extra_attributes=None,
 ):
     """
     suite2p concatenates all the recordings in a given session into a single file.
@@ -850,7 +854,7 @@ def split_recordings(
 
     first_frames, last_frames = get_recording_frames(suite2p_dataset)
     nplanes = int(float(suite2p_dataset.extra_attributes["nplanes"]))
-    
+
     datasets_out = []
     for raw_datapath, recording_id, first_frames_rec, last_frames_rec in zip(
         datapaths, recording_ids, first_frames, last_frames
@@ -863,7 +867,7 @@ def split_recordings(
             flexilims_session=flz_session,
             conflicts=conflicts,
         )
-        # Set the extra_attributes to match that of suite2p    
+        # Set the extra_attributes to match that of suite2p
         # minimum number of frames across planes
         nframes = np.min(last_frames_rec - first_frames_rec)
         si_metadata = parse_si_metadata(raw_datapath)
@@ -875,9 +879,7 @@ def split_recordings(
         if extra_attributes is not None:
             split_dataset.extra_attributes.update(dict(extra_attributes))
         if (split_dataset.flexilims_status() == "up-to-date") and (conflicts == "skip"):
-            print(
-                f"Dataset {split_dataset.dataset_name} already exists... skipping..."
-            )
+            print(f"Dataset {split_dataset.dataset_name} already exists... skipping...")
             continue
 
         split_dataset.path_full.mkdir(parents=True, exist_ok=True)

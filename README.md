@@ -18,7 +18,7 @@ pip install optax==0.1.2
 conda deactivate
 ```
 
-This should install the dependencies and create conda environments for `suite2p` and for the repo itself. Environments are created in each users home directory. Note that the version of `torch` generated issues and the version of `optax` conflicted with `python=3.8`. The python version is enforced because `suite2p` does not want to bring their dependencies forward. 
+This should install the dependencies and create conda environments for `suite2p` and for the repo itself. Environments are created in each users home directory. Note that the version of `torch` generated issues and the version of `optax` conflicted with `python=3.8`. The python version is enforced because `suite2p` does not want to bring their dependencies forward.
 
 `run_suite2p.sh` and `run_suite2p_gpu.sh` contain example scripts that first runs the standard run_suite2p pipeline and then applies neuropil correction using the AST model.
 If running neuropil correction using the AST model, using a GPU node is recommended.
