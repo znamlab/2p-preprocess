@@ -13,7 +13,7 @@ dependencies = [
         "scikit-image",
         "tqdm",
         "Click",
-        "numpy<2",
+        "numpy",
         "jax",
         "optax",
         "scikit-learn",
