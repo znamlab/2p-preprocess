@@ -1,5 +1,5 @@
 [project]
-name = "twop_preprocess"
+name = "2p-preprocess"
 authors = [{name = "Znamenskiy lab", email= "petr.znamenskiy@crick.ac.uk"}]
 description = "Preprocessing of two-photon data"
 readme = "README.md"
