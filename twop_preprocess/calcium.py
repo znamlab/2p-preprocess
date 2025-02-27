@@ -476,6 +476,12 @@ def detrend(F, first_frames, last_frames, ops, fs):
 
     """
     win_frames = int(ops["detrend_win"] * fs)
+
+    if win_frames % 2 == 0:
+        pad_size = (win_frames // 2, win_frames // 2 - 1)
+    else:
+        pad_size = (win_frames // 2 , win_frames // 2 )  # Adjust for odd case
+
     all_rec_baseline = np.zeros_like(F)
     for i, (start, end) in enumerate(zip(first_frames, last_frames)):
         rec_rolling_baseline  = np.zeros_like(F[:, start:end])
@@ -486,7 +492,7 @@ def detrend(F, first_frames, last_frames, ops, fs):
                     win_frames,
                     ops["detrend_pctl"],
                 ),
-                (win_frames//2, win_frames//2 - 1),
+                pad_size,
                 mode='edge',
             )
 
