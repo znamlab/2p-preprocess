@@ -481,9 +481,9 @@ def run_extraction(flz_session, project, session_name, conflicts, ops):
     suite2p_dataset.extra_attributes = ops
     suite2p_dataset.update_flexilims(mode="overwrite")
     return suite2p_dataset
-
-
-def extract_dff(suite2p_dataset, ops):
+        
+        
+def extract_dff(suite2p_dataset, ops, project, flz_session):
     """
     Correct offsets, detrend, calculate dF/F and deconvolve spikes for the whole session.
 
@@ -495,9 +495,8 @@ def extract_dff(suite2p_dataset, ops):
     first_frames, last_frames = get_recording_frames(suite2p_dataset)
     offsets = []
     for datapath in suite2p_dataset.extra_attributes["data_path"]:
-        datapath = os.path.join(
-            flz.PARAMETERS["data_root"]["raw"], *datapath.split("/")[-4:]
-        )  # add the raw path from flexiznam config
+        datapath = os.path.join(flz.get_data_root('raw', project, flz_session), 
+                                *datapath.split('/')[-4:]) # add the raw path from flexiznam config
         if ops["correct_offset"]:
             offsets.append(estimate_offset(datapath))
             print(f"Estimated offset for {datapath} is {offsets[-1]}")
@@ -985,7 +984,7 @@ def extract_session(
 
     if run_dff:
         print("Calculating dF/F...")
-        extract_dff(suite2p_dataset, ops)
+        extract_dff(suite2p_dataset, ops, project, flz_session)
 
     if run_split:
         print("Splitting recordings...")
