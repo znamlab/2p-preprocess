@@ -496,7 +496,7 @@ def extract_dff(suite2p_dataset, ops, project, flz_session):
         ops (dict): dictionary of suite2p settings
 
     """
-    first_frames, last_frames = get_recording_frames(suite2p_dataset)
+    first_frames, last_frames = get_recording_frames(suite2p_dataset, flz_session)
     offsets = []
     for datapath in suite2p_dataset.extra_attributes["data_path"]:
         datapath = os.path.join(
@@ -810,7 +810,7 @@ def spike_deconvolution_suite2p(suite2p_dataset, iplane, ops={}, ast_neuropil=Tr
     np.save(spks_path, spks)
 
 
-def get_recording_frames(suite2p_dataset):
+def get_recording_frames(suite2p_dataset, flz_session):
     """
     Get the first and last frames of each recording in the session.
 
@@ -892,7 +892,7 @@ def split_recordings(
             ]
         )
     datasets_out = []
-    first_frames, last_frames = get_recording_frames(suite2p_dataset)
+    first_frames, last_frames = get_recording_frames(suite2p_dataset, flz_session)
     nplanes = int(float(suite2p_dataset.extra_attributes["nplanes"]))
 
     datasets_out = []
