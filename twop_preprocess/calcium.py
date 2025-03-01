@@ -326,7 +326,7 @@ def extract_dff(suite2p_dataset, ops, project, flz_session):
         ops (dict): dictionary of suite2p settings
 
     """
-    first_frames, last_frames = get_recording_frames(suite2p_dataset)
+    first_frames, last_frames = get_recording_frames(suite2p_dataset, flz_session)
     offsets = []
     for datapath in suite2p_dataset.extra_attributes["data_path"]:
         datapath = os.path.join(flz.get_data_root('raw', project, flz_session), 
@@ -619,7 +619,7 @@ def spike_deconvolution_suite2p(suite2p_dataset, iplane, ops={}, ast_neuropil=Tr
     np.save(spks_path, spks)
 
 
-def get_recording_frames(suite2p_dataset):
+def get_recording_frames(suite2p_dataset, flz_session):
     """
     Get the first and last frames of each recording in the session.
 
@@ -632,7 +632,23 @@ def get_recording_frames(suite2p_dataset):
 
     """
     # load the ops file to find length of individual recordings
-    nplanes = int(float(suite2p_dataset.extra_attributes["nplanes"]))
+    try:
+        nplanes = int(float(suite2p_dataset.extra_attributes["nplanes"]))
+
+    except (KeyError): #Default to 1 if missing 
+
+        new_attributes = {'nplanes': 1}
+
+        flz.update_entity(
+            "dataset", 
+            name = suite2p_dataset.full_name, 
+            mode='update', 
+            attributes=new_attributes, 
+            project_id=suite2p_dataset.project, 
+            flexilims_session=flz_session)
+        
+        nplanes = int(float(suite2p_dataset.extra_attributes["nplanes"]))
+
     ops = []
     for iplane in range(nplanes):
         ops_path = suite2p_dataset.path_full / f"plane{iplane}" / "ops.npy"
@@ -683,7 +699,7 @@ def split_recordings(flz_session, suite2p_dataset, conflicts):
             ]
         )
     datasets_out = []
-    first_frames, last_frames = get_recording_frames(suite2p_dataset)
+    first_frames, last_frames = get_recording_frames(suite2p_dataset, flz_session)
     nplanes = int(float(suite2p_dataset.extra_attributes["nplanes"]))
     for raw_datapath, recording_id, first_frames_rec, last_frames_rec in zip(
         datapaths, recording_ids, first_frames, last_frames
