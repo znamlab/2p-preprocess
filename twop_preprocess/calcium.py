@@ -21,6 +21,7 @@ from twop_preprocess.plotting_utils import sanity_check_utils as sanity
 import warnings
 
 
+
 print = partial(print, flush=True)
 
 
@@ -908,21 +909,27 @@ def split_recordings(
                 np.load(suite2p_path / "Fneu.npy"),
                 np.load(suite2p_path / "spks.npy"),
             )
+            end = start + nframes
+            np.save(split_path / "F.npy", F[:, start:end])
+            np.save(split_path / "Fneu.npy", Fneu[:, start:end])
+            np.save(split_path / "spks.npy", spks[:, start:end])
             if suite2p_dataset.extra_attributes["ast_neuropil"]:
                 Fast, dff_ast, spks_ast = (
                     np.load(suite2p_path / "Fast.npy"),
                     np.load(suite2p_path / "dff_ast.npy"),
                     np.load(suite2p_path / "spks_ast.npy"),
                 )
-            end = start + nframes
-            np.save(split_path / "F.npy", F[:, start:end])
-            np.save(split_path / "Fneu.npy", Fneu[:, start:end])
-            np.save(split_path / "spks.npy", spks[:, start:end])
-            if suite2p_dataset.extra_attributes["ast_neuropil"]:
                 np.save(split_path / "Fast.npy", Fast[:, start:end])
                 np.save(split_path / "dff_ast.npy", dff_ast[:, start:end])
                 np.save(split_path / "spks_ast.npy", spks_ast[:, start:end])
-
+            else:
+                dff = np.load(suite2p_path / "dff.npy")
+                np.save(split_path / "dff.npy", dff[:, start:end])
+        split_dataset.extra_attributes = suite2p_dataset.extra_attributes.copy()
+        split_dataset.extra_attributes["fs"] = si_metadata[
+            "SI.hRoiManager.scanVolumeRate"
+        ]
+        split_dataset.extra_attributes["nframes"] = nframes
         split_dataset.update_flexilims(mode="overwrite")
         datasets_out.append(split_dataset)
     return datasets_out
