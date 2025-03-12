@@ -391,10 +391,6 @@ def extract_dff(suite2p_dataset, ops):
         Fneu = correct_offset(
             dpath / "Fneu.npy", offsets, first_frames[:, iplane], last_frames[:, iplane]
         )
-        if ops["sanity_plots"]:
-            sanity.plot_raw_trace(F, random_rois, Fneu)
-            plt.savefig(dpath / "sanity_plots/offset_corrected.png")
-
         if ops["detrend"]:
             print("Detrending...")
             F_offset_corrected = F.copy()
@@ -405,7 +401,26 @@ def extract_dff(suite2p_dataset, ops):
             Fneu, Fneu_trend = detrend(
                 Fneu, first_frames[:, iplane], last_frames[:, iplane], ops, fs
             )
-            if ops["sanity_plots"]:
+
+        if ops["ast_neuropil"]:
+            print("Running ASt neuropil correction...")
+            correct_neuropil(dpath, F, Fneu)
+            Fast = np.load(dpath / "Fast.npy")
+            dff, f0 = calculate_dFF(dpath, Fast, Fneu, ops)
+            print("Deconvolve spikes from neuropil corrected trace...")
+            spike_deconvolution_suite2p(suite2p_dataset, iplane, ops)
+        else:
+            dff, f0 = calculate_dFF(dpath, F, Fneu, ops)
+            Fast = np.zeros_like(F)
+
+        if ops["sanity_plots"]:
+            sanity.plot_raw_trace(F_offset_corrected, random_rois, Fneu)
+            plt.savefig(dpath / "sanity_plots/offset_corrected.png")
+            sanity.plot_dff(Fast, dff, f0, random_rois)
+            plt.savefig(dpath / "sanity_plots" / f'dffs_n{ops["dff_ncomponents"]}.png')
+            sanity.plot_fluorescence_matrices(F, Fneu, Fast, dff, ops["neucoeff"])
+            plt.savefig(dpath / "sanity_plots" / f"fluorescence_matrices.png")
+            if ops["detrend"]:
                 sanity.plot_detrended_trace(
                     F_offset_corrected,
                     F_trend,
@@ -416,33 +431,9 @@ def extract_dff(suite2p_dataset, ops):
                     random_rois,
                 )
                 plt.savefig(dpath / "sanity_plots" / "detrended.png")
-
-        if ops["ast_neuropil"]:
-            print("Running ASt neuropil correction...")
-            correct_neuropil(dpath, F, Fneu)
-            Fast = np.load(dpath / "Fast.npy")
-            if ops["sanity_plots"]:
+            if ops["ast_neuropil"]:
                 sanity.plot_raw_trace(F, random_rois, Fast, titles=["F", "Fast"])
                 plt.savefig(dpath / "sanity_plots" / "neuropil_corrected.png")
-
-        print("Calculating dF/F...")
-        if ops["ast_neuropil"]:
-            calculate_dFF(dpath, Fast, Fneu, ops)
-        else:
-            calculate_dFF(dpath, F, Fneu, ops)
-        dff = np.load(
-            dpath / "dff_ast.npy" if ops["ast_neuropil"] else dpath / "dff.npy"
-        )
-        if ops["sanity_plots"]:
-            F0 = np.load(
-                dpath / "f0_ast.npy" if ops["ast_neuropil"] else dpath / "f0.npy"
-            )
-            sanity.plot_dff(Fast, dff, F0, random_rois)
-            plt.savefig(dpath / "sanity_plots" / f'dffs_n{ops["dff_ncomponents"]}.png')
-
-        if ops["ast_neuropil"]:
-            print("Deconvolve spikes from neuropil corrected trace...")
-            spike_deconvolution_suite2p(suite2p_dataset, iplane, ops)
 
 
 def estimate_offset(datapath, n_components=3):
@@ -605,6 +596,7 @@ def calculate_dFF(dpath, F, Fneu, ops):
             is False. Default 0.7.
 
     """
+    print("Calculating dF/F...")
     if not ops["ast_neuropil"]:
         F = F - ops["neucoeff"] * Fneu
     # Calculate dFFs and save to the suite2p folder
@@ -612,6 +604,7 @@ def calculate_dFF(dpath, F, Fneu, ops):
     dff, f0 = dFF(F, n_components=ops["dff_ncomponents"])
     np.save(dpath / "dff_ast.npy" if ops["ast_neuropil"] else dpath / "dff.npy", dff)
     np.save(dpath / "f0_ast.npy" if ops["ast_neuropil"] else dpath / "f0.npy", f0)
+    return dff, f0
 
 
 def spike_deconvolution_suite2p(suite2p_dataset, iplane, ops={}, ast_neuropil=True):
