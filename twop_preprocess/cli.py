@@ -30,6 +30,15 @@ def cli():
 @click.option(
     "--tau", "-t", type=float, help="Decay time constant for spike extraction"
 )
+@click.option(
+    "--keep-binary", is_flag=True, default=False, help="Whether to keep binary files"
+)
+@click.option(
+    "--roidetect",
+    type=bool,
+    default=True,
+    help="Whether to run ROI detection on the suite2p output",
+)
 def calcium(
     project,
     session,
@@ -38,6 +47,8 @@ def calcium(
     run_split=True,
     run_suite2p=True,
     run_dff=True,
+    keep_binary=False,
+    roidetect=True,
     tau=None,
 ):
     """Run calcium imaging preprocessing pipeline"""
@@ -46,6 +57,8 @@ def calcium(
     ops = {
         "tau": tau,
         "ast_neuropil": run_neuropil,
+        "delete_bin": not keep_binary,
+        "roidetect": roidetect,
     }
     # delete None values
     ops = {k: v for k, v in ops.items() if v is not None}
@@ -82,7 +95,15 @@ def calcium(
     type=bool,
     help="Whether stack was imaged as a sequence of volumes rather than planes",
 )
-@click.option("--dataset_name", default=None, help="Flexilims name of the dataset")
+@click.option(
+    "--zstack-concat",
+    type=bool,
+    default=False,
+    help="Whether to concatenate the zstacks in datasets",
+)
+@click.argument(
+    "datasets", nargs=-1, required=False,
+)
 def zstack(
     project,
     session,
@@ -93,11 +114,16 @@ def zstack(
     iter=None,
     bidi_correction=None,
     sequential_volumes=None,
-    dataset_name=None,
+    datasets=None,
+    zstack_concat=None,
 ):
     """Run zstack registration"""
     from twop_preprocess.zstack import run_zstack_registration
     from twop_preprocess.utils import load_ops
+
+    if not datasets:
+        datasets = None
+        
     ops = {
         "ch_to_align": channel,
         "max_shift": max_shift,
@@ -105,9 +131,12 @@ def zstack(
         "iter": iter,
         "bidi_correction": bidi_correction,
         "sequential_volumes": sequential_volumes,
-        "dataset_name": dataset_name,
+        "zstack_concat": zstack_concat,
+        "datasets": datasets,
     }
     # delete None values
     ops = {k: v for k, v in ops.items() if v is not None}
     ops = load_ops(ops, zstack=True)
-    run_zstack_registration(project, session, conflicts=conflicts, ops=ops)
+    run_zstack_registration(
+        project=project, session_name=session, conflicts=conflicts, ops=ops
+    )

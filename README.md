@@ -13,15 +13,12 @@ conda env create -f environment.yml
 
 conda activate 2p-preprocess
 pip install -e .
-pip install --upgrade "jax[cuda11_local]" -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
-pip install optax
+pip install -U "jax[cuda12_pip]" -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
+pip install optax==0.1.2
 conda deactivate
 ```
 
-Until we sort out whether we can use the newest jax in the cluster (whoever does it gets a coffee) as that's what limits us from updating the versions, there is an environment with the explicit working versions for all the dependencies in June 2024 as `environment.yaml`. Use if there are version conflicts.  
-
-This should install the dependencies and create conda environments for suite2p
-and for the repo itself. Environments are created in each users home directory.
+This should install the dependencies and create conda environments for `suite2p` and for the repo itself. Environments are created in each users home directory. Note that the version of `torch` generated issues and the version of `optax` conflicted with `python=3.8`. The python version is enforced because `suite2p` does not want to bring their dependencies forward. 
 
 `run_suite2p.sh` and `run_suite2p_gpu.sh` contain example scripts that first runs the standard run_suite2p pipeline and then applies neuropil correction using the AST model.
 If running neuropil correction using the AST model, using a GPU node is recommended.
@@ -33,7 +30,7 @@ Put the steps you want to run to y, and the steps you don’t want to run to n, 
 ```
 and run the`sbatch` script, passing the session details as environment variables, e.g.:
 ```
-sbatch --export=PROJECT=test,SESSION=PZAJ2.1c_S20210513,CONFLICTS=skip,TAU=0.7 run_suite2p_gpu.sh
+sbatch --export=PROJECT=depth_mismatch_seq,SESSION=BRAC9057.4j_S20240517,CONFLICTS=overwrite,TAU=0.7 run_suite2p_gpu.sh
 ```
 
 # ASt model

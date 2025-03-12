@@ -9,8 +9,8 @@
 #SBATCH --gres=gpu:1
 #SBATCH --mail-type=END,FAIL
 ml purge
-ml CUDA/11.3.1
-ml cuDNN/8.2.1.32-CUDA-11.3.1
+ml CUDA/12.1.1
+ml cuDNN/8.9.2.26-CUDA-12.1.1
 ml Anaconda3/2022.05
 
 source activate base
