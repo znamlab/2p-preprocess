@@ -16,16 +16,16 @@ def cli():
     help="How to handle conflicts when processed data already exists",
 )
 @click.option(
-    "--run-neuropil", type=bool, help="Whether to run ASt neuropil correction"
+    "--run-neuropil/--no-run-neuropil", help="Whether to run ASt neuropil correction"
 )
 @click.option(
-    "--run-split", type=bool, default=True, help="Whether to run split recordings"
+    "--run-split", is_flag=True, default=True, help="Whether to run split recordings"
 )
 @click.option(
-    "--run-suite2p", type=bool, default=True, help="Whether to suite2p extraction"
+    "--run-suite2p/--no-run-suite2p", help="Whether to suite2p extraction"
 )
 @click.option(
-    "--run-dff", type=bool, default=True, help="Whether to run dff extraction"
+    "--run-dff/--no-run-dff", help="Whether to run dff extraction"
 )
 @click.option(
     "--tau", "-t", type=float, help="Decay time constant for spike extraction"
