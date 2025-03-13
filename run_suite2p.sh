@@ -5,7 +5,7 @@
 #SBATCH --ntasks=1
 #SBATCH --time=12:00:00
 #SBATCH --mem-per-cpu=4G
-#SBATCH --partition=cpu
+#SBATCH --partition=ncpu
 #SBATCH --mail-type=END,FAIL
 ml purge
 ml CUDA/11.3.1
@@ -16,4 +16,4 @@ source activate base
 
 conda activate 2p-preprocess
 echo Processing ${SESSION} in project ${PROJECT}
-2p calcium -p ${PROJECT} -s ${SESSION} -c append --run-neuropil y -t ${TAU} --run-split y
+2p calcium -p ${PROJECT} -s ${SESSION} -c append --run-neuropil  -t ${TAU} --run-split 
