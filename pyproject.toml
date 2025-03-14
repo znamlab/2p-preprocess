@@ -3,7 +3,7 @@ name = "2p-preprocess"
 authors = [{name = "Znamenskiy lab", email= "petr.znamenskiy@crick.ac.uk"}]
 description = "Preprocessing of two-photon data"
 readme = "README.md"
-requires-python = ">=3.9,<3.10"  # because of suite2p
+requires-python = ">=3.8,<3.10"  # because of suite2p
 dynamic = ["version"]
 dependencies = [
         "flexiznam @ git+ssh://git@github.com/znamlab/flexiznam.git",
