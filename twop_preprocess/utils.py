@@ -19,6 +19,8 @@ def parse_si_metadata(tiff_path):
         dict: dictionary of SI parameters
 
     """
+    assert os.path.exists(tiff_path), f"Error: {tiff_path} does not exist"
+
     if tiff_path.suffix != ".tif":
         tiffs = [tiff_path / tiff for tiff in sorted(tiff_path.glob("*.tif"))]
     else:

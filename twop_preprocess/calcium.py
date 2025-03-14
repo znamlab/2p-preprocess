@@ -348,6 +348,7 @@ def run_extraction(flz_session, project, session_name, conflicts, ops):
     return suite2p_dataset
 
 
+
 def extract_dff(suite2p_dataset, ops):
     """
     Correct offsets, detrend, calculate dF/F and deconvolve spikes for the whole session.
@@ -360,6 +361,7 @@ def extract_dff(suite2p_dataset, ops):
     first_frames, last_frames = get_recording_frames(suite2p_dataset)
     offsets = []
     for datapath in suite2p_dataset.extra_attributes["data_path"]:
+
         datapath = os.path.join(
             flz.PARAMETERS["data_root"]["raw"], *datapath.split("/")[-4:]
         )  # add the raw path from flexiznam config
@@ -510,6 +512,12 @@ def detrend(F, first_frames, last_frames, ops, fs):
 
     """
     win_frames = int(ops["detrend_win"] * fs)
+
+    if win_frames % 2 == 0:
+        pad_size = (win_frames // 2, win_frames // 2 - 1)
+    else:
+        pad_size = (win_frames // 2 , win_frames // 2 )  # Adjust for odd case
+
     all_rec_baseline = np.zeros_like(F)
     for i, (start, end) in enumerate(zip(first_frames, last_frames)):
         rec_rolling_baseline = np.zeros_like(F[:, start:end])
@@ -520,8 +528,9 @@ def detrend(F, first_frames, last_frames, ops, fs):
                     win_frames,
                     ops["detrend_pctl"],
                 ),
-                (win_frames // 2, win_frames // 2 - 1),
-                mode="edge",
+                pad_size,
+                mode='edge',
+
             )
 
             rec_rolling_baseline[j, :] = rolling_baseline
@@ -658,7 +667,15 @@ def get_recording_frames(suite2p_dataset):
 
     """
     # load the ops file to find length of individual recordings
-    nplanes = int(float(suite2p_dataset.extra_attributes["nplanes"]))
+    try:
+        nplanes = int(float(suite2p_dataset.extra_attributes["nplanes"]))
+
+    except (KeyError): #Default to 1 if missing 
+        suite2p_dataset.extra_attributes["nplanes"] = 1
+        suite2p_dataset.update_flexilims(mode='update')
+        
+        nplanes = int(suite2p_dataset.extra_attributes["nplanes"])
+
     ops = []
     for iplane in range(nplanes):
         ops_path = suite2p_dataset.path_full / f"plane{iplane}" / "ops.npy"
@@ -870,7 +887,7 @@ def extract_session(
 
     if run_dff:
         print("Calculating dF/F...")
-        extract_dff(suite2p_dataset, ops)
+        extract_dff(suite2p_dataset, ops, project, flz_session)
 
     if run_split:
         print("Splitting recordings...")
