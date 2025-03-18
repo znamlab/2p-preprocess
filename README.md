@@ -33,6 +33,12 @@ and run the`sbatch` script, passing the session details as environment variables
 sbatch --export=PROJECT=depth_mismatch_seq,SESSION=BRAC9057.4j_S20240517,CONFLICTS=overwrite,TAU=0.7 run_suite2p_gpu.sh
 ```
 
+There is a separate script for convenience if you want to run without AST neuropil:
+```
+sbatch --export=PROJECT=colasa_3d-vision_revisions,SESSION=PZAH17.1e_S20250311,CONFLICTS=overwrite,TAU=0.7 run_suite2p_gpu_noneuropil.sh
+```
+
+
 # ASt model
 The Asymmetric Student's t-model for neuropil correction is described [here](https://basellasermouse.github.io/ast_model/model.html). The python implementation
 in this repository uses [JAX](https://github.com/google/jax) for automatic
