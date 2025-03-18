@@ -19,13 +19,13 @@ def cli():
     "--run-neuropil/--no-run-neuropil", help="Whether to run ASt neuropil correction"
 )
 @click.option(
-    "--run-split", is_flag=True, default=True, help="Whether to run split recordings"
+    "--run-split/--no-run-split", default=True, help="Whether to run split recordings"
 )
 @click.option(
-    "--run-suite2p/--no-run-suite2p", help="Whether to suite2p extraction"
+    "--run-suite2p/--no-run-suite2p", default=True, help="Whether to suite2p extraction"
 )
 @click.option(
-    "--run-dff/--no-run-dff", help="Whether to run dff extraction"
+    "--run-dff/--no-run-dff", default=True, help="Whether to run dff extraction"
 )
 @click.option(
     "--tau", "-t", type=float, help="Decay time constant for spike extraction"
