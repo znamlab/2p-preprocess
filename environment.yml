@@ -4,7 +4,7 @@ channels:
   - numba
   - conda-forge
 dependencies:
-  - python=3.8
+  - python=3.9
   - pip
   - mkl
   - numpy
@@ -26,3 +26,4 @@ dependencies:
     - pynwb
     - sbxreader
     - suite2p
+    - qtpy
