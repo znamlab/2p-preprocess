@@ -12,6 +12,9 @@ setup(
         "scikit-image",
         "tqdm",
         "Click",
+        "optax",
+        "jax",
+        "jaxlib",
     ],
     entry_points="""
         [console_scripts]

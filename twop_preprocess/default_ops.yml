@@ -1,5 +1,5 @@
 # whether to use ASt model for neuropil correction 
-ast_neuropil: True
+ast_neuropil: False
 # whether to estimate the offset for each recording
 correct_offset: True
 # number of GMM components for F0 estimation
@@ -9,8 +9,8 @@ roidetect: 1
 anatomical_only: 3
 pretrained_model: cyto2
 diameter_multiplier: 0.01
-flow_threshold: 2 #2
-cellprob_threshold: 0 #0
+flow_threshold: 2 #GCaMP6f:2, GCaMP6s:4
+cellprob_threshold: 0 #GCaMP6f:0, GCaMP6s:-3
 # activity-based segmentation parameters
 threshold_scaling: 0.5
 denoise: 1

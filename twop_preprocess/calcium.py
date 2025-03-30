@@ -358,6 +358,9 @@ def extract_dff(suite2p_dataset, ops):
         ops (dict): dictionary of suite2p settings
 
     """
+    # TODO: update suite2p_dataset.default_attributes with ops in the case of re-running
+    
+    # calculate offsets
     first_frames, last_frames = get_recording_frames(suite2p_dataset)
     offsets = []
     for datapath in suite2p_dataset.extra_attributes["data_path"]:
@@ -607,6 +610,7 @@ def calculate_dFF(dpath, F, Fneu, ops):
     """
     print("Calculating dF/F...")
     if not ops["ast_neuropil"]:
+        print("Correcting neuropil using linear model...")
         F = F - ops["neucoeff"] * Fneu
     # Calculate dFFs and save to the suite2p folder
     print(f"n components for dFF calculation: {ops['dff_ncomponents']}")
@@ -702,6 +706,7 @@ def split_recordings(flz_session, suite2p_dataset, conflicts):
         suite2p_dataset (Dataset): dataset containing concatenated recordings
             to split
         conflicts (str): defines behavior if recordings have already been split
+        ops (dict): dictionary of suite2p settings
 
     """
     # get scanimage datasets
@@ -817,9 +822,9 @@ def split_recordings(flz_session, suite2p_dataset, conflicts):
                 np.save(split_path / "Fast.npy", Fast[:, start:end])
                 np.save(split_path / "dff_ast.npy", dff_ast[:, start:end])
                 np.save(split_path / "spks_ast.npy", spks_ast[:, start:end])
-            else:
-                dff = np.load(suite2p_path / "dff.npy")
-                np.save(split_path / "dff.npy", dff[:, start:end])
+            # else: # TODO: add back the else clause once suite2p_dataset.extra_attributes is updated according to ops
+            dff = np.load(suite2p_path / "dff.npy")
+            np.save(split_path / "dff.npy", dff[:, start:end])
         split_dataset.extra_attributes = suite2p_dataset.extra_attributes.copy()
         split_dataset.extra_attributes["fs"] = si_metadata[
             "SI.hRoiManager.scanVolumeRate"
@@ -887,7 +892,7 @@ def extract_session(
 
     if run_dff:
         print("Calculating dF/F...")
-        extract_dff(suite2p_dataset, ops, project, flz_session)
+        extract_dff(suite2p_dataset, ops)
 
     if run_split:
         print("Splitting recordings...")
