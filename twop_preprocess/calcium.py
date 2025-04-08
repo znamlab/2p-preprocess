@@ -4,24 +4,19 @@ import re
 import datetime
 import flexiznam as flz
 from flexiznam.schema import Dataset
-from twop_preprocess.neuropil.ast_model import ast_model
 import itertools
 from znamutils import slurm_it
-import suite2p
-import suite2p.detection.anatomical
-from suite2p.extraction import dcnv
 from sklearn import mixture
-from twop_preprocess.utils import parse_si_metadata, load_ops
 from functools import partial
 from tqdm import tqdm
 from tifffile import TiffFile
 from pathlib import Path
 from numba import njit, prange
 import matplotlib.pyplot as plt
-from twop_preprocess.plotting_utils import sanity_check_utils as sanity
+
 import warnings
-
-
+from .utils import parse_si_metadata, load_ops
+from .plotting_utils import sanity_check_utils as sanity
 
 
 print = partial(print, flush=True)
@@ -90,6 +85,9 @@ def reextract_masks(masks, suite2p_ds):
         all_ops (list): list of ops
 
     """
+    import suite2p
+    import suite2p.detection.anatomical
+
     # There is case issue on some flexilims dataset, get the correct case first, but
     # try lower case if it fails
     Lx = int(suite2p_ds.extra_attributes.get("Lx", suite2p_ds.extra_attributes["lx"]))
@@ -168,6 +166,8 @@ def reextract_session(session, masks, flz_session, conflicts="abort"):
     Returns:
         ndarray: merged masks
     """
+    import suite2p
+
     # get initial suite2p dataset
     suite2p_ds = flz.get_datasets(
         flexilims_session=flz_session,
@@ -375,6 +375,8 @@ def run_extraction(flz_session, project, session_name, conflicts, ops):
         Dataset: object containing the generated dataset
 
     """
+    import suite2p
+
     # get experimental session
     exp_session = flz.get_entity(
         datatype="session", name=session_name, flexilims_session=flz_session
@@ -483,8 +485,8 @@ def run_extraction(flz_session, project, session_name, conflicts, ops):
     suite2p_dataset.extra_attributes = ops
     suite2p_dataset.update_flexilims(mode="overwrite")
     return suite2p_dataset
-        
-        
+
+
 def extract_dff(suite2p_dataset, ops, project, flz_session):
     """
     Correct offsets, detrend, calculate dF/F and deconvolve spikes for the whole session.
@@ -497,8 +499,9 @@ def extract_dff(suite2p_dataset, ops, project, flz_session):
     first_frames, last_frames = get_recording_frames(suite2p_dataset)
     offsets = []
     for datapath in suite2p_dataset.extra_attributes["data_path"]:
-        datapath = os.path.join(flz.get_data_root('raw', project, flz_session), 
-                                *datapath.split('/')[-4:]) # add the raw path from flexiznam config
+        datapath = os.path.join(
+            flz.get_data_root("raw", project, flz_session), *datapath.split("/")[-4:]
+        )  # add the raw path from flexiznam config
         if ops["correct_offset"]:
             offsets.append(estimate_offset(datapath))
             print(f"Estimated offset for {datapath} is {offsets[-1]}")
@@ -650,7 +653,7 @@ def detrend(F, first_frames, last_frames, ops, fs):
     if win_frames % 2 == 0:
         pad_size = (win_frames // 2, win_frames // 2 - 1)
     else:
-        pad_size = (win_frames // 2 , win_frames // 2 )  # Adjust for odd case
+        pad_size = (win_frames // 2, win_frames // 2)  # Adjust for odd case
 
     all_rec_baseline = np.zeros_like(F)
     for i, (start, end) in enumerate(zip(first_frames, last_frames)):
@@ -663,7 +666,7 @@ def detrend(F, first_frames, last_frames, ops, fs):
                     ops["detrend_pctl"],
                 ),
                 pad_size,
-                mode='edge',
+                mode="edge",
             )
 
             rec_rolling_baseline[j, :] = rolling_baseline
@@ -680,6 +683,24 @@ def detrend(F, first_frames, last_frames, ops, fs):
 
 
 def correct_neuropil(dpath, Fr, Fn):
+    """
+    Correct neuropil contamination using the ASt method.
+
+    Args:
+        dpath (str): path to the suite2p folder
+        Fr (numpy.ndarray): shape nrois x time, raw fluorescence trace for all rois
+            extracted from suite2p
+        Fn (numpy.ndarray): shape nrois x time, neuropil fluorescence trace for all rois
+            extracted from suite2p
+
+    Returns:
+        Fast (numpy.ndarray): shape nrois x time, neuropil corrected fluorescence trace
+            for all rois extracted from suite2p
+
+    """
+
+    from twop_preprocess.neuropil.ast_model import ast_model
+
     stat = np.load(dpath / "stat.npy", allow_pickle=True)
 
     print("Starting neuropil correction with ASt method...", flush=True)
@@ -759,6 +780,8 @@ def spike_deconvolution_suite2p(suite2p_dataset, iplane, ops={}, ast_neuropil=Tr
         ops (dict): dictionary of suite2p settings
 
     """
+    from suite2p.extraction import dcnv
+
     # Load the Fast.npy file and ops.npy file
     if ast_neuropil:
         F_path = suite2p_dataset.path_full / f"plane{iplane}" / "Fast.npy"
@@ -803,10 +826,10 @@ def get_recording_frames(suite2p_dataset):
     try:
         nplanes = int(float(suite2p_dataset.extra_attributes["nplanes"]))
 
-    except (KeyError): #Default to 1 if missing 
+    except KeyError:  # Default to 1 if missing
         suite2p_dataset.extra_attributes["nplanes"] = 1
-        suite2p_dataset.update_flexilims(mode='update')
-        
+        suite2p_dataset.update_flexilims(mode="update")
+
         nplanes = int(suite2p_dataset.extra_attributes["nplanes"])
 
     ops = []
@@ -943,14 +966,17 @@ def split_recordings(
     return datasets_out
 
 
-@slurm_it(conda_env='2p-preprocess',
-          slurm_options={"cpus-per-task":1,
-"ntasks":1,
-"time":"24:00:00",
-"mem-per-cpu":"256G",
-"partition":"ga100",
-"gres":"gpu:1",},
-module_list=["CUDA/12.1.1", "cuDNN/8.9.2.26-CUDA-12.1.1"]
+@slurm_it(
+    conda_env="2p-preprocess",
+    slurm_options={
+        "cpus-per-task": 1,
+        "ntasks": 1,
+        "time": "24:00:00",
+        "mem": "256G",
+        "partition": "ga100",
+        "gres": "gpu:1",
+    },
+    module_list=["CUDA/12.1.1", "cuDNN/8.9.2.26-CUDA-12.1.1"],
 )
 def extract_session(
     project,
