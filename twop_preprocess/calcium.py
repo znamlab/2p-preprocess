@@ -6,6 +6,7 @@ import flexiznam as flz
 from flexiznam.schema import Dataset
 from twop_preprocess.neuropil.ast_model import ast_model
 import itertools
+from znamutils import slurm_it
 import suite2p
 import suite2p.detection.anatomical
 from suite2p.extraction import dcnv
@@ -942,6 +943,15 @@ def split_recordings(
     return datasets_out
 
 
+@slurm_it(conda_env='2p-preprocess',
+          slurm_options={"cpus-per-task":1,
+"ntasks":1,
+"time":"24:00:00",
+"mem-per-cpu":"256G",
+"partition":"ga100",
+"gres":"gpu:1",},
+module_list=["CUDA/12.1.1", "cuDNN/8.9.2.26-CUDA-12.1.1"]
+)
 def extract_session(
     project,
     session_name,

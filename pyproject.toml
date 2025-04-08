@@ -7,6 +7,7 @@ requires-python = ">=3.8,<3.10"  # because of suite2p
 dynamic = ["version"]
 dependencies = [
         "flexiznam @ git+ssh://git@github.com/znamlab/flexiznam.git",
+        "znamutils @ git+ssh://git@github.com/znamlab/znamutils.git",
         "matplotlib",
         "jupyter",
         "more_itertools",
