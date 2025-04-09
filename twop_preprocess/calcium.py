@@ -67,7 +67,6 @@ def get_weights(ops):
     return weights
 
 
-
 def reextract_masks(masks, suite2p_ds):
     """
     Reextract masks from a suite2p dataset.
@@ -362,9 +361,17 @@ def reextract_session(session, masks, flz_session, conflicts="abort"):
     return suite2p_ds_annotated
 
 
-def run_extraction(flz_session, project, session_name, conflicts, ops):
+def run_extraction(
+    flz_session, project, session_name, conflicts, ops, delete_previous_run=False
+):
     """
     Fetch data from flexilims and run suite2p with the provided settings
+
+    Suite2p will generate a temporary folder, called suite2p where the initial binary
+    are saved. It will save the actual output in the folder of the suite2p datasets.
+    If conflict is overwrite, we re-run s2p.run but this function does not always redo
+    everything is some files already exists. To start from a blank state, use
+    delete_previous_run
 
     Args:
         flz_session (Flexilims): flexilims session
@@ -372,6 +379,8 @@ def run_extraction(flz_session, project, session_name, conflicts, ops):
         session_name (str): name of the session, used to find data on flexilims
         conflicts (str): defines behavior if recordings have already been split
         ops (dict): dictionary of suite2p settings
+        delete_previous_run (bool): whether to delete previous runs. Default False
+
 
     Returns:
         Dataset: object containing the generated dataset
@@ -386,62 +395,17 @@ def run_extraction(flz_session, project, session_name, conflicts, ops):
     if exp_session is None:
         raise ValueError(f"Session {session_name} not found on flexilims")
 
-
     # fetch an existing suite2p dataset or create a new suite2p dataset
-    if conflicts == "overwrite":
-        suite2p_datasets = flz.get_datasets(
-            origin_name=session_name,
-            dataset_type="suite2p_rois",
-            project_id=project,
-            flexilims_session=flz_session,
-            return_dataseries=False,
-        )
-            origin_name=session_name,
-            dataset_type="suite2p_rois",
-            project_id=project,
-            flexilims_session=flz_session,
-            return_dataseries=False,
-        )
-        if len(suite2p_datasets) == 0:
-            raise ValueError(
-                f"No suite2p dataset found for session {session_name}. Cannot overwrite."
-            )
-            raise ValueError(
-                f"No suite2p dataset found for session {session_name}. Cannot overwrite."
-            )
-        elif len(suite2p_datasets) > 1:
-            print(
-                f"{len(suite2p_datasets)} suite2p datasets found for session {session_name}"
-            )
-            print("Overwriting the last one...")
-            suite2p_dataset = suite2p_datasets[
-                np.argmax(
-                    [
-                        datetime.datetime.strptime(i.created, "%Y-%m-%d %H:%M:%S")
-                        for i in suite2p_datasets
-                    ]
-                )
-            ]
-                np.argmax(
-                    [
-                        datetime.datetime.strptime(i.created, "%Y-%m-%d %H:%M:%S")
-                        for i in suite2p_datasets
-                    ]
-                )
-            ]
-        else:
-            suite2p_dataset = suite2p_datasets[0]
+    suite2p_dataset = Dataset.from_origin(
+        project=project,
+        origin_type="session",
+        origin_id=exp_session["id"],
+        dataset_type="suite2p_rois",
+        conflicts=conflicts,
+    )
+    # TODO: If there is more than one suite2p_rois `overwrite` will crash. Previous
+    #  code would overwrite the last one. Decide what to do
 
-    else:
-
-    else:
-        suite2p_dataset = Dataset.from_origin(
-            project=project,
-            origin_type="session",
-            origin_id=exp_session["id"],
-            dataset_type="suite2p_rois",
-            conflicts=conflicts,
-        )
     # if already on flexilims and not re-processing, then do nothing
     if (suite2p_dataset.get_flexilims_entry() is not None) and conflicts == "skip":
         print(
@@ -450,7 +414,6 @@ def run_extraction(flz_session, project, session_name, conflicts, ops):
             )
         )
         return suite2p_dataset
-
 
     # fetch SI datasets
     si_datasets = flz.get_datasets_recursively(
@@ -467,6 +430,21 @@ def run_extraction(flz_session, project, session_name, conflicts, ops):
     # set save path
     ops["save_path0"] = str(suite2p_dataset.path_full.parent)
     ops["save_folder"] = suite2p_dataset.dataset_name
+
+    # Optionally delete everythin
+    if delete_previous_run:
+        # Check if output folder is empty
+        output_folder = Path(ops["save_path0"])
+        tmp_folder = output_folder / "suite2p"
+        if tmp_folder.exists():
+            # Delete content
+            for item in tmp_folder.rglob("*.bin"):
+                item.unlink()
+        save_folder = output_folder / ops["save_folder"]
+        if save_folder.exists():
+            for npy_file in save_folder.rglob("*.npy"):
+                npy_file.unlink()
+
     # assume frame rates are the same for all recordings
     si_metadata = parse_si_metadata(datapaths[0])
     ops["fs"] = si_metadata["SI.hRoiManager.scanVolumeRate"]
@@ -553,42 +531,10 @@ def extract_dff(suite2p_dataset, ops, project, flz_session):
         Fneu = correct_offset(
             dpath / "Fneu.npy", offsets, first_frames[:, iplane], last_frames[:, iplane]
         )
-        F = correct_offset(
-            dpath / "F.npy", offsets, first_frames[:, iplane], last_frames[:, iplane]
-        )
-        Fneu = correct_offset(
-            dpath / "Fneu.npy", offsets, first_frames[:, iplane], last_frames[:, iplane]
-        )
         if ops["detrend"]:
             print("Detrending...")
             F_offset_corrected = F.copy()
             Fneu_offset_corrected = Fneu.copy()
-            F, F_trend = detrend(
-                F, first_frames[:, iplane], last_frames[:, iplane], ops, fs
-            )
-            Fneu, Fneu_trend = detrend(
-                Fneu, first_frames[:, iplane], last_frames[:, iplane], ops, fs
-            )
-
-        if ops["ast_neuropil"]:
-            print("Running ASt neuropil correction...")
-            correct_neuropil(dpath, F, Fneu)
-            Fast = np.load(dpath / "Fast.npy")
-            dff, f0 = calculate_dFF(dpath, Fast, Fneu, ops)
-            print("Deconvolve spikes from neuropil corrected trace...")
-            spike_deconvolution_suite2p(suite2p_dataset, iplane, ops)
-        else:
-            dff, f0 = calculate_dFF(dpath, F, Fneu, ops)
-            Fast = np.zeros_like(F)
-
-        if ops["sanity_plots"]:
-            sanity.plot_raw_trace(F_offset_corrected, random_rois, Fneu)
-            plt.savefig(dpath / "sanity_plots/offset_corrected.png")
-            sanity.plot_dff(Fast, dff, f0, random_rois)
-            plt.savefig(dpath / "sanity_plots" / f'dffs_n{ops["dff_ncomponents"]}.png')
-            sanity.plot_fluorescence_matrices(F, Fneu, Fast, dff, ops["neucoeff"])
-            plt.savefig(dpath / "sanity_plots" / f"fluorescence_matrices.png")
-            if ops["detrend"]:
             F, F_trend = detrend(
                 F, first_frames[:, iplane], last_frames[:, iplane], ops, fs
             )
@@ -623,19 +569,19 @@ def extract_dff(suite2p_dataset, ops, project, flz_session):
                     Fneu_trend,
                     Fneu,
                     random_rois,
-                    F_offset_corrected,
-                    F_trend,
-                    F,
-                    Fneu_offset_corrected,
-                    Fneu_trend,
-                    Fneu,
-                    random_rois,
                 )
                 plt.savefig(dpath / "sanity_plots" / "detrended.png")
             if ops["ast_neuropil"]:
-            if ops["ast_neuropil"]:
                 sanity.plot_raw_trace(F, random_rois, Fast, titles=["F", "Fast"])
                 plt.savefig(dpath / "sanity_plots" / "neuropil_corrected.png")
+
+            else:
+                # Plot random cells
+                for roi in random_rois:
+                    sanity.plot_offset_gmm(F, Fneu, roi, ops["dff_ncomponents"])
+                    plt.savefig(dpath / "sanity_plots" / f"offset_gmm_roi{roi}.png")
+
+                sanity.plot_offset_gmm()
 
 
 def estimate_offset(datapath, n_components=3):
@@ -1018,10 +964,6 @@ def split_recordings(
             np.save(split_path / "F.npy", F[:, start:end])
             np.save(split_path / "Fneu.npy", Fneu[:, start:end])
             np.save(split_path / "spks.npy", spks[:, start:end])
-            end = start + nframes
-            np.save(split_path / "F.npy", F[:, start:end])
-            np.save(split_path / "Fneu.npy", Fneu[:, start:end])
-            np.save(split_path / "spks.npy", spks[:, start:end])
             if suite2p_dataset.extra_attributes["ast_neuropil"]:
                 Fast, dff_ast, spks_ast = (
                     np.load(suite2p_path / "Fast.npy"),
@@ -1031,9 +973,6 @@ def split_recordings(
                 np.save(split_path / "Fast.npy", Fast[:, start:end])
                 np.save(split_path / "dff_ast.npy", dff_ast[:, start:end])
                 np.save(split_path / "spks_ast.npy", spks_ast[:, start:end])
-            else:
-                dff = np.load(suite2p_path / "dff.npy")
-                np.save(split_path / "dff.npy", dff[:, start:end])
             else:
                 dff = np.load(suite2p_path / "dff.npy")
                 np.save(split_path / "dff.npy", dff[:, start:end])
@@ -1066,7 +1005,8 @@ def extract_session(
     run_split=False,
     run_suite2p=True,
     run_dff=True,
-    ops={},
+    delete_previous_run=False,
+    ops=None,
 ):
     """
     Process all the 2p datasets for a given session
@@ -1078,24 +1018,30 @@ def extract_session(
         run_split (bool): whether or not to run splitting for different folders
         run_suite2p (bool): whether or not to run extraction
         run_dff (bool): whether or not to run dff calculation
+        delete_previous_run (bool): whether to delete previous runs. Default False
+        ops (dict): dictionary of suite2p settings
+        use_slurm (bool): whether to use slurm or not. Default False
+        slurm_folder (Path): path to the slurm folder. Default None
+        scripts_name (str): name of the slurm script. Default None
+
+    Returns:
+        Dataset: object containing the generated dataset
+
 
     """
+    if ops is None:
+        ops = {}
+
     # get session info from flexilims
     print("Connecting to flexilims...")
     flz_session = flz.get_flexilims_session(project)
     ops = load_ops(ops)
     if run_suite2p:
         suite2p_dataset = run_extraction(
-            flz_session, project, session_name, conflicts, ops
+            flz_session, project, session_name, conflicts, ops, delete_previous_run
         )
     else:
         suite2p_datasets = flz.get_datasets(
-            origin_name=session_name,
-            dataset_type="suite2p_rois",
-            project_id=project,
-            flexilims_session=flz_session,
-            return_dataseries=False,
-        )
             origin_name=session_name,
             dataset_type="suite2p_rois",
             project_id=project,
@@ -1110,13 +1056,6 @@ def extract_session(
             )
             print("Splitting the last one...")
             suite2p_dataset = suite2p_datasets[
-                np.argmax(
-                    [
-                        datetime.datetime.strptime(i.created, "%Y-%m-%d %H:%M:%S")
-                        for i in suite2p_datasets
-                    ]
-                )
-            ]
                 np.argmax(
                     [
                         datetime.datetime.strptime(i.created, "%Y-%m-%d %H:%M:%S")
