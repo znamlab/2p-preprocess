@@ -761,7 +761,7 @@ def calculate_dFF(dpath, F, Fneu, ops):
     """
     print("Calculating dF/F...")
     if not ops["ast_neuropil"]:
-        F = F - ops["neucoeff"] * Fneu
+        F = F - ops["neucoeff"] * (Fneu - np.median(Fneu, axis=1)[None, :])
     # Calculate dFFs and save to the suite2p folder
     print(f"n components for dFF calculation: {ops['dff_ncomponents']}")
     dff, f0 = dFF(F, n_components=ops["dff_ncomponents"])
