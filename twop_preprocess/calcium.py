@@ -510,7 +510,6 @@ def extract_dff(suite2p_dataset, ops, project, flz_session):
             offsets.append(0)
 
     fs = suite2p_dataset.extra_attributes["fs"]
-    fs = suite2p_dataset.extra_attributes["fs"]
     # run neuropil correction, dFF calculation and spike deconvolution
     for iplane in range(int(suite2p_dataset.extra_attributes["nplanes"])):
         dpath = suite2p_dataset.path_full / f"plane{iplane}"
@@ -668,11 +667,9 @@ def detrend(F, first_frames, last_frames, ops, fs):
     all_rec_baseline = np.zeros_like(F)
     for i, (start, end) in enumerate(zip(first_frames, last_frames)):
         rec_rolling_baseline = np.zeros_like(F[:, start:end])
-        rec_rolling_baseline = np.zeros_like(F[:, start:end])
         for j in range(F.shape[0]):
             rolling_baseline = np.pad(
                 rolling_percentile(
-                    F[j, start:end],
                     F[j, start:end],
                     win_frames,
                     ops["detrend_pctl"],
@@ -684,8 +681,6 @@ def detrend(F, first_frames, last_frames, ops, fs):
             rec_rolling_baseline[j, :] = rolling_baseline
 
         if i == 0:
-            first_recording_baseline = np.median(rec_rolling_baseline, axis=1)
-            first_recording_baseline = first_recording_baseline.reshape(-1, 1)
             first_recording_baseline = np.median(rec_rolling_baseline, axis=1)
             first_recording_baseline = first_recording_baseline.reshape(-1, 1)
         if ops["detrend_method"] == "subtract":
@@ -774,7 +769,6 @@ def calculate_dFF(dpath, F, Fneu, ops):
 
     """
     print("Calculating dF/F...")
-    print("Calculating dF/F...")
     if not ops["ast_neuropil"]:
         F = F - ops["neucoeff"] * (Fneu - np.median(Fneu, axis=1)[None, :])
     # Calculate dFFs and save to the suite2p folder
@@ -783,7 +777,6 @@ def calculate_dFF(dpath, F, Fneu, ops):
     np.save(dpath / "dff_ast.npy" if ops["ast_neuropil"] else dpath / "dff.npy", dff)
     np.save(dpath / "dff_ast.npy" if ops["ast_neuropil"] else dpath / "dff.npy", dff)
     np.save(dpath / "f0_ast.npy" if ops["ast_neuropil"] else dpath / "f0.npy", f0)
-    return dff, f0
     return dff, f0
 
 
@@ -823,7 +816,6 @@ def spike_deconvolution_suite2p(suite2p_dataset, iplane, ops={}, ast_neuropil=Tr
     )
 
     # get spikes
-    spks = dcnv.oasis(F=F, batch_size=ops["batch_size"], tau=ops["tau"], fs=ops["fs"])
     spks = dcnv.oasis(F=F, batch_size=ops["batch_size"], tau=ops["tau"], fs=ops["fs"])
     np.save(spks_path, spks)
 
@@ -899,7 +891,6 @@ def split_recordings(
         return_paths=True,
     )
     datapaths = []
-    datapaths = []
     recording_ids = []
     frame_rates = []
     for recording, paths in datasets.items():
@@ -911,7 +902,6 @@ def split_recordings(
                 for this_path in paths
             ]
         )
-    datasets_out = []
     first_frames, last_frames = get_recording_frames(suite2p_dataset)
     nplanes = int(float(suite2p_dataset.extra_attributes["nplanes"]))
 
@@ -976,11 +966,6 @@ def split_recordings(
             else:
                 dff = np.load(suite2p_path / "dff.npy")
                 np.save(split_path / "dff.npy", dff[:, start:end])
-        split_dataset.extra_attributes = suite2p_dataset.extra_attributes.copy()
-        split_dataset.extra_attributes["fs"] = si_metadata[
-            "SI.hRoiManager.scanVolumeRate"
-        ]
-        split_dataset.extra_attributes["nframes"] = nframes
         split_dataset.update_flexilims(mode="overwrite")
         datasets_out.append(split_dataset)
     return datasets_out
@@ -1068,7 +1053,6 @@ def extract_session(
 
     if run_dff:
         print("Calculating dF/F...")
-        extract_dff(suite2p_dataset, ops, project, flz_session)
         extract_dff(suite2p_dataset, ops, project, flz_session)
 
     if run_split:
