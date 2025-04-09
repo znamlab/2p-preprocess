@@ -67,6 +67,7 @@ def get_weights(ops):
     return weights
 
 
+
 def reextract_masks(masks, suite2p_ds):
     """
     Reextract masks from a suite2p dataset.
@@ -83,6 +84,7 @@ def reextract_masks(masks, suite2p_ds):
         all_Fneu (list): list of Fneu traces
         all_stat (list): list of stats
         all_ops (list): list of ops
+
 
     """
     import suite2p
@@ -384,6 +386,7 @@ def run_extraction(flz_session, project, session_name, conflicts, ops):
     if exp_session is None:
         raise ValueError(f"Session {session_name} not found on flexilims")
 
+
     # fetch an existing suite2p dataset or create a new suite2p dataset
     if conflicts == "overwrite":
         suite2p_datasets = flz.get_datasets(
@@ -393,7 +396,16 @@ def run_extraction(flz_session, project, session_name, conflicts, ops):
             flexilims_session=flz_session,
             return_dataseries=False,
         )
+            origin_name=session_name,
+            dataset_type="suite2p_rois",
+            project_id=project,
+            flexilims_session=flz_session,
+            return_dataseries=False,
+        )
         if len(suite2p_datasets) == 0:
+            raise ValueError(
+                f"No suite2p dataset found for session {session_name}. Cannot overwrite."
+            )
             raise ValueError(
                 f"No suite2p dataset found for session {session_name}. Cannot overwrite."
             )
@@ -410,8 +422,17 @@ def run_extraction(flz_session, project, session_name, conflicts, ops):
                     ]
                 )
             ]
+                np.argmax(
+                    [
+                        datetime.datetime.strptime(i.created, "%Y-%m-%d %H:%M:%S")
+                        for i in suite2p_datasets
+                    ]
+                )
+            ]
         else:
             suite2p_dataset = suite2p_datasets[0]
+
+    else:
 
     else:
         suite2p_dataset = Dataset.from_origin(
@@ -429,6 +450,7 @@ def run_extraction(flz_session, project, session_name, conflicts, ops):
             )
         )
         return suite2p_dataset
+
 
     # fetch SI datasets
     si_datasets = flz.get_datasets_recursively(
@@ -510,6 +532,7 @@ def extract_dff(suite2p_dataset, ops, project, flz_session):
             offsets.append(0)
 
     fs = suite2p_dataset.extra_attributes["fs"]
+    fs = suite2p_dataset.extra_attributes["fs"]
     # run neuropil correction, dFF calculation and spike deconvolution
     for iplane in range(int(suite2p_dataset.extra_attributes["nplanes"])):
         dpath = suite2p_dataset.path_full / f"plane{iplane}"
@@ -524,6 +547,12 @@ def extract_dff(suite2p_dataset, ops, project, flz_session):
             random_rois = np.random.choice(F.shape[0], ops["plot_nrois"], replace=False)
             sanity.plot_raw_trace(F, random_rois, Fneu)
             plt.savefig(dpath / "sanity_plots/raw_trace.png")
+        F = correct_offset(
+            dpath / "F.npy", offsets, first_frames[:, iplane], last_frames[:, iplane]
+        )
+        Fneu = correct_offset(
+            dpath / "Fneu.npy", offsets, first_frames[:, iplane], last_frames[:, iplane]
+        )
         F = correct_offset(
             dpath / "F.npy", offsets, first_frames[:, iplane], last_frames[:, iplane]
         )
@@ -560,7 +589,40 @@ def extract_dff(suite2p_dataset, ops, project, flz_session):
             sanity.plot_fluorescence_matrices(F, Fneu, Fast, dff, ops["neucoeff"])
             plt.savefig(dpath / "sanity_plots" / f"fluorescence_matrices.png")
             if ops["detrend"]:
+            F, F_trend = detrend(
+                F, first_frames[:, iplane], last_frames[:, iplane], ops, fs
+            )
+            Fneu, Fneu_trend = detrend(
+                Fneu, first_frames[:, iplane], last_frames[:, iplane], ops, fs
+            )
+
+        if ops["ast_neuropil"]:
+            print("Running ASt neuropil correction...")
+            correct_neuropil(dpath, F, Fneu)
+            Fast = np.load(dpath / "Fast.npy")
+            dff, f0 = calculate_dFF(dpath, Fast, Fneu, ops)
+            print("Deconvolve spikes from neuropil corrected trace...")
+            spike_deconvolution_suite2p(suite2p_dataset, iplane, ops)
+        else:
+            dff, f0 = calculate_dFF(dpath, F, Fneu, ops)
+            Fast = np.zeros_like(F)
+
+        if ops["sanity_plots"]:
+            sanity.plot_raw_trace(F_offset_corrected, random_rois, Fneu)
+            plt.savefig(dpath / "sanity_plots/offset_corrected.png")
+            sanity.plot_dff(Fast, dff, f0, random_rois)
+            plt.savefig(dpath / "sanity_plots" / f'dffs_n{ops["dff_ncomponents"]}.png')
+            sanity.plot_fluorescence_matrices(F, Fneu, Fast, dff, ops["neucoeff"])
+            plt.savefig(dpath / "sanity_plots" / f"fluorescence_matrices.png")
+            if ops["detrend"]:
                 sanity.plot_detrended_trace(
+                    F_offset_corrected,
+                    F_trend,
+                    F,
+                    Fneu_offset_corrected,
+                    Fneu_trend,
+                    Fneu,
+                    random_rois,
                     F_offset_corrected,
                     F_trend,
                     F,
@@ -571,6 +633,7 @@ def extract_dff(suite2p_dataset, ops, project, flz_session):
                 )
                 plt.savefig(dpath / "sanity_plots" / "detrended.png")
             if ops["ast_neuropil"]:
+            if ops["ast_neuropil"]:
                 sanity.plot_raw_trace(F, random_rois, Fast, titles=["F", "Fast"])
                 plt.savefig(dpath / "sanity_plots" / "neuropil_corrected.png")
 
@@ -578,6 +641,7 @@ def extract_dff(suite2p_dataset, ops, project, flz_session):
 def estimate_offset(datapath, n_components=3):
     """
     Estimate the offset for a given tiff file using a GMM with n_components.
+
 
     Args:
         datapath (str): path to the tiff file
@@ -658,9 +722,11 @@ def detrend(F, first_frames, last_frames, ops, fs):
     all_rec_baseline = np.zeros_like(F)
     for i, (start, end) in enumerate(zip(first_frames, last_frames)):
         rec_rolling_baseline = np.zeros_like(F[:, start:end])
+        rec_rolling_baseline = np.zeros_like(F[:, start:end])
         for j in range(F.shape[0]):
             rolling_baseline = np.pad(
                 rolling_percentile(
+                    F[j, start:end],
                     F[j, start:end],
                     win_frames,
                     ops["detrend_pctl"],
@@ -672,6 +738,8 @@ def detrend(F, first_frames, last_frames, ops, fs):
             rec_rolling_baseline[j, :] = rolling_baseline
 
         if i == 0:
+            first_recording_baseline = np.median(rec_rolling_baseline, axis=1)
+            first_recording_baseline = first_recording_baseline.reshape(-1, 1)
             first_recording_baseline = np.median(rec_rolling_baseline, axis=1)
             first_recording_baseline = first_recording_baseline.reshape(-1, 1)
         if ops["detrend_method"] == "subtract":
@@ -760,13 +828,16 @@ def calculate_dFF(dpath, F, Fneu, ops):
 
     """
     print("Calculating dF/F...")
+    print("Calculating dF/F...")
     if not ops["ast_neuropil"]:
         F = F - ops["neucoeff"] * (Fneu - np.median(Fneu, axis=1)[None, :])
     # Calculate dFFs and save to the suite2p folder
     print(f"n components for dFF calculation: {ops['dff_ncomponents']}")
     dff, f0 = dFF(F, n_components=ops["dff_ncomponents"])
     np.save(dpath / "dff_ast.npy" if ops["ast_neuropil"] else dpath / "dff.npy", dff)
+    np.save(dpath / "dff_ast.npy" if ops["ast_neuropil"] else dpath / "dff.npy", dff)
     np.save(dpath / "f0_ast.npy" if ops["ast_neuropil"] else dpath / "f0.npy", f0)
+    return dff, f0
     return dff, f0
 
 
@@ -807,6 +878,7 @@ def spike_deconvolution_suite2p(suite2p_dataset, iplane, ops={}, ast_neuropil=Tr
 
     # get spikes
     spks = dcnv.oasis(F=F, batch_size=ops["batch_size"], tau=ops["tau"], fs=ops["fs"])
+    spks = dcnv.oasis(F=F, batch_size=ops["batch_size"], tau=ops["tau"], fs=ops["fs"])
     np.save(spks_path, spks)
 
 
@@ -816,6 +888,7 @@ def get_recording_frames(suite2p_dataset):
 
     Args:
         suite2p_dataset (Dataset): dataset containing concatenated recordings
+
 
     Returns:
         first_frames (numpy.ndarray): shape nrecordings x nplanes, first frame of each recording
@@ -879,6 +952,7 @@ def split_recordings(
         flexilims_session=flz_session,
         return_paths=True,
     )
+    datapaths = []
     datapaths = []
     recording_ids = []
     frame_rates = []
@@ -944,6 +1018,10 @@ def split_recordings(
             np.save(split_path / "F.npy", F[:, start:end])
             np.save(split_path / "Fneu.npy", Fneu[:, start:end])
             np.save(split_path / "spks.npy", spks[:, start:end])
+            end = start + nframes
+            np.save(split_path / "F.npy", F[:, start:end])
+            np.save(split_path / "Fneu.npy", Fneu[:, start:end])
+            np.save(split_path / "spks.npy", spks[:, start:end])
             if suite2p_dataset.extra_attributes["ast_neuropil"]:
                 Fast, dff_ast, spks_ast = (
                     np.load(suite2p_path / "Fast.npy"),
@@ -953,6 +1031,9 @@ def split_recordings(
                 np.save(split_path / "Fast.npy", Fast[:, start:end])
                 np.save(split_path / "dff_ast.npy", dff_ast[:, start:end])
                 np.save(split_path / "spks_ast.npy", spks_ast[:, start:end])
+            else:
+                dff = np.load(suite2p_path / "dff.npy")
+                np.save(split_path / "dff.npy", dff[:, start:end])
             else:
                 dff = np.load(suite2p_path / "dff.npy")
                 np.save(split_path / "dff.npy", dff[:, start:end])
@@ -1015,6 +1096,12 @@ def extract_session(
             flexilims_session=flz_session,
             return_dataseries=False,
         )
+            origin_name=session_name,
+            dataset_type="suite2p_rois",
+            project_id=project,
+            flexilims_session=flz_session,
+            return_dataseries=False,
+        )
         if len(suite2p_datasets) == 0:
             raise ValueError(f"No suite2p dataset found for session {session_name}")
         elif len(suite2p_datasets) > 1:
@@ -1030,11 +1117,19 @@ def extract_session(
                     ]
                 )
             ]
+                np.argmax(
+                    [
+                        datetime.datetime.strptime(i.created, "%Y-%m-%d %H:%M:%S")
+                        for i in suite2p_datasets
+                    ]
+                )
+            ]
         else:
             suite2p_dataset = suite2p_datasets[0]
 
     if run_dff:
         print("Calculating dF/F...")
+        extract_dff(suite2p_dataset, ops, project, flz_session)
         extract_dff(suite2p_dataset, ops, project, flz_session)
 
     if run_split:
