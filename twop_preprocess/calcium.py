@@ -648,13 +648,15 @@ def detrend(F, first_frames, last_frames, ops, fs):
     Detrend the concatenated fluorescence trace for each recording.
 
     Args:
-        F (numpy.ndarray): shape nrois x time, raw fluorescence trace for all rois extracted from suite2p
+        F (numpy.ndarray): shape nrois x time, raw fluorescence trace for all rois
+            extracted from suite2p
         first_frames (numpy.ndarray): shape nrecordings, first frame of each recording
         last_frames (numpy.ndarray): shape nrecordings, last frame of each recording
         ops (dict): dictionary of suite2p settings
 
     Returns:
-        F (numpy.ndarray): shape nrois x time, detrended fluorescence trace for all rois extracted from suite2p
+        F (numpy.ndarray): shape nrois x time, detrended fluorescence trace for all rois
+            extracted from suite2p
 
     """
     win_frames = int(ops["detrend_win"] * fs)
@@ -735,11 +737,13 @@ def dFF(f, n_components=2):
     """
     Helper function for calculating dF/F from raw fluorescence trace.
     Args:
-        f (numpy.ndarray): shape nrois x time, raw fluorescence trace for all rois extracted from suite2p
+        f (numpy.ndarray): shape nrois x time, raw fluorescence trace for all rois
+            extracted from suite2p
         n_components (int): number of components for GMM. default 2.
 
     Returns:
-        dffs (numpy.ndarray): shape nrois x time, dF/F for all rois extracted from suite2p
+        dffs (numpy.ndarray): shape nrois x time, dF/F for all rois extracted from
+            suite2p
 
     """
     f0 = np.zeros(f.shape[0])
@@ -756,7 +760,8 @@ def dFF(f, n_components=2):
 
 def calculate_dFF(dpath, F, Fneu, ops):
     """
-    Calculate dF/F for the whole session with concatenated recordings after neuropil correction.
+    Calculate dF/F for the whole session with concatenated recordings after neuropil
+        correction.
 
     Args:
         suite2p_dataset (Dataset): dataset containing concatenated recordings
@@ -770,7 +775,7 @@ def calculate_dFF(dpath, F, Fneu, ops):
     """
     print("Calculating dF/F...")
     if not ops["ast_neuropil"]:
-        F = F - ops["neucoeff"] * (Fneu - np.median(Fneu, axis=1)[None, :])
+        F = F - ops["neucoeff"] * (Fneu - np.median(Fneu, axis=1)[:, None])
     # Calculate dFFs and save to the suite2p folder
     print(f"n components for dFF calculation: {ops['dff_ncomponents']}")
     dff, f0 = dFF(F, n_components=ops["dff_ncomponents"])
