@@ -1,61 +1,69 @@
 import numpy as np
 import os
+import re
 import datetime
 import flexiznam as flz
 from flexiznam.schema import Dataset
-from twop_preprocess.neuropil.ast_model import ast_model
 import itertools
-from suite2p import run_s2p
-from suite2p.extraction import dcnv
-from suite2p.extraction.masks import create_cell_pix, create_neuropil_masks
-from suite2p.detection.anatomical import masks_to_stats
-from suite2p.detection import roi_stats
-from suite2p.gui.drawroi import masks_and_traces
+from znamutils import slurm_it
 from sklearn import mixture
-from twop_preprocess.utils import parse_si_metadata, load_ops
 from functools import partial
 from tqdm import tqdm
 from tifffile import TiffFile
 from pathlib import Path
 from numba import njit, prange
 import matplotlib.pyplot as plt
-from twop_preprocess.plotting_utils import sanity_check_utils as sanity
-import shutil
-from flexiznam.config import PARAMETERS
+
+import warnings
+from .utils import parse_si_metadata, load_ops
+from .plotting_utils import sanity_check_utils as sanity
+
 
 print = partial(print, flush=True)
 
 
-def get_processed_path(data_path):
-    """Return the path to the processed data.
+def get_weights(ops):
+    """Get the weights for the suite2p detection.
+
+    suite2p does not extract raw fluorescence traces, but rather uses a weighted sum of
+    the raw fluorescence traces to detect ROIs. This function calculates the weights
+    as in suite2p.detection.anatomical.select_rois (L161).
+    For anatomical == 3 the weights are the intensity of each pixel relative to the
+    1st and 99th percentile of the mean image + 0.1.
 
     Args:
-        data_path (str): Relative path to data
+        ops (dict): suite2p ops dictionary
 
     Returns:
-        pathlib.Path: Path to processed data
-
+        weights (numpy.ndarray): weights for the suite2p detection
     """
-    project = Path(data_path).parts[0]
-    if project in PARAMETERS["project_paths"].keys():
-        processed_path = Path(PARAMETERS["project_paths"][project]["processed"])
-    else:
-        processed_path = Path(PARAMETERS["data_root"]["processed"])
-    return processed_path / data_path
+    mean_img = ops["meanImg"]
+    if ops.get("denoise", 1):
+        warnings.warn("Calculating weights on non-denoised data. F will change")
 
-
-def get_weights(ops):
-    if "meanImgE" in ops:
-        img = ops["meanImgE"]
+    if ops["anatomical_only"] == 1:
+        raise NotImplementedError("anatomical_only=1 not implemented.")
+        img = np.log(np.maximum(1e-3, max_proj / np.maximum(1e-3, mean_img)))
+        weights = max_proj
+    elif ops["anatomical_only"] == 2:
+        # img = mean_img
+        weights = 0.1 + np.clip(
+            (mean_img - np.percentile(mean_img, 1))
+            / (np.percentile(mean_img, 99) - np.percentile(mean_img, 1)),
+            0,
+            1,
+        )
+    elif ops["anatomical_only"] == 3:
+        weights = 0.1 + np.clip(
+            (mean_img - np.percentile(mean_img, 1))
+            / (np.percentile(mean_img, 99) - np.percentile(mean_img, 1)),
+            0,
+            1,
+        )
     else:
-        img = ops["meanImg"]
-        print("no enhanced mean image, using mean image instead")
-    weights = 0.1 + np.clip(
-        (img - np.percentile(img, 1))
-        / (np.percentile(img, 99) - np.percentile(img, 1)),
-        0,
-        1,
-    )
+        raise NotImplementedError("Non anatomical not implemented. Requires max_proj")
+        img = max_proj.copy()
+        weights = max_proj
     return weights
 
 
@@ -69,140 +77,263 @@ def reextract_masks(masks, suite2p_ds):
 
     Returns:
         merged_masks (ndarray): merged masks
-        all_original_masks (list): list of original masks IDs corresponding to each plane
+        all_original_masks (list): list of original masks IDs corresponding to each
+            plane
         all_F (list): list of F traces for each plane
         all_Fneu (list): list of Fneu traces
         all_stat (list): list of stats
         all_ops (list): list of ops
 
+
     """
-    if "Lx" in suite2p_ds.extra_attributes.keys():
-        Lx = int(suite2p_ds.extra_attributes["Lx"])
-        Ly = int(suite2p_ds.extra_attributes["Ly"])
-    else:
-        Lx = int(suite2p_ds.extra_attributes["lx"])
-        Ly = int(suite2p_ds.extra_attributes["ly"])
+    import suite2p
+    import suite2p.detection.anatomical
+
+    # There is case issue on some flexilims dataset, get the correct case first, but
+    # try lower case if it fails
+    Lx = int(suite2p_ds.extra_attributes.get("Lx", suite2p_ds.extra_attributes["lx"]))
+    Ly = int(suite2p_ds.extra_attributes.get("Ly", suite2p_ds.extra_attributes["ly"]))
     nplanes = int(suite2p_ds.extra_attributes["nplanes"])
 
+    # Calculate the number of rows and columns for the merged masks
     nX = np.ceil(np.sqrt(Ly * Lx * nplanes) / Lx)
     nX = int(nX)
     nY = np.ceil(nplanes / nX).astype(int)
 
+    # Initialize outputs
     merged_masks = np.zeros((Ly * nY, Lx * nX))
-
-    stat_orig = [
-        dict(
-            xpix=np.array((0,)),
-            ypix=np.array((0,)),
-            lam=np.array((1.0,)),
-            med=np.array(()),
-        ),
-    ]
     all_original_masks = []
-    all_F = []
-    all_Fneu = []
     all_stat = []
     all_ops = []
-    project = suite2p_ds.project
+
     for iplane, masks_plane in enumerate(masks):
+        if not np.any(masks_plane):
+            print(f"No masks for plane {iplane}. Skipping")
+            continue
+        # get new mask values
         original_mask_values, reordered_masks = np.unique(
             masks_plane, return_inverse=True
         )
+        # np.unique return_inverse returns the flattened array, so we need to reshape it
         reordered_masks = reordered_masks.reshape(masks_plane.shape).astype(int)
+
+        # Add the reordered masks to the merged masks
         iX = iplane % nX
         iY = int(iplane / nX)
         merged_masks[iY * Ly : (iY + 1) * Ly, iX * Lx : (iX + 1) * Lx] = reordered_masks
+
         all_original_masks.append(original_mask_values[original_mask_values > 0])
-        ops = np.load(
-            suite2p_ds.path_full / f"plane{iplane}" / "ops.npy", allow_pickle=True
-        ).item()
+        path2ops = suite2p_ds.path_full / f"plane{iplane}" / "ops.npy"
+        ops = np.load(path2ops, allow_pickle=True).item()
 
-        if np.max(masks_plane) > 0:
-            stat = list(masks_to_stats(reordered_masks, get_weights(ops)))
-            stat = roi_stats(
-                stat,
-                Ly,
-                Lx,
-                aspect=ops.get("aspect", None),
-                diameter=ops.get("diameter", None),
-                do_crop=ops.get("soma_crop", 1),
+        if iplane in ops["ignore_flyback"]:
+            print(f"Skipping flyback plane {iplane}")
+            continue
+
+        # create ROIs stat
+        stat = list(
+            suite2p.detection.anatomical.masks_to_stats(
+                reordered_masks, get_weights(ops)
             )
-            cell_pix = create_cell_pix(
-                stat, Ly=Ly, Lx=Lx, lam_percentile=ops.get("lam_percentile", 50.0)
-            )
-            for roi in stat:
-                roi["neuropil_mask"] = create_neuropil_masks(
-                    ypixs=[
-                        roi["ypix"],
-                    ],
-                    xpixs=[
-                        roi["xpix"],
-                    ],
-                    cell_pix=cell_pix,
-                    inner_neuropil_radius=ops["inner_neuropil_radius"],
-                    min_neuropil_pixels=ops["min_neuropil_pixels"],
-                    circular=ops.get("circular_neuropil", False),
-                )[0]
-            print(f"extracting fluorescence for plane {iplane}")
-            ops["reg_file"] = get_processed_path(
-                project + ops["reg_file"].split(project, 1)[1]
-            )
-            stat_orig[0]["iplane"] = iplane
-            F, Fneu, _, _, _, ops, stat = masks_and_traces(ops, stat, stat_orig)
-            all_F.append(F)
-            all_Fneu.append(Fneu)
-            all_stat.append(stat)
-            all_ops.append(ops)
-    return merged_masks, all_original_masks, all_F, all_Fneu, all_stat, all_ops
+        )
+        stat = suite2p.detection.roi_stats(
+            stat,
+            Ly,
+            Lx,
+            aspect=ops.get("aspect", None),
+            diameter=ops.get("diameter", None),
+            do_crop=ops.get("soma_crop", 1),
+        )
+        for i in range(len(stat)):
+            stat[i]["iplane"] = iplane
+        all_stat.append(stat)
+
+        ops = suite2p.run_plane(ops, ops_path=str(path2ops.resolve()), stat=stat)
+        all_ops.append(ops)
+    save_folder = Path(ops["save_path0"]) / ops["save_folder"]
+    return merged_masks, all_original_masks, all_stat, all_ops
 
 
-def reextract_session(session, masks, flz_session):
-    suite2p_ds = flz.get_children(
+def reextract_session(session, masks, flz_session, conflicts="abort"):
+    """Reextract masks and fluorescence traces for a session.
+
+    Args:
+        session (str): name of the session
+        masks (ndarray): Z x X x Y array of masks to be reextracted
+        flz_session (Flexilims): flexilims session
+        conflicts (str, optional): defines behavior if recordings have already been
+            reextracted. One of `abort`, `skip`, `append`, `overwrite`. Default `abort`
+
+    Returns:
+        ndarray: merged masks
+    """
+    import suite2p
+
+    # get initial suite2p dataset
+    suite2p_ds = flz.get_datasets(
         flexilims_session=flz_session,
-        parent_name=session,
-        children_datatype="dataset",
-        filter={"dataset_type": "suite2p_rois"},
-    ).iloc[0]
-    suite2p_ds = flz.Dataset.from_dataseries(suite2p_ds, flz_session)
+        origin_name=session,
+        dataset_type="suite2p_rois",
+        exclude_datasets={"annotated": "yes"},
+        return_dataseries=True,
+    )
+    # remove datasets with annotated in the name
+    suite2p_ds = suite2p_ds[~suite2p_ds["name"].str.contains("annotated")]
+    assert (
+        len(suite2p_ds) == 1
+    ), f"Found {len(suite2p_ds)} non-annotated suite2ßp datasets for session {session}"
+    suite2p_ds = flz.Dataset.from_dataseries(suite2p_ds.iloc[0], flz_session)
+
+    # mark the original dataset as non annotated if needed
+    is_labeled = suite2p_ds.extra_attributes.get("annotated", "Not yet")
+    # is_labeled might be NaN, we need to check for non-equality to 'no'
+    if is_labeled != "no":
+        suite2p_ds.extra_attributes["annotated"] = "no"
+        suite2p_ds.update_flexilims(mode="update")
+
+    # create or load a new suite2p dataset
     suite2p_ds_annotated = flz.Dataset.from_origin(
         origin_type="session",
         origin_name=session,
         dataset_type="suite2p_rois",
-        conflicts="append",
+        conflicts=conflicts,
         flexilims_session=flz_session,
         verbose=True,
+        base_name="suite2p_rois_annotated",
     )
     suite2p_ds_annotated.extra_attributes = suite2p_ds.extra_attributes
-    updated_genealogy = list(suite2p_ds_annotated.genealogy)
-    updated_genealogy[-1] = "suite2p_rois_annotated"
-    suite2p_ds_annotated.genealogy = updated_genealogy
-    suite2p_ds_annotated.path = suite2p_ds.path.parent / "suite2p_rois_annotated"
+    # add a flag to the dataset to indicate that it is annotated
+    suite2p_ds_annotated.extra_attributes["annotated"] = "yes"
 
-    source_dir = suite2p_ds.path_full / "combined"
+    # handle conflicts
     target_dir = suite2p_ds_annotated.path_full / "combined"
     if target_dir.exists():
-        print(f"{target_dir} already exists, overwriting!")
+        if conflicts == "overwrite":
+            print(f"{target_dir} already exists, overwriting!")
+        elif conflicts == "skip":
+            print(f"{target_dir} already exists, skipping!")
+            return suite2p_ds_annotated
+        else:
+            raise ValueError(f"{target_dir} already exists, cannot append!")
     target_dir.mkdir(exist_ok=True, parents=True)
 
-    shutil.copy(str(source_dir / "ops.npy"), str(target_dir / "ops.npy"))
-    merged_masks, all_original_masks, all_F, all_Fneu, all_stat, all_ops = (
-        reextract_masks(masks.astype(int), suite2p_ds)
-    )
-    planes = []
+    # check if the binary still exist
+    re_register = False
+    # load one random ops file to get the project path
+    ops = np.load(suite2p_ds.path_full / "plane0" / "ops.npy", allow_pickle=True).item()
+    project = suite2p_ds.project
+    fast_disk = flz.get_processed_path(project) / ops["fast_disk"].split(project)[1][1:]
+    fast_disk /= "suite2p"
+    empty_planes = [not np.any(m) for m in masks]
+    for iplane in range(len(masks)):
+        bin_file = fast_disk / f"plane{iplane}" / "data.bin"
+        if bin_file.exists():
+            continue
+        # Check if there are masks in this plane
+        if empty_planes[iplane]:
+            print(f"No masks for plane {iplane}. Skipping")
+            continue
+        re_register = True
+
+    # Copy ops to the target directory and check if binaries exist
+    ori_path = str(suite2p_ds.path)
+    new_path = str(suite2p_ds_annotated.path)
+    for subdir in suite2p_ds.path_full.iterdir():
+        if not subdir.name.startswith("plane"):
+            continue
+        planei = int(subdir.name[5:])
+        if empty_planes[planei]:
+            print(f"No masks for plane {planei}. Not creating ops")
+            continue
+        if not subdir.is_dir():
+            continue
+        source_ops_file = subdir / "ops.npy"
+        if not source_ops_file.exists():
+            continue
+
+        # we replace all mentions to the original path with the new path
+        ori_ops = np.load(source_ops_file, allow_pickle=True).item()
+        ops = dict()
+        for k, v in ori_ops.items():
+            if isinstance(v, str) and (ori_path in v):
+                ops[k] = v.replace(ori_path, new_path)
+            elif isinstance(v, str) and (suite2p_ds.dataset_name in v):
+                ops[k] = v.replace(
+                    suite2p_ds.dataset_name, suite2p_ds_annotated.dataset_name
+                )
+            elif isinstance(v, Path) and (ori_path in str(v)):
+                ops[k] = v.with_name(v.name.replace(ori_path, new_path))
+            else:
+                ops[k] = v
+        # Add the empty planes to the ignore_flyback field
+        ops["ignore_flyback"] = list(np.where(empty_planes)[0])
+
+        # Always keep raw and bin files, manually delete if needed
+        ops["keep_movie_raw"] = True
+        ops["delete_bin"] = False
+
+        # do_registration must > 1 to force redo
+        if re_register:
+            ops["do_registration"] = 2
+        else:
+            ops["do_registration"] = 1
+
+        # make a copy in the target directory
+        target_dir = suite2p_ds_annotated.path_full / subdir.name
+        target_dir.mkdir(exist_ok=True)
+        np.save(target_dir / "ops.npy", ops, allow_pickle=True)
+
+    if re_register:  # We need to ensure the raw also exists
+        print(f"Binary files not found. Force re-registration", flush=True)
+        # we need to convert the tiff to binary to be able to re-register
+        # copy from the last opened ops all the necessary fields which are identical for
+        # all planes
+        mini_ops = ops.copy()
+        plane_dpt = [
+            "meanImg",
+            "save_path",
+            "ops_path",
+            "reg_file",
+            "frames_per_folder",
+            "nframes",
+            "frames_per_file",
+        ]
+        for key in ops:
+            if isinstance(ops[key], str) and "plane" in ops[key]:
+                mini_ops.pop(key)
+            elif key in plane_dpt:
+                mini_ops.pop(key)
+        ops = suite2p.io.tiff_to_binary(mini_ops)
+
+    # Reextract masks and fluorescence traces
+    (
+        merged_masks,
+        all_original_masks,
+        all_stat,
+        all_ops,
+    ) = reextract_masks(masks.astype(int), suite2p_ds_annotated)
+
+    # Save the mask correspondance for each plane and new mask stats
     np.save(
         target_dir / "stat.npy", np.concatenate(all_stat, axis=0), allow_pickle=True
     )
-    for F, Fneu, stat, ops in zip(all_F, all_Fneu, all_stat, all_ops):
+    # mask for each plane have different length, cannot save a single array
+    np.savez(
+        suite2p_ds_annotated.path_full / "original_masks.npz",
+        **{f"plane{i}": mask for i, mask in enumerate(all_original_masks)},
+    )
+    np.save(suite2p_ds_annotated.path_full / "merged_masks.npy", merged_masks)
+
+    planes = []
+    for stat, ops in zip(all_stat, all_ops):
         target_dir = suite2p_ds_annotated.path_full / f"plane{stat[0]['iplane']}"
         target_dir.mkdir(exist_ok=True)
-        np.save(target_dir / "F.npy", F)
-        np.save(target_dir / "Fneu.npy", Fneu)
-        np.save(target_dir / "stat.npy", stat, allow_pickle=True)
-        np.save(target_dir / "ops.npy", ops)
         spike_deconvolution_suite2p(
             suite2p_ds_annotated, stat[0]["iplane"], ops, ast_neuropil=False
         )
         planes.append(stat[0]["iplane"])
+
+    # Add empty plane 0 if it is not in the list of planes
     if 0 not in planes:
         print("No plane 0 found, adding empty plane 0")
         target_dir = suite2p_ds_annotated.path_full / "plane0"
@@ -213,19 +344,34 @@ def reextract_session(session, masks, flz_session):
         np.save(target_dir / "stat.npy", np.array([]), allow_pickle=True)
         np.save(target_dir / "ops.npy", ops)
 
-    suite2p_ds_annotated.update_flexilims(mode="update")
-
     print("Calculating dF/F...")
     extract_dff(suite2p_ds_annotated, ops)
 
     print("Splitting recordings...")
-    split_recordings(flz_session, suite2p_ds_annotated, conflicts="overwrite")
-    return all_original_masks
+    split_recordings(
+        flz_session,
+        suite2p_ds_annotated,
+        conflicts="overwrite",
+        base_name="suite2p_traces_annotated",
+        extra_attributes=dict(annotated=True),
+    )
+
+    print("Updating flexilims...")
+    suite2p_ds_annotated.update_flexilims(mode="update")
+    return suite2p_ds_annotated
 
 
-def run_extraction(flz_session, project, session_name, conflicts, ops):
+def run_extraction(
+    flz_session, project, session_name, conflicts, ops, delete_previous_run=False
+):
     """
     Fetch data from flexilims and run suite2p with the provided settings
+
+    Suite2p will generate a temporary folder, called suite2p where the initial binary
+    are saved. It will save the actual output in the folder of the suite2p datasets.
+    If conflict is overwrite, we re-run s2p.run but this function does not always redo
+    everything is some files already exists. To start from a blank state, use
+    delete_previous_run
 
     Args:
         flz_session (Flexilims): flexilims session
@@ -233,11 +379,15 @@ def run_extraction(flz_session, project, session_name, conflicts, ops):
         session_name (str): name of the session, used to find data on flexilims
         conflicts (str): defines behavior if recordings have already been split
         ops (dict): dictionary of suite2p settings
+        delete_previous_run (bool): whether to delete previous runs. Default False
+
 
     Returns:
         Dataset: object containing the generated dataset
 
     """
+    import suite2p
+
     # get experimental session
     exp_session = flz.get_entity(
         datatype="session", name=session_name, flexilims_session=flz_session
@@ -246,42 +396,16 @@ def run_extraction(flz_session, project, session_name, conflicts, ops):
         raise ValueError(f"Session {session_name} not found on flexilims")
 
     # fetch an existing suite2p dataset or create a new suite2p dataset
-    if conflicts == "overwrite":
-        suite2p_datasets = flz.get_datasets(
-            origin_name=session_name,
-            dataset_type="suite2p_rois",
-            project_id=project,
-            flexilims_session=flz_session,
-            return_dataseries=False,
-        )
-        if len(suite2p_datasets) == 0:
-            raise ValueError(
-                f"No suite2p dataset found for session {session_name}. Cannot overwrite."
-            )
-        elif len(suite2p_datasets) > 1:
-            print(
-                f"{len(suite2p_datasets)} suite2p datasets found for session {session_name}"
-            )
-            print("Overwriting the last one...")
-            suite2p_dataset = suite2p_datasets[
-                np.argmax(
-                    [
-                        datetime.datetime.strptime(i.created, "%Y-%m-%d %H:%M:%S")
-                        for i in suite2p_datasets
-                    ]
-                )
-            ]
-        else:
-            suite2p_dataset = suite2p_datasets[0]
+    suite2p_dataset = Dataset.from_origin(
+        project=project,
+        origin_type="session",
+        origin_id=exp_session["id"],
+        dataset_type="suite2p_rois",
+        conflicts=conflicts,
+    )
+    # TODO: If there is more than one suite2p_rois `overwrite` will crash. Previous
+    #  code would overwrite the last one. Decide what to do
 
-    else:
-        suite2p_dataset = Dataset.from_origin(
-            project=project,
-            origin_type="session",
-            origin_id=exp_session["id"],
-            dataset_type="suite2p_rois",
-            conflicts=conflicts,
-        )
     # if already on flexilims and not re-processing, then do nothing
     if (suite2p_dataset.get_flexilims_entry() is not None) and conflicts == "skip":
         print(
@@ -306,6 +430,21 @@ def run_extraction(flz_session, project, session_name, conflicts, ops):
     # set save path
     ops["save_path0"] = str(suite2p_dataset.path_full.parent)
     ops["save_folder"] = suite2p_dataset.dataset_name
+
+    # Optionally delete everythin
+    if delete_previous_run:
+        # Check if output folder is empty
+        output_folder = Path(ops["save_path0"])
+        tmp_folder = output_folder / "suite2p"
+        if tmp_folder.exists():
+            # Delete content
+            for item in tmp_folder.rglob("*.bin"):
+                item.unlink()
+        save_folder = output_folder / ops["save_folder"]
+        if save_folder.exists():
+            for npy_file in save_folder.rglob("*.npy"):
+                npy_file.unlink()
+
     # assume frame rates are the same for all recordings
     si_metadata = parse_si_metadata(datapaths[0])
     ops["fs"] = si_metadata["SI.hRoiManager.scanVolumeRate"]
@@ -327,7 +466,7 @@ def run_extraction(flz_session, project, session_name, conflicts, ops):
         print(f"{k}: {v}")
     # run suite2p
     db = {"data_path": datapaths}
-    opsEnd = run_s2p(ops=ops, db=db)
+    opsEnd = suite2p.run_s2p(ops=ops, db=db)
     if "date_proc" in opsEnd:
         opsEnd["date_proc"] = opsEnd["date_proc"].isoformat()
     # update the database
@@ -348,8 +487,7 @@ def run_extraction(flz_session, project, session_name, conflicts, ops):
     return suite2p_dataset
 
 
-
-def extract_dff(suite2p_dataset, ops):
+def extract_dff(suite2p_dataset, ops, project, flz_session):
     """
     Correct offsets, detrend, calculate dF/F and deconvolve spikes for the whole session.
 
@@ -361,9 +499,8 @@ def extract_dff(suite2p_dataset, ops):
     first_frames, last_frames = get_recording_frames(suite2p_dataset)
     offsets = []
     for datapath in suite2p_dataset.extra_attributes["data_path"]:
-
         datapath = os.path.join(
-            flz.PARAMETERS["data_root"]["raw"], *datapath.split("/")[-4:]
+            flz.get_data_root("raw", project, flz_session), *datapath.split("/")[-4:]
         )  # add the raw path from flexiznam config
         if ops["correct_offset"]:
             offsets.append(estimate_offset(datapath))
@@ -437,10 +574,19 @@ def extract_dff(suite2p_dataset, ops):
                 sanity.plot_raw_trace(F, random_rois, Fast, titles=["F", "Fast"])
                 plt.savefig(dpath / "sanity_plots" / "neuropil_corrected.png")
 
+            else:
+                # Plot random cells
+                for roi in random_rois:
+                    sanity.plot_offset_gmm(F, Fneu, roi, ops["dff_ncomponents"])
+                    plt.savefig(dpath / "sanity_plots" / f"offset_gmm_roi{roi}.png")
+
+                sanity.plot_offset_gmm()
+
 
 def estimate_offset(datapath, n_components=3):
     """
     Estimate the offset for a given tiff file using a GMM with n_components.
+
 
     Args:
         datapath (str): path to the tiff file
@@ -502,13 +648,15 @@ def detrend(F, first_frames, last_frames, ops, fs):
     Detrend the concatenated fluorescence trace for each recording.
 
     Args:
-        F (numpy.ndarray): shape nrois x time, raw fluorescence trace for all rois extracted from suite2p
+        F (numpy.ndarray): shape nrois x time, raw fluorescence trace for all rois
+            extracted from suite2p
         first_frames (numpy.ndarray): shape nrecordings, first frame of each recording
         last_frames (numpy.ndarray): shape nrecordings, last frame of each recording
         ops (dict): dictionary of suite2p settings
 
     Returns:
-        F (numpy.ndarray): shape nrois x time, detrended fluorescence trace for all rois extracted from suite2p
+        F (numpy.ndarray): shape nrois x time, detrended fluorescence trace for all rois
+            extracted from suite2p
 
     """
     win_frames = int(ops["detrend_win"] * fs)
@@ -516,7 +664,7 @@ def detrend(F, first_frames, last_frames, ops, fs):
     if win_frames % 2 == 0:
         pad_size = (win_frames // 2, win_frames // 2 - 1)
     else:
-        pad_size = (win_frames // 2 , win_frames // 2 )  # Adjust for odd case
+        pad_size = (win_frames // 2, win_frames // 2)  # Adjust for odd case
 
     all_rec_baseline = np.zeros_like(F)
     for i, (start, end) in enumerate(zip(first_frames, last_frames)):
@@ -529,8 +677,7 @@ def detrend(F, first_frames, last_frames, ops, fs):
                     ops["detrend_pctl"],
                 ),
                 pad_size,
-                mode='edge',
-
+                mode="edge",
             )
 
             rec_rolling_baseline[j, :] = rolling_baseline
@@ -547,6 +694,24 @@ def detrend(F, first_frames, last_frames, ops, fs):
 
 
 def correct_neuropil(dpath, Fr, Fn):
+    """
+    Correct neuropil contamination using the ASt method.
+
+    Args:
+        dpath (str): path to the suite2p folder
+        Fr (numpy.ndarray): shape nrois x time, raw fluorescence trace for all rois
+            extracted from suite2p
+        Fn (numpy.ndarray): shape nrois x time, neuropil fluorescence trace for all rois
+            extracted from suite2p
+
+    Returns:
+        Fast (numpy.ndarray): shape nrois x time, neuropil corrected fluorescence trace
+            for all rois extracted from suite2p
+
+    """
+
+    from twop_preprocess.neuropil.ast_model import ast_model
+
     stat = np.load(dpath / "stat.npy", allow_pickle=True)
 
     print("Starting neuropil correction with ASt method...", flush=True)
@@ -572,11 +737,13 @@ def dFF(f, n_components=2):
     """
     Helper function for calculating dF/F from raw fluorescence trace.
     Args:
-        f (numpy.ndarray): shape nrois x time, raw fluorescence trace for all rois extracted from suite2p
+        f (numpy.ndarray): shape nrois x time, raw fluorescence trace for all rois
+            extracted from suite2p
         n_components (int): number of components for GMM. default 2.
 
     Returns:
-        dffs (numpy.ndarray): shape nrois x time, dF/F for all rois extracted from suite2p
+        dffs (numpy.ndarray): shape nrois x time, dF/F for all rois extracted from
+            suite2p
 
     """
     f0 = np.zeros(f.shape[0])
@@ -593,7 +760,8 @@ def dFF(f, n_components=2):
 
 def calculate_dFF(dpath, F, Fneu, ops):
     """
-    Calculate dF/F for the whole session with concatenated recordings after neuropil correction.
+    Calculate dF/F for the whole session with concatenated recordings after neuropil
+        correction.
 
     Args:
         suite2p_dataset (Dataset): dataset containing concatenated recordings
@@ -607,10 +775,11 @@ def calculate_dFF(dpath, F, Fneu, ops):
     """
     print("Calculating dF/F...")
     if not ops["ast_neuropil"]:
-        F = F - ops["neucoeff"] * Fneu
+        F = F - ops["neucoeff"] * (Fneu - np.median(Fneu, axis=1)[:, None])
     # Calculate dFFs and save to the suite2p folder
     print(f"n components for dFF calculation: {ops['dff_ncomponents']}")
     dff, f0 = dFF(F, n_components=ops["dff_ncomponents"])
+    np.save(dpath / "dff_ast.npy" if ops["ast_neuropil"] else dpath / "dff.npy", dff)
     np.save(dpath / "dff_ast.npy" if ops["ast_neuropil"] else dpath / "dff.npy", dff)
     np.save(dpath / "f0_ast.npy" if ops["ast_neuropil"] else dpath / "f0.npy", f0)
     return dff, f0
@@ -618,7 +787,7 @@ def calculate_dFF(dpath, F, Fneu, ops):
 
 def spike_deconvolution_suite2p(suite2p_dataset, iplane, ops={}, ast_neuropil=True):
     """
-    Run spike deconvolution on the concatenated recordings after ASt neuropil correction.
+    Run spike deconvolution on the concatenated recordings after ASt neuropil correction
 
     Args:
         suite2p_dataset (Dataset): dataset containing concatenated recordings
@@ -626,6 +795,8 @@ def spike_deconvolution_suite2p(suite2p_dataset, iplane, ops={}, ast_neuropil=Tr
         ops (dict): dictionary of suite2p settings
 
     """
+    from suite2p.extraction import dcnv
+
     # Load the Fast.npy file and ops.npy file
     if ast_neuropil:
         F_path = suite2p_dataset.path_full / f"plane{iplane}" / "Fast.npy"
@@ -661,6 +832,7 @@ def get_recording_frames(suite2p_dataset):
     Args:
         suite2p_dataset (Dataset): dataset containing concatenated recordings
 
+
     Returns:
         first_frames (numpy.ndarray): shape nrecordings x nplanes, first frame of each recording
         last_frames (numpy.ndarray): shape nrecordings x nplanes, last frame of each recording
@@ -670,10 +842,10 @@ def get_recording_frames(suite2p_dataset):
     try:
         nplanes = int(float(suite2p_dataset.extra_attributes["nplanes"]))
 
-    except (KeyError): #Default to 1 if missing 
+    except KeyError:  # Default to 1 if missing
         suite2p_dataset.extra_attributes["nplanes"] = 1
-        suite2p_dataset.update_flexilims(mode='update')
-        
+        suite2p_dataset.update_flexilims(mode="update")
+
         nplanes = int(suite2p_dataset.extra_attributes["nplanes"])
 
     ops = []
@@ -691,7 +863,13 @@ def get_recording_frames(suite2p_dataset):
     return first_frames, last_frames
 
 
-def split_recordings(flz_session, suite2p_dataset, conflicts):
+def split_recordings(
+    flz_session,
+    suite2p_dataset,
+    conflicts,
+    base_name="suite2p_traces",
+    extra_attributes=None,
+):
     """
     suite2p concatenates all the recordings in a given session into a single file.
     To facilitate downstream analyses, we cut them back into chunks and add them
@@ -702,6 +880,10 @@ def split_recordings(flz_session, suite2p_dataset, conflicts):
         suite2p_dataset (Dataset): dataset containing concatenated recordings
             to split
         conflicts (str): defines behavior if recordings have already been split
+        base_name (str, optional): base name for the split datasets. Default
+            "suite2p_traces"
+        extra_attributes (dict, optional): Extra attributes to add to the split datasets
+            on flexilims. Used only for identification. Default None.
 
     """
     # get scanimage datasets
@@ -725,72 +907,41 @@ def split_recordings(flz_session, suite2p_dataset, conflicts):
                 for this_path in paths
             ]
         )
-    datasets_out = []
     first_frames, last_frames = get_recording_frames(suite2p_dataset)
     nplanes = int(float(suite2p_dataset.extra_attributes["nplanes"]))
+
+    datasets_out = []
     for raw_datapath, recording_id, first_frames_rec, last_frames_rec in zip(
         datapaths, recording_ids, first_frames, last_frames
     ):
-        # minimum number of frames across planes
-        nframes = np.min(last_frames_rec - first_frames_rec)
         # get the path for split dataset
-        split_dataset = flz.get_datasets(
+        split_dataset = flz.Dataset.from_origin(
             origin_id=recording_id,
             dataset_type="suite2p_traces",
-            project_id=suite2p_dataset.project,
+            base_name=base_name,
             flexilims_session=flz_session,
-            return_dataseries=False,
+            conflicts=conflicts,
         )
-
-        recording_name = flz.get_entity(
-            datatype="recording", flexilims_session=flz_session, id=recording_id
-        ).name
-        if len(split_dataset) > 0:
-            print(
-                f"WARNING:{len(split_dataset)} suite2p datasets found for recording {recording_name}"
-            )
-            split_dataset = split_dataset[
-                np.argmax(
-                    [
-                        datetime.datetime.strptime(i.created, "%Y-%m-%d %H:%M:%S")
-                        for i in split_dataset
-                    ]
-                )
-            ]
-            print(split_dataset)
-            if conflicts == "overwrite":
-                print(f"Overwriting the last dataset {split_dataset.full_name}...")
-            elif (split_dataset.get_flexilims_entry() is not None) and (
-                conflicts == "skip"
-            ):
-                print(f"Dataset {split_dataset.full_name} already split... skipping...")
-                datasets_out.append(split_dataset)
-                continue
-
-            else:
-                split_dataset = Dataset.from_origin(
-                    project=suite2p_dataset.project,
-                    origin_type="recording",
-                    origin_id=recording_id,
-                    dataset_type="suite2p_traces",
-                    conflicts=conflicts,
-                )
-        else:
-            split_dataset = Dataset.from_origin(
-                project=suite2p_dataset.project,
-                origin_type="recording",
-                origin_id=recording_id,
-                dataset_type="suite2p_traces",
-                conflicts=conflicts,
-            )
+        # Set the extra_attributes to match that of suite2p
+        # minimum number of frames across planes
+        nframes = np.min(last_frames_rec - first_frames_rec)
+        si_metadata = parse_si_metadata(raw_datapath)
+        split_dataset.extra_attributes = suite2p_dataset.extra_attributes.copy()
+        split_dataset.extra_attributes["fs"] = si_metadata[
+            "SI.hRoiManager.scanVolumeRate"
+        ]
+        split_dataset.extra_attributes["nframes"] = nframes
+        if extra_attributes is not None:
+            split_dataset.extra_attributes.update(dict(extra_attributes))
+        if (split_dataset.flexilims_status() == "up-to-date") and (conflicts == "skip"):
+            print(f"Dataset {split_dataset.dataset_name} already exists... skipping...")
+            continue
 
         split_dataset.path_full.mkdir(parents=True, exist_ok=True)
-        si_metadata = parse_si_metadata(raw_datapath)
         np.save(split_dataset.path_full / "si_metadata.npy", si_metadata)
         # load processed data
         for iplane, start in zip(range(nplanes), first_frames_rec):
             suite2p_path = suite2p_dataset.path_full / f"plane{iplane}"
-            # otherwise lets split it
             split_path = split_dataset.path_full / f"plane{iplane}"
             try:
                 split_path.mkdir(parents=True, exist_ok=True)
@@ -820,16 +971,23 @@ def split_recordings(flz_session, suite2p_dataset, conflicts):
             else:
                 dff = np.load(suite2p_path / "dff.npy")
                 np.save(split_path / "dff.npy", dff[:, start:end])
-        split_dataset.extra_attributes = suite2p_dataset.extra_attributes.copy()
-        split_dataset.extra_attributes["fs"] = si_metadata[
-            "SI.hRoiManager.scanVolumeRate"
-        ]
-        split_dataset.extra_attributes["nframes"] = nframes
         split_dataset.update_flexilims(mode="overwrite")
         datasets_out.append(split_dataset)
     return datasets_out
 
 
+@slurm_it(
+    conda_env="2p-preprocess",
+    slurm_options={
+        "cpus-per-task": 1,
+        "ntasks": 1,
+        "time": "24:00:00",
+        "mem": "256G",
+        "partition": "ga100",
+        "gres": "gpu:1",
+    },
+    module_list=["CUDA/12.1.1", "cuDNN/8.9.2.26-CUDA-12.1.1"],
+)
 def extract_session(
     project,
     session_name,
@@ -837,7 +995,8 @@ def extract_session(
     run_split=False,
     run_suite2p=True,
     run_dff=True,
-    ops={},
+    delete_previous_run=False,
+    ops=None,
 ):
     """
     Process all the 2p datasets for a given session
@@ -849,15 +1008,27 @@ def extract_session(
         run_split (bool): whether or not to run splitting for different folders
         run_suite2p (bool): whether or not to run extraction
         run_dff (bool): whether or not to run dff calculation
+        delete_previous_run (bool): whether to delete previous runs. Default False
+        ops (dict): dictionary of suite2p settings
+        use_slurm (bool): whether to use slurm or not. Default False
+        slurm_folder (Path): path to the slurm folder. Default None
+        scripts_name (str): name of the slurm script. Default None
+
+    Returns:
+        Dataset: object containing the generated dataset
+
 
     """
+    if ops is None:
+        ops = {}
+
     # get session info from flexilims
     print("Connecting to flexilims...")
     flz_session = flz.get_flexilims_session(project)
     ops = load_ops(ops)
     if run_suite2p:
         suite2p_dataset = run_extraction(
-            flz_session, project, session_name, conflicts, ops
+            flz_session, project, session_name, conflicts, ops, delete_previous_run
         )
     else:
         suite2p_datasets = flz.get_datasets(

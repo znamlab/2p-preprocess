@@ -1,0 +1,118 @@
+[project]
+name = "2p-preprocess"
+authors = [{name = "Znamenskiy lab", email= "petr.znamenskiy@crick.ac.uk"}]
+description = "Preprocessing of two-photon data"
+readme = "README.md"
+requires-python = ">=3.8,<3.10"  # because of suite2p
+dynamic = ["version"]
+dependencies = [
+        "flexiznam @ git+ssh://git@github.com/znamlab/flexiznam.git",
+        "znamutils @ git+ssh://git@github.com/znamlab/znamutils.git",
+        "matplotlib",
+        "jupyter",
+        "more_itertools",
+        "scikit-image",
+        "tqdm",
+        "Click",
+        "numpy",
+        "jax",
+        "optax",
+        "scikit-learn",
+        "numba",
+        "suite2p",
+        "tifffile",
+        ]
+license = {text = "MIT"}
+
+[project.scripts]
+2p = "twop_preprocess.cli:cli"
+
+[project.urls]
+"Homepage" = "https://github.com/znamlab/twop_preprocess"
+"Bug Tracker" = "https://github.com/znamlab/twop_preprocess/issues"
+"Source Code" = "https://github.com/znamlab/twop_preprocess"
+"User Support" = "https://github.com/znamlab/twop_preprocess/issues"
+
+[project.optional-dependencies]
+dev = [
+  "pytest",
+  "pytest-cov",
+  "coverage",
+  "tox",
+  "black",
+  "mypy",
+  "pre-commit",
+  "ruff",
+  "setuptools_scm",
+]
+
+[build-system]
+requires = [
+    "setuptools>=45",
+    "wheel",
+    "setuptools_scm[toml]>=6.2",
+]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.packages.find]
+include = ["twop_preprocess*"]
+exclude = ["tests", "docs*"]
+
+
+[tool.pytest.ini_options]
+addopts = "--cov=twop_preprocess"
+
+[tool.black]
+target-version = ['py39']
+skip-string-normalization = false
+line-length = 88
+
+[tool.setuptools_scm]
+
+[tool.check-manifest]
+ignore = [
+  ".yaml",
+  "tox.ini",
+  "tests/",
+  "tests/test_unit/",
+  "tests/test_integration/",
+  "docs/",
+  "docs/source/",
+]
+
+
+[tool.ruff]
+line-length = 88
+exclude = ["__init__.py","build",".eggs"]
+lint.select = [
+  "E",   # pycodestyle errors
+  "F",   # Pyflakes
+  "I",   # isort
+  # You can see what all the rules do here: https://docs.astral.sh/ruff/rules/
+  # Some additional ruff rules that might be useful (uncomment to enable)
+  #"UP",  # pyupgrade
+  #"B",   # flake8 bugbear
+  #"SIM", # flake8 simplify
+  #"C90", # McCabe complexity
+]
+fix = true
+
+[tool.tox]
+legacy_tox_ini = """
+[tox]
+envlist = py{39}
+isolated_build = True
+
+[gh-actions]
+python =
+    3.9: py39
+
+[testenv]
+extras =
+    dev
+commands =
+    pytest -v --color=yes --cov=twop_preprocess --cov-report=xml
+"""

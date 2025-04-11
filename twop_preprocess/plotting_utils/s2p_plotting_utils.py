@@ -1,6 +1,7 @@
 import os
 from pathlib import Path
 from typing import Sequence, Dict, Any
+import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy.stats import kde, pearsonr
@@ -10,19 +11,7 @@ from suite2p.extraction import masks
 
 # Declare matplotlib display settings
 import matplotlib as mpl
-mpl.rcParams.update({
-    'axes.spines.left': True,
-    'axes.spines.bottom': True,
-    'axes.spines.top': False,
-    'axes.spines.right': False,
-    'legend.frameon': False,
-    'figure.subplot.wspace': .01,
-    'figure.subplot.hspace': .01,
-    'figure.figsize': (18, 13),
-    'ytick.major.left': True,
-})
-jet = mpl.cm.get_cmap("jet").copy()
-jet.set_bad(color='k')
+jet = matplotlib.cm.get_cmap("jet").copy()
 
 
 def load_s2p_output(output_dir):

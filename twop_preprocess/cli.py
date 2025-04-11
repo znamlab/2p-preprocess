@@ -16,16 +16,16 @@ def cli():
     help="How to handle conflicts when processed data already exists",
 )
 @click.option(
-    "--run-neuropil", type=bool, help="Whether to run ASt neuropil correction"
+    "--run-neuropil/--no-run-neuropil", help="Whether to run ASt neuropil correction"
 )
 @click.option(
-    "--run-split", type=bool, default=True, help="Whether to run split recordings"
+    "--run-split/--no-run-split", default=True, help="Whether to run split recordings"
 )
 @click.option(
-    "--run-suite2p", type=bool, default=True, help="Whether to suite2p extraction"
+    "--run-suite2p/--no-run-suite2p", default=True, help="Whether to suite2p extraction"
 )
 @click.option(
-    "--run-dff", type=bool, default=True, help="Whether to run dff extraction"
+    "--run-dff/--no-run-dff", default=True, help="Whether to run dff extraction"
 )
 @click.option(
     "--tau", "-t", type=float, help="Decay time constant for spike extraction"
@@ -101,9 +101,7 @@ def calcium(
     default=False,
     help="Whether to concatenate the zstacks in datasets",
 )
-@click.argument(
-    "datasets", nargs=-1, required=False,
-)
+@click.argument("datasets", nargs=-1, required=False)
 def zstack(
     project,
     session,
@@ -123,7 +121,7 @@ def zstack(
 
     if not datasets:
         datasets = None
-        
+
     ops = {
         "ch_to_align": channel,
         "max_shift": max_shift,
