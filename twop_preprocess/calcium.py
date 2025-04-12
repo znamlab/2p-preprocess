@@ -580,8 +580,6 @@ def extract_dff(suite2p_dataset, ops, project, flz_session):
                     sanity.plot_offset_gmm(F, Fneu, roi, ops["dff_ncomponents"])
                     plt.savefig(dpath / "sanity_plots" / f"offset_gmm_roi{roi}.png")
 
-                sanity.plot_offset_gmm()
-
 
 def estimate_offset(datapath, n_components=3):
     """
@@ -987,6 +985,7 @@ def split_recordings(
         "gres": "gpu:1",
     },
     module_list=["CUDA/12.1.1", "cuDNN/8.9.2.26-CUDA-12.1.1"],
+    print_job_id=True,
 )
 def extract_session(
     project,
@@ -1063,3 +1062,4 @@ def extract_session(
     if run_split:
         print("Splitting recordings...")
         split_recordings(flz_session, suite2p_dataset, conflicts=conflicts)
+    print("Extraction finished.")
