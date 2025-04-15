@@ -9,6 +9,7 @@ from sklearn import mixture  # Import for mocking
 
 # Import functions to test
 from twop_preprocess.calcium import calcium_utils
+import twop_preprocess.calcium.processing_steps
 
 # --- Fixtures ---
 
@@ -168,7 +169,7 @@ class TestDetrend:
         trend = np.linspace(0, 10, F.shape[1]) * 10
         F = F + trend[np.newaxis, :]
 
-        F_detrended, baseline = calcium_utils.detrend(
+        F_detrended, baseline = twop_preprocess.calcium.processing_steps.detrend(
             F.copy(), first_frames, last_frames, mock_ops, fs
         )
 
@@ -213,7 +214,7 @@ class TestCorrectNeuropil:
         mock_elbo = np.random.rand(1)
         mock_ast_model.return_value = (mock_trace, mock_param, mock_elbo)
 
-        Fast_result = calcium_utils.correct_neuropil(dpath, F, Fneu)
+        Fast_result = calcium_utils.correct_neuropil_ast(dpath, F, Fneu)
 
         # Assertions
         assert mock_np_load.call_count == 1
@@ -279,80 +280,128 @@ class TestDFFHelper:
         np.testing.assert_allclose(dff, expected_dff)
 
 
-class TestCalculateDFF:
-    @patch("twop_preprocess.calcium.calcium_utils.dFF")
+class TestCalculateAndSaveDFF:
     @patch("numpy.save")
-    def test_calculate_dff_ast(
-        self, mock_np_save, mock_dff_helper, tmp_path, sample_traces, mock_ops
-    ):
-        F, Fneu = sample_traces
-        dpath = tmp_path / "plane0"
-        dpath.mkdir()
-        mock_ops["ast_neuropil"] = True
-        n_components = mock_ops["dff_ncomponents"]
-
-        # Mock return value for the helper dFF
-        mock_dff_val = np.random.rand(*F.shape)
-        mock_f0_val = np.random.rand(F.shape[0], 1) * 50
-        mock_dff_helper.return_value = (mock_dff_val, mock_f0_val)
-
-        dff_res, f0_res = calcium_utils.calculate_dFF(dpath, F, Fneu, mock_ops)
-
-        # Assertions
-        mock_dff_helper.assert_called_once()
-        # Check that F passed to dFF helper is the original F (since ast_neuropil=True)
-        np.testing.assert_array_equal(mock_dff_helper.call_args[0][0], F)
-        assert mock_dff_helper.call_args[1]["n_components"] == n_components
-
-        assert mock_np_save.call_count == 2
-        calls = [
-            call(dpath / "dff_ast.npy", mock_dff_val),
-            call(dpath / "f0_ast.npy", mock_f0_val),
-        ]
-        # Use ANY or check call_args_list if exact array comparison needed
-        mock_np_save.assert_has_calls(calls, any_order=True)
-
-        np.testing.assert_array_equal(dff_res, mock_dff_val)
-        np.testing.assert_array_equal(f0_res, mock_f0_val)
-
     @patch("twop_preprocess.calcium.calcium_utils.dFF")
-    @patch("numpy.save")
-    def test_calculate_dff_no_ast(
-        self, mock_np_save, mock_dff_helper, tmp_path, sample_traces, mock_ops
-    ):
-        F, Fneu = sample_traces
-        dpath = tmp_path / "plane0"
+    def test_calculate_and_save_dff(self, mock_dff, mock_np_save, tmp_path):
+        F = np.random.rand(5, 100)  # 5 ROIs, 100 frames
+        dpath = tmp_path / "suite2p_output"
         dpath.mkdir()
-        mock_ops["ast_neuropil"] = False
-        mock_ops["neucoeff"] = 0.7
-        n_components = mock_ops["dff_ncomponents"]
+        filename_suffix = "_test"
+        n_components = 3
 
-        # Mock return value for the helper dFF
-        mock_dff_val = np.random.rand(*F.shape)
-        mock_f0_val = np.random.rand(F.shape[0], 1) * 50
-        mock_dff_helper.return_value = (mock_dff_val, mock_f0_val)
+        # Mock dFF return values
+        mock_dff_result = (np.random.rand(5, 100), np.random.rand(5))
+        mock_dff.return_value = mock_dff_result
 
-        # Calculate expected F input for dFF helper
-        Fneu_median = np.median(Fneu, axis=1)[:, None]
-        expected_F_input = F - mock_ops["neucoeff"] * (Fneu - Fneu_median)
+        dff, f0 = calcium_utils.calculate_and_save_dFF(
+            dpath, F, filename_suffix, n_components=n_components
+        )
 
-        dff_res, f0_res = calcium_utils.calculate_dFF(dpath, F, Fneu, mock_ops)
-
-        # Assertions
-        mock_dff_helper.assert_called_once()
-        # Check that F passed to dFF helper is the neuropil-corrected F
-        np.testing.assert_allclose(mock_dff_helper.call_args[0][0], expected_F_input)
-        assert mock_dff_helper.call_args[1]["n_components"] == n_components
-
+        mock_dff.assert_called_once_with(F, n_components=n_components)
         assert mock_np_save.call_count == 2
-        calls = [
-            call(dpath / "dff.npy", mock_dff_val),  # Note filename change
-            call(dpath / "f0.npy", mock_f0_val),  # Note filename change
-        ]
-        mock_np_save.assert_has_calls(calls, any_order=True)
+        mock_np_save.assert_has_calls(
+            [
+                call(dpath / f"dff{filename_suffix}.npy", mock_dff_result[0]),
+                call(dpath / f"f0{filename_suffix}.npy", mock_dff_result[1]),
+            ]
+        )
+        np.testing.assert_array_equal(dff, mock_dff_result[0])
+        np.testing.assert_array_equal(f0, mock_dff_result[1])
 
-        np.testing.assert_array_equal(dff_res, mock_dff_val)
-        np.testing.assert_array_equal(f0_res, mock_f0_val)
+
+class TestCorrectNeuropilStandard:
+    def test_correct_neuropil_standard_basic(self, sample_traces):
+        """Test the standard neuropil correction calculation."""
+        F, Fneu = sample_traces
+        neucoeff = 0.7
+
+        # Manual calculation
+        Fneu_median = np.median(Fneu, axis=1, keepdims=True)
+        Fneu_demeaned = Fneu - Fneu_median
+        expected_F_corrected = F - neucoeff * Fneu_demeaned
+
+        F_corrected = calcium_utils.correct_neuropil_standard(F, Fneu, neucoeff)
+
+        np.testing.assert_allclose(F_corrected, expected_F_corrected)
+        assert F_corrected.shape == F.shape
+
+    def test_correct_neuropil_standard_zero_coeff(self, sample_traces):
+        """Test standard neuropil correction with neucoeff = 0."""
+        F, Fneu = sample_traces
+        neucoeff = 0.0
+
+        # With neucoeff=0, F_corrected should be identical to F
+        expected_F_corrected = F
+
+        F_corrected = calcium_utils.correct_neuropil_standard(F, Fneu, neucoeff)
+
+        np.testing.assert_allclose(F_corrected, expected_F_corrected)
+        assert F_corrected.shape == F.shape
+
+    def test_correct_neuropil_standard_constant_fneu(self):
+        """Test standard neuropil correction when Fneu is constant for an ROI."""
+        F = np.array([[10, 20, 15, 25], [50, 55, 60, 58]], dtype=float)
+        Fneu = np.array(
+            [[5, 5, 5, 5], [10, 12, 11, 13]], dtype=float
+        )  # First ROI Fneu is constant
+        neucoeff = 0.7
+
+        # Manual calculation for ROI 0 (Fneu constant)
+        # Fneu_median = 5, Fneu_demeaned = 0, F_corrected = F
+        expected_F_corrected_roi0 = F[0, :]
+
+        # Manual calculation for ROI 1
+        Fneu1_median = np.median(Fneu[1, :])  # 11.5
+        Fneu1_demeaned = Fneu[1, :] - Fneu1_median  # [-1.5, 0.5, -0.5, 1.5]
+        expected_F_corrected_roi1 = F[1, :] - neucoeff * Fneu1_demeaned
+
+        F_corrected = calcium_utils.correct_neuropil_standard(F, Fneu, neucoeff)
+
+        np.testing.assert_allclose(F_corrected[0, :], expected_F_corrected_roi0)
+        np.testing.assert_allclose(F_corrected[1, :], expected_F_corrected_roi1)
+        assert F_corrected.shape == F.shape
+
+    @patch("numpy.save")
+    def test_correct_neuropil_standard_saves(
+        self, mock_np_save, sample_traces, tmp_path
+    ):
+        """Test that standard neuropil correction saves the file when path is provided."""
+        F, Fneu = sample_traces
+        neucoeff = 0.7
+        save_path = tmp_path / "F_corrected_standard.npy"
+
+        # Calculate expected result to check save argument (optional but good)
+        Fneu_median = np.median(Fneu, axis=1, keepdims=True)
+        Fneu_demeaned = Fneu - Fneu_median
+        expected_F_corrected = F - neucoeff * Fneu_demeaned
+
+        F_corrected_func = calcium_utils.correct_neuropil_standard(
+            F, Fneu, neucoeff, save_path=save_path
+        )
+
+        # Check that the function still returns the correct result
+        np.testing.assert_allclose(F_corrected_func, expected_F_corrected)
+
+        # Check that np.save was called correctly
+        mock_np_save.assert_called_once()
+        call_args = mock_np_save.call_args[0]
+        call_kwargs = mock_np_save.call_args[1]
+
+        assert call_args[0] == save_path
+        np.testing.assert_allclose(call_args[1], expected_F_corrected)
+        assert call_kwargs == {"allow_pickle": True}
+
+    @patch("numpy.save")
+    def test_correct_neuropil_standard_no_save(self, mock_np_save, sample_traces):
+        """Test that standard neuropil correction does not save when path is None."""
+        F, Fneu = sample_traces
+        neucoeff = 0.7
+        save_path = None  # Explicitly None (or just omit)
+
+        calcium_utils.correct_neuropil_standard(F, Fneu, neucoeff, save_path=save_path)
+
+        mock_np_save.assert_not_called()
 
 
 class TestEstimateOffset:
