@@ -9,6 +9,7 @@ from sklearn import mixture  # Import for mocking
 
 # Import functions to test
 from twop_preprocess.calcium import calcium_utils
+from twop_preprocess.calcium.calcium_utils import _calculate_rolling_baseline_parallel
 import twop_preprocess.calcium.processing_steps
 
 # --- Fixtures ---
@@ -152,6 +153,125 @@ class TestRollingPercentile:
         expected = arr  # Window 1 is just the element itself
         result = calcium_utils.rolling_percentile(arr, window, percentile)
         np.testing.assert_array_equal(result, expected)
+
+
+class TestCalculateRollingBaselineParallel:
+    def test_basic_median_odd_window(self):
+        """Test basic median calculation with an odd window (symmetric padding)."""
+        F_segment = np.array(
+            [[1, 2, 3, 4, 5, 6, 7, 8, 9, 10], [10, 9, 8, 7, 6, 5, 4, 3, 2, 1]],
+            dtype=float,
+        )
+        win_frames = 3
+        percentile = 50
+        pad_before = win_frames // 2  # 1
+        pad_after = win_frames // 2  # 1
+        n_rois, n_frames_seg = F_segment.shape
+
+        # Manually calculate expected output
+        expected = np.empty_like(F_segment)
+        for j in range(n_rois):
+            core = calcium_utils.rolling_percentile(
+                F_segment[j], win_frames, percentile
+            )
+            # core = [2, 3, 4, 5, 6, 7, 8, 9] for roi 0
+            # core = [9, 8, 7, 6, 5, 4, 3, 2] for roi 1
+            expected[j, pad_before : n_frames_seg - pad_after] = core
+            expected[j, :pad_before] = core[0]
+            expected[j, n_frames_seg - pad_after :] = core[-1]
+            # expected[0] = [2, 2, 3, 4, 5, 6, 7, 8, 9, 9]
+            # expected[1] = [9, 9, 8, 7, 6, 5, 4, 3, 2, 2]
+
+        result = _calculate_rolling_baseline_parallel(F_segment, win_frames, percentile)
+
+        np.testing.assert_allclose(result, expected)
+
+    def test_even_window_low_percentile(self):
+        """Test with an even window (asymmetric padding) and low percentile."""
+        F_segment = np.array(
+            [[1, 5, 2, 6, 3, 7, 4, 8], [8, 4, 7, 3, 6, 2, 5, 1]], dtype=float
+        )
+        win_frames = 4
+        percentile = 10  # Low percentile
+        pad_before = win_frames // 2  # 2
+        pad_after = win_frames // 2 - 1  # 1
+        n_rois, n_frames_seg = F_segment.shape
+
+        # Manually calculate expected output
+        expected = np.empty_like(F_segment)
+        for j in range(n_rois):
+            core = calcium_utils.rolling_percentile(
+                F_segment[j], win_frames, percentile
+            )
+            # core roi 0: percentile([1,5,2,6],10)=1.3, percentile([5,2,6,3],10)=2.3, ...
+            # core roi 1: percentile([8,4,7,3],10)=3.3, percentile([4,7,3,6],10)=3.3, ...
+            expected[j, pad_before : n_frames_seg - pad_after] = core
+            expected[j, :pad_before] = core[0]
+            expected[j, n_frames_seg - pad_after :] = core[-1]
+
+        result = _calculate_rolling_baseline_parallel(F_segment, win_frames, percentile)
+
+        np.testing.assert_allclose(
+            result, expected, rtol=1e-6
+        )  # Use allclose for float precision
+
+    def test_window_one(self):
+        """Test the edge case where win_frames = 1."""
+        F_segment = np.array([[1, 2, 3, 4, 5], [5, 4, 3, 2, 1]], dtype=float)
+        win_frames = 1
+        percentile = 50
+        pad_before = 0
+        pad_after = 0
+
+        # Expected output is the input itself
+        expected = F_segment.copy()
+
+        result = _calculate_rolling_baseline_parallel(F_segment, win_frames, percentile)
+
+        np.testing.assert_array_equal(result, expected)  # Exact match expected
+
+    def test_window_larger_than_segment(self):
+        """Test the edge case where win_frames > n_frames_seg."""
+        F_segment = np.array([[1, 2, 3, 4, 5], [10, 20, 5, 15, 25]], dtype=float)
+        win_frames = 10  # Larger than segment length 5
+        percentile = 25
+        # Padding calculation based on original window, though internal logic changes
+        pad_before = win_frames // 2  # 5
+        pad_after = win_frames // 2 - 1  # 4 (for even window)
+        n_rois, n_frames_seg = F_segment.shape
+
+        # Expected output is the percentile of the whole segment, broadcasted
+        expected = np.empty_like(F_segment)
+        for j in range(n_rois):
+            baseline_val = np.percentile(F_segment[j, :], percentile)
+            expected[j, :] = baseline_val
+            # expected[0] = percentile([1,2,3,4,5], 25) = 2.0
+            # expected[1] = percentile([10,20,5,15,25], 25) = 11.25
+
+        result = _calculate_rolling_baseline_parallel(F_segment, win_frames, percentile)
+
+        np.testing.assert_allclose(result, expected)
+
+    def test_single_roi(self):
+        """Test with only one ROI."""
+        F_segment = np.array([[1, 2, 3, 4, 5, 6, 7, 8, 9, 10]], dtype=float)
+        win_frames = 3
+        percentile = 50
+        pad_before = win_frames // 2  # 1
+        pad_after = win_frames // 2  # 1
+        n_rois, n_frames_seg = F_segment.shape
+
+        # Manually calculate expected output
+        expected = np.empty_like(F_segment)
+        core = calcium_utils.rolling_percentile(F_segment[0], win_frames, percentile)
+        expected[0, pad_before : n_frames_seg - pad_after] = core
+        expected[0, :pad_before] = core[0]
+        expected[0, n_frames_seg - pad_after :] = core[-1]
+        # expected[0] = [2, 2, 3, 4, 5, 6, 7, 8, 9, 9]
+
+        result = _calculate_rolling_baseline_parallel(F_segment, win_frames, percentile)
+
+        np.testing.assert_allclose(result, expected)
 
 
 class TestDetrend:

@@ -63,6 +63,94 @@ def rolling_percentile(arr, window, percentile):
     return output
 
 
+@njit(parallel=True, cache=True)  # cache=True for potential speedup on subsequent runs
+def _calculate_rolling_baseline_parallel(F_segment, win_frames, percentile):
+    """
+    Calculates the rolling percentile baseline for a segment of fluorescence traces in parallel.
+
+    Args:
+        F_segment (np.ndarray): Fluorescence trace segment (n_rois, n_frames_in_segment).
+        win_frames (int): Window size for rolling percentile.
+        percentile (float): Percentile to calculate.
+
+    Returns:
+        np.ndarray: Rolling baseline for the segment (n_rois, n_frames_in_segment).
+    """
+    pad_before = win_frames // 2
+    if win_frames % 2 == 0:
+        pad_after = win_frames // 2 - 1
+    else:
+        pad_after = win_frames // 2
+    n_rois, n_frames_seg = F_segment.shape
+    # Pre-allocate output array with the same dtype as input
+    rec_rolling_baseline = np.empty_like(F_segment)
+
+    # Handle edge case where window is larger than segment length or <= 0
+    # This check is now primarily done in the calling function, but a safeguard here is good.
+    if win_frames <= 0:
+        # Or raise an error, depending on desired behavior
+        return np.zeros_like(F_segment)
+    if win_frames > n_frames_seg:
+        # If window is larger than segment, percentile of the whole segment is the best we can do
+        for j in prange(n_rois):
+            baseline_val = np.percentile(F_segment[j, :], percentile)
+            rec_rolling_baseline[j, :] = baseline_val
+        return rec_rolling_baseline
+    if win_frames == 1:
+        # Rolling percentile with window 1 is just the array itself
+        return F_segment.copy()
+
+    # Parallel loop over ROIs
+    for j in prange(n_rois):
+        # Calculate the core rolling percentile result
+        # Ensure rolling_percentile handles edge cases like empty slices if needed,
+        # though the win_frames > n_frames_seg check above should prevent basic issues.
+        baseline_core = rolling_percentile(
+            F_segment[j, :],  # Pass the 1D array for the current ROI
+            win_frames,
+            percentile,
+        )
+
+        # Manually apply edge padding (often more Numba-friendly than np.pad)
+        # Ensure the target array for padding exists and has the right size
+        padded_baseline = np.empty(n_frames_seg, dtype=baseline_core.dtype)
+
+        # Fill the middle part with the calculated baseline
+        # The core result has length n_frames_seg - win_frames + 1
+        # It corresponds to frames from index (win_frames//2) up to (n_frames_seg - (win_frames//2)) approx.
+        # The exact indices depend on the padding calculation.
+        start_idx = pad_before
+        end_idx = n_frames_seg - pad_after
+        # Ensure indices match the length of baseline_core
+        if len(baseline_core) == (end_idx - start_idx):
+            padded_baseline[start_idx:end_idx] = baseline_core
+        else:
+            # This case indicates a potential mismatch in padding/window logic
+            # Fallback or raise error - using edge padding as a simple fallback
+            if len(baseline_core) > 0:
+                padded_baseline[start_idx:end_idx] = baseline_core[
+                    0
+                ]  # Or some other strategy
+            else:  # baseline_core is empty, maybe window > length? Handled above.
+                padded_baseline[start_idx:end_idx] = 0  # Or np.nan
+
+        # Apply edge padding
+        if len(baseline_core) > 0:
+            padded_baseline[:start_idx] = baseline_core[0]
+            padded_baseline[end_idx:] = baseline_core[-1]
+        else:
+            # If baseline_core is empty (e.g., win_frames > n_frames_seg, though handled above),
+            # pad with a default value, maybe the segment mean or 0.
+            # This part might be redundant due to checks above.
+            segment_median = np.median(F_segment[j, :]) if n_frames_seg > 0 else 0
+            padded_baseline[:start_idx] = segment_median
+            padded_baseline[end_idx:] = segment_median
+
+        rec_rolling_baseline[j, :] = padded_baseline
+
+    return rec_rolling_baseline
+
+
 def correct_neuropil_ast(dpath, Fr, Fn):
     """
     Correct neuropil contamination using the ASt method.
