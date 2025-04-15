@@ -63,57 +63,7 @@ def rolling_percentile(arr, window, percentile):
     return output
 
 
-def detrend(F, first_frames, last_frames, ops, fs):
-    """
-    Detrend the concatenated fluorescence trace for each recording.
-
-    Args:
-        F (numpy.ndarray): shape nrois x time, raw fluorescence trace for all rois
-            extracted from suite2p
-        first_frames (numpy.ndarray): shape nrecordings, first frame of each recording
-        last_frames (numpy.ndarray): shape nrecordings, last frame of each recording
-        ops (dict): dictionary of suite2p settings
-
-    Returns:
-        F (numpy.ndarray): shape nrois x time, detrended fluorescence trace for all rois
-            extracted from suite2p
-
-    """
-    win_frames = int(ops["detrend_win"] * fs)
-
-    if win_frames % 2 == 0:
-        pad_size = (win_frames // 2, win_frames // 2 - 1)
-    else:
-        pad_size = (win_frames // 2, win_frames // 2)  # Adjust for odd case
-
-    all_rec_baseline = np.zeros_like(F)
-    for i, (start, end) in enumerate(zip(first_frames, last_frames)):
-        rec_rolling_baseline = np.zeros_like(F[:, start:end])
-        for j in range(F.shape[0]):
-            rolling_baseline = np.pad(
-                rolling_percentile(
-                    F[j, start:end],
-                    win_frames,
-                    ops["detrend_pctl"],
-                ),
-                pad_size,
-                mode="edge",
-            )
-
-            rec_rolling_baseline[j, :] = rolling_baseline
-
-        if i == 0:
-            first_recording_baseline = np.median(rec_rolling_baseline, axis=1)
-            first_recording_baseline = first_recording_baseline.reshape(-1, 1)
-        if ops["detrend_method"] == "subtract":
-            F[:, start:end] -= rec_rolling_baseline - first_recording_baseline
-        else:
-            F[:, start:end] /= rec_rolling_baseline / first_recording_baseline
-        all_rec_baseline[:, start:end] = rec_rolling_baseline
-    return F, all_rec_baseline
-
-
-def correct_neuropil(dpath, Fr, Fn):
+def correct_neuropil_ast(dpath, Fr, Fn):
     """
     Correct neuropil contamination using the ASt method.
 
@@ -153,6 +103,30 @@ def correct_neuropil(dpath, Fr, Fn):
     return Fast
 
 
+def correct_neuropil_standard(F, Fneu, neucoeff, save_path=None):
+    """
+    Applies standard neuropil correction: F = F - neucoeff * (Fneu - median(Fneu)).
+
+    Args:
+        F (numpy.ndarray): shape nrois x time, raw fluorescence trace for all rois
+        Fneu (numpy.ndarray): shape nrois x time, neuropil fluorescence trace for all
+            rois
+        neucoeff (float): neuropil correction coefficient
+        save_path (str, optional): path to save the neuropil corrected fluorescence
+            trace. If None, will not save. Default None.
+
+    Returns:
+        F_corrected (numpy.ndarray): shape nrois x time, neuropil corrected fluorescence
+            trace
+    """
+
+    Fneu_demeaned = Fneu - np.median(Fneu, axis=1, keepdims=True)
+    F_corrected = F - neucoeff * Fneu_demeaned
+    if save_path is not None:
+        np.save(save_path, F_corrected, allow_pickle=True)
+    return F_corrected
+
+
 def dFF(f, n_components=2):
     """
     Helper function for calculating dF/F from raw fluorescence trace.
@@ -178,29 +152,28 @@ def dFF(f, n_components=2):
     return dff, f0
 
 
-def calculate_dFF(dpath, F, Fneu, ops):
+def calculate_and_save_dFF(dpath, F, filename_suffix, n_components=2):
     """
     Calculate dF/F for the whole session with concatenated recordings after neuropil
         correction.
 
     Args:
-        suite2p_dataset (Dataset): dataset containing concatenated recordings
-            to split
-        iplane (int): which plane.
+        dpath (str): path to the suite2p folder
+        F (numpy.ndarray): shape nrois x time, neuropil
+        filename_suffix (str): suffix to add to the filename
         n_components (int): number of components for GMM. default 2.
-        ast_neuropil (bool): whether to use ASt neuropil correction or not. Default True.
-        neucoeff (float): coefficient for neuropil correction. Only used if ast_neuropil
-            is False. Default 0.7.
 
+    Returns:
+        dff (numpy.ndarray): shape nrois x time, dF/F for all rois extracted from
+            suite2p
+        f0 (numpy.ndarray): shape nrois, f0 for each roi
     """
     print("Calculating dF/F...")
-    if not ops["ast_neuropil"]:
-        F = F - ops["neucoeff"] * (Fneu - np.median(Fneu, axis=1)[:, None])
     # Calculate dFFs and save to the suite2p folder
-    print(f"n components for dFF calculation: {ops['dff_ncomponents']}")
-    dff, f0 = dFF(F, n_components=ops["dff_ncomponents"])
-    np.save(dpath / "dff_ast.npy" if ops["ast_neuropil"] else dpath / "dff.npy", dff)
-    np.save(dpath / "f0_ast.npy" if ops["ast_neuropil"] else dpath / "f0.npy", f0)
+    print(f"n components for dFF calculation: n_components")
+    dff, f0 = dFF(F, n_components=n_components)
+    np.save(dpath / f"dff{filename_suffix}.npy", dff)
+    np.save(dpath / f"f0{filename_suffix}.npy", f0)
     return dff, f0
 
 

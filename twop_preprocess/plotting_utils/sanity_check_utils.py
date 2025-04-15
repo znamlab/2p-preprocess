@@ -18,12 +18,14 @@ def plot_trace(
                 plt.plot(baseline[roi, :], color="r")
 
 
-def plot_raw_trace(F, random_rois, Fneu=[], titles=["F", "Fneu"]):
+def plot_raw_trace(F, random_rois, Fneu=[], titles=["F", "Fneu"], save_path=None):
     plt.figure(figsize=(10, 3 * len(random_rois)))
     plot_trace(F, random_rois, ncols=2, icol=0, title=titles[0])
     if len(Fneu) > 0:
         plot_trace(Fneu, random_rois, ncols=2, icol=1, title=titles[1])
     plt.tight_layout()
+    if save_path is not None:
+        plt.savefig(save_path)
 
 
 def plot_detrended_trace(
@@ -89,7 +91,7 @@ def plot_fluorescence_matrices(F, Fneu, Fast, dff, neucoeff=0.7, max_frames=4000
         "dF/F": dff[:, :idx],
         f"F - {neucoeff} * Fneu": F[:, :idx] - Fneu[:, :idx] * neucoeff,
     }
-    plt.figure(figsize=(10, 20))
+    fig = plt.figure(figsize=(10, 20))
     for i, key in enumerate(to_plot.keys()):
         x = to_plot[key]
         plt.subplot(5, 1, i + 1)
@@ -100,9 +102,10 @@ def plot_fluorescence_matrices(F, Fneu, Fast, dff, neucoeff=0.7, max_frames=4000
             cmap="RdBu_r",
         )
         plt.title(key)
+    return fig
 
 
-def plot_offset_gmm(F, Fneu, cell_id, n_components, nframes=3000):
+def plot_offset_gmm(F, Fneu, cell_id, n_components, nframes=3000, save_path=None):
     fig = plt.figure(figsize=(10, 5))
     f = F[cell_id] - 0.7 * (Fneu[cell_id] - np.median(Fneu[cell_id]))
     ax = plt.subplot2grid((2, 5), (0, 0), colspan=4)
@@ -166,4 +169,7 @@ def plot_offset_gmm(F, Fneu, cell_id, n_components, nframes=3000):
     for x in fig.axes:
         x.axhline(0, color="k")
     plt.tight_layout()
+
+    if save_path is not None:
+        plt.savefig(save_path)
     return fig

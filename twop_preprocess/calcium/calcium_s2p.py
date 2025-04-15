@@ -10,14 +10,17 @@ from .calcium_utils import get_weights
 print = partial(print, flush=True)
 
 
-def spike_deconvolution_suite2p(suite2p_dataset, iplane, ops={}, ast_neuropil=True):
+def spike_deconvolution_suite2p(suite2p_dataset, iplane, ops=None, ast_neuropil=True):
     """
     Run spike deconvolution on the concatenated recordings after ASt neuropil correction
 
     Args:
         suite2p_dataset (Dataset): dataset containing concatenated recordings
         iplane (int): which plane to run on
-        ops (dict): dictionary of suite2p settings
+        ops (dict, optional): dictionary of suite2p settings
+        ast_neuropil (bool, optional): wether to use Fast or Fstandard neuropil
+            corrected trace for deconvolution. Default True.
+
 
     """
     try:
@@ -27,6 +30,8 @@ def spike_deconvolution_suite2p(suite2p_dataset, iplane, ops={}, ast_neuropil=Tr
             "suite2p is not installed. Please see 2p-preprocess ReadMe to install it"
         )
 
+    if ops is None:
+        ops = {}
     # Load the Fast.npy file and ops.npy file
     if ast_neuropil:
         F_path = suite2p_dataset.path_full / f"plane{iplane}" / "Fast.npy"

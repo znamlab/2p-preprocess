@@ -3,7 +3,7 @@ import flexiznam as flz
 import numpy as np
 from pathlib import Path
 
-from .calcium import extract_dff, split_recordings
+from .calcium import process_concatenated_traces, split_recordings
 from .calcium_s2p import reextract_masks, spike_deconvolution_suite2p
 
 print = partial(print, flush=True)
@@ -205,7 +205,7 @@ def reextract_session(session, masks, flz_session, conflicts="abort"):
         np.save(target_dir / "ops.npy", ops)
 
     print("Calculating dF/F...")
-    extract_dff(suite2p_ds_annotated, ops)
+    process_concatenated_traces(suite2p_ds_annotated, ops)
 
     print("Splitting recordings...")
     split_recordings(
