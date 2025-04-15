@@ -52,7 +52,7 @@ def calcium(
     tau=None,
 ):
     """Run calcium imaging preprocessing pipeline"""
-    from twop_preprocess.calcium import extract_session
+    from twop_preprocess.calcium.calcium import extract_session
 
     ops = {
         "tau": tau,
