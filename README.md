@@ -5,6 +5,15 @@ Clone the repo from github:
 git clone git@github.com:znamlab/2p-preprocess.git
 ```
 
+There are two ways to install this package, the "pipeline" main install, which is just
+`pip install -e .` and will not install anything related to suite2p. It will be able to
+run all other functions and start jobs which call the suite2p part of the pipeline.
+
+The suite2p compatible version, which requires **python < 3.10**. It should work with
+`pip install -e ".[dev]"` but has not been tested. The last working install was:
+
+## Going around suite2p limitation for old python
+
 Next, navigate to the repo directory and run following commands to install the package
 and dependencies:
 ```
@@ -19,6 +28,9 @@ conda deactivate
 ```
 
 This should install the dependencies and create conda environments for `suite2p` and for the repo itself. Environments are created in each users home directory. Note that the version of `torch` generated issues and the version of `optax` conflicted with `python=3.8`. The python version is enforced because `suite2p` does not want to bring their dependencies forward.
+
+
+## Using the pipeline
 
 `run_suite2p.sh` and `run_suite2p_gpu.sh` contain example scripts that first runs the standard run_suite2p pipeline and then applies neuropil correction using the AST model.
 If running neuropil correction using the AST model, using a GPU node is recommended.

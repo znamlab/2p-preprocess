@@ -3,7 +3,7 @@ name = "2p-preprocess"
 authors = [{name = "Znamenskiy lab", email= "petr.znamenskiy@crick.ac.uk"}]
 description = "Preprocessing of two-photon data"
 readme = "README.md"
-requires-python = ">=3.8,<3.10"  # because of suite2p
+requires-python = ">=3.8"  # If using with suite2p, need <3.10
 dynamic = ["version"]
 dependencies = [
         "flexiznam @ git+ssh://git@github.com/znamlab/flexiznam.git",
@@ -15,11 +15,8 @@ dependencies = [
         "tqdm",
         "Click",
         "numpy",
-        "jax",
-        "optax",
         "scikit-learn",
         "numba",
-        "suite2p",
         "tifffile",
         ]
 license = {text = "MIT"}
@@ -45,6 +42,10 @@ dev = [
   "ruff",
   "setuptools_scm",
 ]
+suite2p = [
+          "jax",
+        "optax",
+          "suite2p",]
 
 [build-system]
 requires = [
