@@ -18,6 +18,8 @@ dependencies = [
         "scikit-learn",
         "numba",
         "tifffile",
+          "jax",
+        "optax",
         ]
 license = {text = "MIT"}
 
@@ -43,8 +45,6 @@ dev = [
   "setuptools_scm",
 ]
 suite2p = [
-          "jax",
-        "optax",
           "suite2p",]
 
 [build-system]
