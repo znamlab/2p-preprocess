@@ -1,4 +1,5 @@
 from functools import partial
+import os
 import flexiznam as flz
 import numpy as np
 
