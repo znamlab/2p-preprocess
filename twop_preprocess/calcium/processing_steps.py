@@ -1,9 +1,10 @@
-from twop_preprocess.calcium.calcium import print
+from functools import partial
 import flexiznam as flz
-from twop_preprocess.calcium.calcium_utils import estimate_offset, rolling_percentile
-
-
 import numpy as np
+
+from .calcium_utils import estimate_offset, rolling_percentile
+
+print = partial(print, flush=True)
 
 
 def detrend(F, first_frames, last_frames, ops, fs):
