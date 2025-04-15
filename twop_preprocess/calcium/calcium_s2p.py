@@ -37,7 +37,7 @@ def spike_deconvolution_suite2p(suite2p_dataset, iplane, ops=None, ast_neuropil=
         F_path = suite2p_dataset.path_full / f"plane{iplane}" / "Fast.npy"
         spks_path = suite2p_dataset.path_full / f"plane{iplane}" / "spks_ast.npy"
     else:
-        F_path = suite2p_dataset.path_full / f"plane{iplane}" / "F.npy"
+        F_path = suite2p_dataset.path_full / f"plane{iplane}" / "Fstandard.npy"
         spks_path = suite2p_dataset.path_full / f"plane{iplane}" / "spks.npy"
 
     suite2p_ops_path = suite2p_dataset.path_full / f"plane{iplane}" / "ops.npy"
