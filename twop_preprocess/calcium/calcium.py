@@ -166,10 +166,11 @@ def process_concatenated_traces(suite2p_dataset, ops, project, flz_session):
             )
             F_processed = Fstandard
             filename_suffix = ""
+            Fast = np.zeros_like(F_detrended)
 
         if do_plots:
             sfx = "AST" if ops["ast_neuropil"] else "Standard"
-            sanity.plot_neuropil_corrected_trace(
+            sanity.plot_raw_trace(
                 F_detrended,
                 random_rois,
                 F_processed,
@@ -197,6 +198,7 @@ def process_concatenated_traces(suite2p_dataset, ops, project, flz_session):
             # Plot GMM for baseline estimation (using F_proc)
             for roi in random_rois:
                 sanity.plot_offset_gmm(
+                    F_detrended,
                     F_processed,
                     roi,
                     ops.get("dff_ncomponents", 2),

@@ -5,7 +5,15 @@ from scipy.stats import norm
 
 
 def plot_trace(
-    F, rois, plot_baseline=False, baseline=0, ncols=2, icol=0, linecolor="b", title="F"
+    F,
+    rois,
+    plot_baseline=False,
+    baseline=0,
+    ncols=2,
+    icol=0,
+    linecolor="b",
+    title="F",
+    save_path=None,
 ):
     for i, roi in enumerate(rois):
         plt.subplot2grid((len(rois), ncols), (i, icol))
@@ -16,6 +24,8 @@ def plot_trace(
                 plt.axhline(baseline[roi, :], color="r")
             else:
                 plt.plot(baseline[roi, :], color="r")
+    if save_path is not None:
+        plt.savefig(save_path)
 
 
 def plot_raw_trace(F, random_rois, Fneu=[], titles=["F", "Fneu"], save_path=None):
@@ -36,6 +46,7 @@ def plot_detrended_trace(
     Fneu_trend,
     Fneu_detrended,
     random_rois,
+    save_path=None,
 ):
     plt.figure(figsize=(20, 3 * len(random_rois)))
     plot_trace(
@@ -59,9 +70,11 @@ def plot_detrended_trace(
     )
     plot_trace(Fneu_detrended, random_rois, ncols=4, icol=3, title="Fneu_detrended")
     plt.tight_layout()
+    if save_path is not None:
+        plt.savefig(save_path)
 
 
-def plot_dff(Fast, dff, F0, random_rois):
+def plot_dff(Fast, dff, F0, random_rois, save_path=None):
     plt.figure(figsize=(20, 3 * len(random_rois)))
     plot_trace(
         Fast,
@@ -80,9 +93,13 @@ def plot_dff(Fast, dff, F0, random_rois):
         plt.hist(dff[i, :], bins=50)
         plt.title(f"median {np.round(np.median(rounded_dff[i,:]),2)}")
     plt.tight_layout()
+    if save_path is not None:
+        plt.savefig(save_path)
 
 
-def plot_fluorescence_matrices(F, Fneu, Fast, dff, neucoeff=0.7, max_frames=4000):
+def plot_fluorescence_matrices(
+    F, Fneu, Fast, dff, neucoeff=0.7, max_frames=4000, save_path=None
+):
     idx = np.min([F.shape[1], max_frames])
     to_plot = {
         "F": F[:, :idx],
