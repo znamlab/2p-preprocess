@@ -118,7 +118,7 @@ def register_zstack(tiff_paths, ops):
     # check if dataset is in a single acquisition
         for dataset in ops["datasets"]:
             dataset_suffix = dataset.split("_")[2:]
-            si_acquisition = "_".join(dataset_suffix) + ".tif"
+            si_acquisition = "_".join(dataset_suffix)
             if si_acquisition in str(tiff_paths):
                 if si_acquisition in str(tiff_paths[0]):
                     pass
@@ -128,7 +128,7 @@ def register_zstack(tiff_paths, ops):
                         for tiff_path in tiff_paths 
                         if si_acquisition in str(tiff_path)
                     ]
-                    tmp = parse_si_metadata(tiff_paths_subset[0])
+                    tmp = parse_si_metadata(tiff_paths_subset[-1])
                     nz += int(tmp["SI.hStackManager.actualNumSlices"])
 
             else:

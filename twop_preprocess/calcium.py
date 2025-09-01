@@ -313,6 +313,7 @@ def run_extraction(flz_session, project, session_name, conflicts, ops):
         ops["nplanes"] = si_metadata["SI.hStackManager.numSlices"]
     else:
         ops["nplanes"] = 1
+   
     # calculate cell diameter based on zoom and pixel size
     ops["diameter"] = int(
         round(
@@ -893,7 +894,7 @@ def extract_session(
 
     if run_dff:
         print("Calculating dF/F...")
-        extract_dff(suite2p_dataset, ops, project, flz_session)
+        extract_dff(suite2p_dataset, ops)
 
     if run_split:
         print("Splitting recordings...")

@@ -4,9 +4,9 @@
 #SBATCH --cpus-per-task=1
 #SBATCH --ntasks=1
 #SBATCH --time=24:00:00
-#SBATCH --mem-per-cpu=256G
-#SBATCH --partition=gpu
-#SBATCH --gres=gpu:1
+#SBATCH --mem-per-cpu=128G
+#SBATCH --partition=ga100
+#SBATCH --gres=gpu:2
 #SBATCH --mail-type=END,FAIL
 ml purge
 ml CUDA/12.1.1
@@ -17,4 +17,4 @@ source activate base
 
 conda activate 2p-preprocess
 echo Processing ${SESSION} in project ${PROJECT}
-2p calcium -p ${PROJECT} -s ${SESSION} -c ${CONFLICTS} --run-neuropil y -t ${TAU} --run-split y --run-suite2p y
+2p calcium -p ${PROJECT} -s ${SESSION} -c ${CONFLICTS} -t ${TAU} --run-neuropil y --run-split y --run-suite2p y --run-dff y
