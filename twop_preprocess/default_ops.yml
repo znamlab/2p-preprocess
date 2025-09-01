@@ -28,8 +28,6 @@ win_baseline: 60.0
 tau: 0.7
 # fixed coefficient for neuropil correction if not using ASt model
 neucoeff: 0.7
-# whether to delete the registered bin file
-delete_bin: True
 
 # options for zstack registration
 zstack:
