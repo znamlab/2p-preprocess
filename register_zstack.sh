@@ -5,7 +5,7 @@
 #SBATCH --ntasks=1
 #SBATCH --time=12:00:00
 #SBATCH --mem-per-cpu=4G
-#SBATCH --partition=cpu
+#SBATCH --partition=ncpu
 #SBATCH --mail-type=END,FAIL
 ml purge
 ml CUDA/11.3.1
@@ -15,5 +15,5 @@ ml Anaconda3/2022.05
 source activate base
 
 conda activate 2p-preprocess
-echo Registrering Z-stacks in ${SESSION} in project ${PROJECT}
-2p zstack -p ${PROJECT} -s ${SESSION} --conflicts ${CONFLICTS} -c ${CHANNEL} --max-shift ${MAX_SHIFT}
+echo Registering Z-stacks in ${SESSION} in project ${PROJECT}
+2p zstack -p ${PROJECT} -s ${SESSION} --conflicts ${CONFLICTS} -c ${CHANNEL} --max-shift ${MAX_SHIFT} --bidi-correction n --sequential-volumes y --zstack-concat n "BRAC10658.3h_S20250421_motion_00001"
