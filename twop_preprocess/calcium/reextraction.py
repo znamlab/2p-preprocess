@@ -12,6 +12,9 @@ print = partial(print, flush=True)
 def reextract_session(session, masks, flz_session, conflicts="abort"):
     """Reextract masks and fluorescence traces for a session.
 
+    This function creates a new suite2p dataset with the reextracted masks and traces.
+    The new dataset is marked as annotated in flexilims.
+
     Args:
         session (str): name of the session
         masks (ndarray): Z x X x Y array of masks to be reextracted
@@ -41,7 +44,7 @@ def reextract_session(session, masks, flz_session, conflicts="abort"):
     suite2p_ds = suite2p_ds[~suite2p_ds["name"].str.contains("annotated")]
     assert (
         len(suite2p_ds) == 1
-    ), f"Found {len(suite2p_ds)} non-annotated suite2ßp datasets for session {session}"
+    ), f"Found {len(suite2p_ds)} non-annotated suite2p datasets for session {session}"
     suite2p_ds = flz.Dataset.from_dataseries(suite2p_ds.iloc[0], flz_session)
 
     # mark the original dataset as non annotated if needed
