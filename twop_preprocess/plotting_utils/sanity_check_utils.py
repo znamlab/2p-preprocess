@@ -89,14 +89,14 @@ def plot_fluorescence_matrices(F, Fneu, Fast, dff, neucoeff=0.7, max_frames=4000
         "dF/F": dff[:, :idx],
         f"F - {neucoeff} * Fneu": F[:, :idx] - Fneu[:, :idx] * neucoeff,
     }
-    plt.figure(figsize=(10, 20))
-    for i, key in enumerate(to_plot.keys()):
+    fig, axs  = plt.subplots(len(to_plot), 1, figsize=(9, 22), layout="constrained")
+    for ax, key in zip(axs.flat,to_plot.keys()):
         x = to_plot[key]
-        plt.subplot(5, 1, i + 1)
-        plt.imshow(
+        ax.imshow(
             (x - np.mean(x, axis=1)[:, None]) / np.std(x, axis=1)[:, None],
             vmin=-2,
             vmax=2,
             cmap="RdBu_r",
+            aspect="auto",
         )
-        plt.title(key)
+        ax.set_title(key)
