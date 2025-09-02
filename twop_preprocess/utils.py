@@ -1,10 +1,8 @@
-from tifffile import TiffFile, TiffWriter
+from tifffile import TiffFile
 from pathlib import Path
 from suite2p import default_ops
 import os
 import yaml
-import flexiznam as flz
-import numpy as np
 
 
 def parse_si_metadata(tiff_path):
