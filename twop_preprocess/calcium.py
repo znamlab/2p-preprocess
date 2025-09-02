@@ -452,6 +452,7 @@ def run_extraction(
         ops["nplanes"] = si_metadata["SI.hStackManager.numSlices"]
     else:
         ops["nplanes"] = 1
+
     # calculate cell diameter based on zoom and pixel size
     ops["diameter"] = int(
         round(
@@ -670,6 +671,12 @@ def detrend(F, first_frames, last_frames, ops, fs):
     for i, (start, end) in enumerate(zip(first_frames, last_frames)):
         rec_rolling_baseline = np.zeros_like(F[:, start:end])
         for j in range(F.shape[0]):
+            # pad_front = win_frames // 2
+            # pad_end = win_frames // 2 - 1
+
+            # if ops["nplanes"] == 1:
+            #     pad_end += 1
+
             rolling_baseline = np.pad(
                 rolling_percentile(
                     F[j, start:end],
@@ -1058,7 +1065,7 @@ def extract_session(
 
     if run_dff:
         print("Calculating dF/F...")
-        extract_dff(suite2p_dataset, ops, project, flz_session)
+        extract_dff(suite2p_dataset, ops)
 
     if run_split:
         print("Splitting recordings...")

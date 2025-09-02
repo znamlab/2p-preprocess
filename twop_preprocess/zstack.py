@@ -115,19 +115,34 @@ def register_zstack(tiff_paths, ops):
 
     # if the zstack is split into multiple acquisitions to be concatenated, then get the total number of z planes
     if ops["zstack_concat"]:
+        # check if dataset is in a single acquisition
         for dataset in ops["datasets"]:
-            # get the ScanImage acquisition string for each dataset
-            si_acquisition = "_" + dataset.split("_")[-1] + "_"
-            if si_acquisition in str(tiff_paths[0]):
-                pass
+            dataset_suffix = dataset.split("_")[2:]
+            si_acquisition = "_".join(dataset_suffix)
+            if si_acquisition in str(tiff_paths):
+                if si_acquisition in str(tiff_paths[0]):
+                    pass
+                else:
+                    tiff_paths_subset = [
+                        tiff_path
+                        for tiff_path in tiff_paths
+                        if si_acquisition in str(tiff_path)
+                    ]
+                    tmp = parse_si_metadata(tiff_paths_subset[-1])
+                    nz += int(tmp["SI.hStackManager.actualNumSlices"])
+
             else:
-                tiff_paths_subset = [
-                    tiff_path
-                    for tiff_path in tiff_paths
-                    if si_acquisition in str(tiff_path)
-                ]
-                tmp = parse_si_metadata(tiff_paths_subset[0])
-                nz += int(tmp["SI.hStackManager.actualNumSlices"])
+                si_acquisition = "_" + dataset.split("_")[-1]
+                if si_acquisition in str(tiff_paths[0]):
+                    pass
+                else:
+                    tiff_paths_subset = [
+                        tiff_path
+                        for tiff_path in tiff_paths
+                        if si_acquisition in str(tiff_path)
+                    ]
+                    tmp = parse_si_metadata(tiff_paths_subset[0])
+                    nz += int(tmp["SI.hStackManager.actualNumSlices"])
 
     registered_stack = np.zeros((nx, ny, nchannels, nz))
 
@@ -286,28 +301,35 @@ def run_zstack_registration(project, session_name, conflicts="append", ops={}):
         )
         zstacks = zstacks[zstacks["name"].isin(ops["datasets"])]
         zstacks = zstacks.reindex(ops["datasets"])
-        
+
     all_zstack_tifs = []
     for i, zstack_name in enumerate(zstacks["name"].values):
-        print(f"Registering {zstack_name}")
         zstack = Dataset.from_flexilims(
             name=zstack_name, project=project, flexilims_session=flz_session
         )
         # sorting tifs so that they are in order of acquisition
         zstack.tif_files.sort()
         zstack_tifs = [zstack.path_full / tif for tif in zstack.tif_files]
-        
+
         if ops["zstack_concat"]:
             all_zstack_tifs.extend(zstack_tifs)
             if i < zstacks.shape[0] - 1:
                 continue
-            registered_stack, nz, nchannels, frame_shifts, plane_shifts = (
-                register_zstack(all_zstack_tifs, ops)
-            )
+            (
+                registered_stack,
+                nz,
+                nchannels,
+                frame_shifts,
+                plane_shifts,
+            ) = register_zstack(all_zstack_tifs, ops)
         else:
-            registered_stack, nz, nchannels, frame_shifts, plane_shifts = (
-                register_zstack(zstack_tifs, ops)
-            )
+            (
+                registered_stack,
+                nz,
+                nchannels,
+                frame_shifts,
+                plane_shifts,
+            ) = register_zstack(zstack_tifs, ops)
 
         registered_dataset = Dataset.from_origin(
             project=project,

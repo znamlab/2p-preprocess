@@ -5,7 +5,7 @@
 #SBATCH --ntasks=1
 #SBATCH --time=12:00:00
 #SBATCH --mem-per-cpu=4G
-#SBATCH --partition=cpu
+#SBATCH --partition=ncpu
 #SBATCH --mail-type=END,FAIL
 ml purge
 ml CUDA/11.3.1
@@ -16,4 +16,4 @@ source activate base
 
 conda activate 2p-preprocess
 
-2p zstack -p ccyp_ex-vivo-reg-pilot -s $SESSION --conflicts skip -c 0 --max-shift 50 --dataset_name $STACK_NAME
+2p zstack -p $PROJECT -s $SESSION --conflicts skip -c 0 --max-shift 50 --sequential-volumes y $STACK_NAME

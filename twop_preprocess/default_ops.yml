@@ -9,8 +9,8 @@ roidetect: 1
 anatomical_only: 3
 pretrained_model: cyto2
 diameter_multiplier: 0.01
-flow_threshold: 2 #2
-cellprob_threshold: 0 #0
+flow_threshold: 3
+cellprob_threshold: -2
 # activity-based segmentation parameters
 threshold_scaling: 0.5
 denoise: 0
@@ -27,8 +27,10 @@ win_baseline: 60.0
 tau: 0.7
 # fixed coefficient for neuropil correction if not using ASt model
 neucoeff: 0.7
-# whether to delete the registered bin file
+#whether to delete the registered bin file
 delete_bin: True
+# path to custom classifier
+classifier_path: /nemo/lab/znamenskiyp/home/users/cypranc/2p-preprocess/classifier_gcamp8m.npy
 
 # options for zstack registration
 zstack:
