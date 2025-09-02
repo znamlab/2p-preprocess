@@ -1,0 +1,28 @@
+exclude: 'conf.py'
+
+# Configuring https://pre-commit.ci/
+ci:
+    autoupdate_schedule: monthly
+
+repos:
+    - repo: https://github.com/pre-commit/pre-commit-hooks
+      rev: v4.4.0
+      hooks:
+          - id: check-docstring-first
+          - id: check-executables-have-shebangs
+          - id: check-merge-conflict
+          - id: check-toml
+          - id: end-of-file-fixer
+          - id: mixed-line-ending
+            args: [--fix=lf]
+          - id: requirements-txt-fixer
+          - id: trailing-whitespace
+    - repo: https://github.com/psf/black
+      rev: 23.3.0
+      hooks:
+          - id: black
+    - repo: https://github.com/kynan/nbstripout
+      rev: 0.6.1
+      hooks:
+          - id: nbstripout
+            args: [--extra-keys=metadata.language_info.version metadata.kernelspec.name metadata.kernelspec.display_name]

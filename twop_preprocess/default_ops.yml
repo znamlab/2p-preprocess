@@ -13,7 +13,7 @@ flow_threshold: 3
 cellprob_threshold: -2
 # activity-based segmentation parameters
 threshold_scaling: 0.5
-denoise: 1
+denoise: 0
 sparse_mode: 1
 # detrending parameters
 detrend: True

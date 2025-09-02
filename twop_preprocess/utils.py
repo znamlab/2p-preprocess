@@ -1,6 +1,5 @@
 from tifffile import TiffFile
 from pathlib import Path
-from suite2p import default_ops
 import os
 import yaml
 
@@ -46,6 +45,8 @@ def load_ops(user_ops, zstack=False):
         dict: dictionary of ops
 
     """
+    from suite2p import default_ops
+
     default_ops_fname = Path(__file__).parent / "default_ops.yml"
     with open(default_ops_fname, "r") as f:
         pipeline_ops = yaml.safe_load(f)

@@ -1,7 +1,7 @@
 import numpy as np
-import os
 import matplotlib.pyplot as plt
-import scipy.stats as stats
+from sklearn import mixture
+from scipy.stats import norm
 
 
 def plot_trace(
@@ -89,8 +89,8 @@ def plot_fluorescence_matrices(F, Fneu, Fast, dff, neucoeff=0.7, max_frames=4000
         "dF/F": dff[:, :idx],
         f"F - {neucoeff} * Fneu": F[:, :idx] - Fneu[:, :idx] * neucoeff,
     }
-    fig, axs  = plt.subplots(len(to_plot), 1, figsize=(9, 22), layout="constrained")
-    for ax, key in zip(axs.flat,to_plot.keys()):
+    fig, axs = plt.subplots(len(to_plot), 1, figsize=(9, 22), layout="constrained")
+    for ax, key in zip(axs.flat, to_plot.keys()):
         x = to_plot[key]
         ax.imshow(
             (x - np.mean(x, axis=1)[:, None]) / np.std(x, axis=1)[:, None],
@@ -100,3 +100,70 @@ def plot_fluorescence_matrices(F, Fneu, Fast, dff, neucoeff=0.7, max_frames=4000
             aspect="auto",
         )
         ax.set_title(key)
+
+
+def plot_offset_gmm(F, Fneu, cell_id, n_components, nframes=3000):
+    fig = plt.figure(figsize=(10, 5))
+    f = F[cell_id] - 0.7 * (Fneu[cell_id] - np.median(Fneu[cell_id]))
+    ax = plt.subplot2grid((2, 5), (0, 0), colspan=4)
+    s = len(f) // 2
+    e = s + nframes
+    plt.plot(F[cell_id, s:e], label="F")
+    plt.plot(Fneu[cell_id, s:e], label="Fneu")
+    plt.plot(f[s:e], label="F - 0.7 * Fneu")
+    plt.legend(loc="upper right")
+    plt.ylabel("Fluorescence (a.u.)")
+    plt.title("Neuropil subtraction")
+    plt.xlabel("Frame #")
+    gmm = mixture.GaussianMixture(n_components=n_components, random_state=42).fit(
+        f.reshape(-1, 1)
+    )
+
+    # find useful parameters
+    gmm_order = np.argsort(gmm.means_[:, 0])
+    gmm_means = gmm.means_[gmm_order]
+    covs = gmm.covariances_[gmm_order]
+    weights = gmm.weights_[gmm_order]
+
+    bins = np.arange(np.percentile(f, 0.1), np.percentile(f, 99.9), 5)
+
+    ax_hist = plt.subplot2grid((2, 5), (0, 4), colspan=1, sharey=ax)
+    plt.hist(f, bins=bins, density=True, orientation="horizontal")
+    comps = []
+    for i in range(n_components):
+        comps.append(
+            norm.pdf(bins, float(gmm_means[i][0]), np.sqrt(float(covs[i][0][0])))
+            * weights[i]
+        )
+        l = plt.plot(comps[i], bins)[0]
+        plt.axhline(
+            gmm_means[i], color=l.get_color(), label="f0" if i == 0 else "__no_label__"
+        )
+    comps = np.vstack(comps)
+    plt.plot(comps.sum(axis=0), bins, linestyle="--", color="k")
+    plt.legend(loc="upper right")
+    plt.xlabel("Density")
+    plt.title("GMM f0")
+
+    ax_dff = plt.subplot2grid((2, 5), (1, 0), colspan=4, sharex=ax)
+    f0 = gmm_means[0]
+    this_dff = (f - f0) / f0
+    ax_dff.plot(this_dff[s:e])
+    plt.ylabel("dff")
+    plt.xlabel("Frame #")
+
+    ax_dff_hist = plt.subplot2grid((2, 5), (1, 4), colspan=1, sharey=ax_dff)
+    dff_range = [this_dff.min(), this_dff.max()]
+    plt.hist(
+        this_dff,
+        bins=np.linspace(*dff_range, 100),
+        density=True,
+        orientation="horizontal",
+    )
+    plt.xlabel("Density")
+    ax.set_xlim(0, e - s)
+    ax_dff.set_ylim(*dff_range)
+    for x in fig.axes:
+        x.axhline(0, color="k")
+    plt.tight_layout()
+    return fig
