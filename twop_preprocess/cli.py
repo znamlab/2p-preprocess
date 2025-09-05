@@ -74,6 +74,49 @@ def calcium(
 
 
 @cli.command()
+@click.option("--project", "-p", required=True, help="Name of the project")
+@click.option("--session", "-s", required=True, help="Flexilims name of the session")
+@click.option(
+    "--masks-path",
+    "-m",
+    required=True,
+    type=click.Path(exists=True, dir_okay=False),
+    help="Path to the .npy file with masks to re-extract.",
+)
+@click.option(
+    "--conflicts",
+    "-c",
+    default="abort",
+    type=click.Choice(["abort", "skip", "append", "overwrite"]),
+    help="How to handle conflicts when re-extracted data already exists.",
+)
+@click.option("--use-slurm/--no-use-slurm", default=True, help="Whether to use slurm")
+def reextract(project, session, masks_path, conflicts, use_slurm):
+    """Re-extract masks for a session."""
+    from twop_preprocess.calcium.reextraction import reextract_session
+    from pathlib import Path
+
+    if use_slurm:
+        slurm_folder = Path.home() / "slurm_logs" / project
+        slurm_folder.mkdir(exist_ok=True, parents=True)
+        scripts_name = f"reextract_{session}"
+    else:
+        slurm_folder = None
+        scripts_name = None
+
+    print(f"Re-extracting masks for session {session} in project {project}...")
+    reextract_session(
+        session,
+        masks_path,
+        project,
+        conflicts=conflicts,
+        use_slurm=use_slurm,
+        slurm_folder=slurm_folder,
+        scripts_name=scripts_name,
+    )
+
+
+@cli.command()
 @click.option("--project", "-p", help="Name of the project")
 @click.option("--session", "-s", help="Flexilims name of the session")
 @click.option(
