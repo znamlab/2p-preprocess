@@ -58,9 +58,14 @@ def reextract_session(
         ), "Provided project does not match the project of the provided flexilims session"
 
     if isinstance(masks, str) or isinstance(masks, Path):
-        masks = np.load(masks)
+        masks = load_mask(masks)
     assert isinstance(masks, np.ndarray), "masks must be a numpy array"
-    assert masks.ndim == 3, "masks must be a 3D array (Z x X x Y)"
+    if masks.ndim == 2:
+        masks = masks[None, ...]  # add a plane dimension if only one plane
+    elif masks.ndim != 3:
+        raise ValueError(
+            f"masks must be a 3D array (Z x X x Y), but got {masks.ndim}D array"
+        )
 
     # get initial suite2p dataset
     suite2p_ds = flz.get_datasets(

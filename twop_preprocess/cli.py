@@ -106,9 +106,9 @@ def reextract(project, session, masks_path, conflicts, use_slurm):
 
     print(f"Re-extracting masks for session {session} in project {project}...")
     reextract_session(
+        project,
         session,
         masks_path,
-        project,
         conflicts=conflicts,
         use_slurm=use_slurm,
         slurm_folder=slurm_folder,
