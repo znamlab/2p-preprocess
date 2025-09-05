@@ -43,6 +43,7 @@ def reextract_session(
     Returns:
         ndarray: merged masks
     """
+    print(f"Conflicts: {conflicts}")
     try:
         import suite2p
     except ImportError:
@@ -58,6 +59,7 @@ def reextract_session(
         ), "Provided project does not match the project of the provided flexilims session"
 
     if isinstance(masks, str) or isinstance(masks, Path):
+        print(f"Loading masks from {masks}...")
         masks = load_mask(masks)
     assert isinstance(masks, np.ndarray), "masks must be a numpy array"
     if masks.ndim == 2:

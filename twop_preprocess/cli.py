@@ -104,11 +104,17 @@ def reextract(project, session, masks_path, conflicts, use_slurm):
         slurm_folder = None
         scripts_name = None
 
-    print(f"Re-extracting masks for session {session} in project {project}...")
+    print(f"Re-extracting masks for session {session} in project {project} using")
+    print(f"masks from {masks_path}...")
+    print(f"Conflicts: {conflicts}")
+    print(f"Use slurm: {use_slurm}")
+    if use_slurm:
+        print(f"Slurm folder: {slurm_folder}")
+        print(f"Scripts name: {scripts_name}", flush=True)
     reextract_session(
-        project,
-        session,
-        masks_path,
+        project=project,
+        session=session,
+        masks=masks_path,
         conflicts=conflicts,
         use_slurm=use_slurm,
         slurm_folder=slurm_folder,
