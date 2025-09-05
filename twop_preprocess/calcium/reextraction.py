@@ -2,6 +2,7 @@ from functools import partial
 import flexiznam as flz
 import numpy as np
 from pathlib import Path
+from znamutils import slurm_it
 
 from .calcium import process_concatenated_traces, split_recordings
 from .calcium_s2p import reextract_masks, spike_deconvolution_suite2p
@@ -9,7 +10,22 @@ from .calcium_s2p import reextract_masks, spike_deconvolution_suite2p
 print = partial(print, flush=True)
 
 
-def reextract_session(session, masks, flz_session, conflicts="abort"):
+@slurm_it(
+    conda_env="2p-preprocess",
+    slurm_options={
+        "cpus-per-task": 1,
+        "ntasks": 1,
+        "time": "24:00:00",
+        "mem": "256G",
+        "partition": "ga100",
+        "gres": "gpu:1",
+    },
+    module_list=["CUDA/12.1.1", "cuDNN/8.9.2.26-CUDA-12.1.1"],
+    print_job_id=True,
+)
+def reextract_session(
+    session, masks, flz_session=None, project=None, conflicts="abort"
+):
     """Reextract masks and fluorescence traces for a session.
 
     This function creates a new suite2p dataset with the reextracted masks and traces.
@@ -17,8 +33,10 @@ def reextract_session(session, masks, flz_session, conflicts="abort"):
 
     Args:
         session (str): name of the session
-        masks (ndarray): Z x X x Y array of masks to be reextracted
+        masks (ndarray | str): Z x X x Y array of masks to be reextracted
         flz_session (Flexilims): flexilims session
+        project (str, optional): name of the project. If not provided, it will be
+            inferred from the flexilims session.
         conflicts (str, optional): defines behavior if recordings have already been
             reextracted. One of `abort`, `skip`, `append`, `overwrite`. Default `abort`
 
@@ -31,6 +49,18 @@ def reextract_session(session, masks, flz_session, conflicts="abort"):
         raise ImportError(
             "suite2p is not installed. Please see 2p-preprocess ReadMe to install it"
         )
+    if flz_session is None:
+        assert project is not None, "Either flz_session or project must be provided"
+        flz_session = flz.get_flexilims_session(project)
+    elif project is not None:
+        assert (
+            flz_session.project == project
+        ), "Provided project does not match the project of the provided flexilims session"
+
+    if isinstance(masks, str) or isinstance(masks, Path):
+        masks = np.load(masks)
+    assert isinstance(masks, np.ndarray), "masks must be a numpy array"
+    assert masks.ndim == 3, "masks must be a 3D array (Z x X x Y)"
 
     # get initial suite2p dataset
     suite2p_ds = flz.get_datasets(
@@ -222,3 +252,27 @@ def reextract_session(session, masks, flz_session, conflicts="abort"):
     print("Updating flexilims...")
     suite2p_ds_annotated.update_flexilims(mode="update")
     return suite2p_ds_annotated
+
+
+def load_mask(path2mask):
+    """Load masks from image, npy or stats file.
+
+    Args:
+        path2mask (str or Path): path to the mask file
+
+    Returns:
+        ndarray: Z x X x Y array of masks to be reextracted
+    """
+    path2mask = str(Path(path2mask).resolve())
+    if path2mask.endswith(".npy"):
+        return np.load(path2mask)
+    elif (
+        path2mask.endswith(".tif")
+        or path2mask.endswith(".tiff")
+        or path2mask.endswith(".png")
+    ):
+        from skimage.io import imread
+
+        return imread(path2mask)
+    else:
+        raise ValueError(f"Unsupported mask file format: {path2mask}")
