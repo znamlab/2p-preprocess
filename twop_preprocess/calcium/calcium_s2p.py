@@ -149,7 +149,7 @@ def reextract_masks(masks, suite2p_ds):
 
         ops = suite2p.run_plane(ops, ops_path=str(path2ops.resolve()), stat=stat)
         all_ops.append(ops)
-    save_folder = Path(ops["save_path0"]) / ops["save_folder"]
+
     return merged_masks, all_original_masks, all_stat, all_ops
 
 
