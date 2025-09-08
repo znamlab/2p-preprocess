@@ -235,11 +235,6 @@ def reextract_session(
 
     planes = []
     for stat, ops in zip(all_stat, all_ops):
-        target_dir = suite2p_ds_annotated.path_full / f"plane{stat[0]['iplane']}"
-        target_dir.mkdir(exist_ok=True)
-        spike_deconvolution_suite2p(
-            suite2p_ds_annotated, stat[0]["iplane"], ops, ast_neuropil=False
-        )
         planes.append(stat[0]["iplane"])
 
     # Add empty plane 0 if it is not in the list of planes
@@ -249,7 +244,6 @@ def reextract_session(
         target_dir.mkdir(exist_ok=True)
         np.save(target_dir / "F.npy", np.array([[]]))
         np.save(target_dir / "Fneu.npy", np.array([[]]))
-        np.save(target_dir / "spks.npy", np.array([[]]))
         np.save(target_dir / "stat.npy", np.array([]), allow_pickle=True)
         np.save(target_dir / "ops.npy", ops)
 

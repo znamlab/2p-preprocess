@@ -210,6 +210,7 @@ def process_concatenated_traces(suite2p_dataset, ops, project, flz_session):
         spike_deconvolution_suite2p(
             suite2p_dataset, iplane, ops, ast_neuropil=ops["ast_neuropil"]
         )
+
         print(f"--- Finished processing Plane {iplane} ---")
     print("\nFinished processing all planes for concatenated traces.")
 
