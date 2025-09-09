@@ -136,12 +136,13 @@ def reextract_session(
         re_register = True
     # Update all attributes that are in ops by the ops value
     for key, value in ops.items():
+        if isinstance(value, Path):
+            value = str(value)
         if key in suite2p_ds_annotated.extra_attributes:
-            if suite2p_ds_annotated.extra_attributes[key] == value:
+            ori = suite2p_ds_annotated.extra_attributes[key]
+            if ori == value:
                 continue
-            print(
-                f"Updating {key} from {suite2p_ds_annotated.extra_attributes[key]} to {value}"
-            )
+            print(f"Updating {key} from {ori} ({type(ori)}) to {value} ({type(value)})")
             suite2p_ds_annotated.extra_attributes[key] = value
 
     # Copy ops to the target directory and check if binaries exist
@@ -172,6 +173,14 @@ def reextract_session(
                 )
             elif isinstance(v, Path) and (ori_path in str(v)):
                 ops[k] = v.with_name(v.name.replace(ori_path, new_path))
+            elif isinstance(v, str) and (v == "False"):
+                print(f"Found string False for {k}, converting to boolean")
+                ops[k] = False
+                suite2p_ds_annotated.extra_attributes[k] = False
+            elif isinstance(v, str) and (v == "True"):
+                print(f"Found string True for {k}, converting to boolean")
+                ops[k] = True
+                suite2p_ds_annotated.extra_attributes[k] = True
             else:
                 ops[k] = v
         # Add the empty planes to the ignore_flyback field
@@ -245,10 +254,15 @@ def reextract_session(
         np.save(target_dir / "F.npy", np.array([[]]))
         np.save(target_dir / "Fneu.npy", np.array([[]]))
         np.save(target_dir / "stat.npy", np.array([]), allow_pickle=True)
-        np.save(target_dir / "ops.npy", ops)
+        np.save(target_dir / "ops.npy", ops, allow_pickle=True)
 
     print("Calculating dF/F...")
-    process_concatenated_traces(suite2p_ds_annotated, ops)
+    process_concatenated_traces(
+        suite2p_dataset=suite2p_ds_annotated,
+        ops=ops,
+        project=project,
+        flz_session=flz_session,
+    )
 
     print("Splitting recordings...")
     split_recordings(
