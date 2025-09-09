@@ -6,6 +6,7 @@ import numpy as np
 
 from ..utils import parse_si_metadata
 from .calcium_utils import get_weights
+import datetime
 
 print = partial(print, flush=True)
 
@@ -266,10 +267,8 @@ def run_extraction(
         if isinstance(v, np.ndarray):
             print(f"{k} is a numpy array, skipping")
             continue
-        if isinstance(v, datetime.datetime):
+        if isinstance(v, datetime.datetime):  # noqa: F821
             ops[k] = v.strftime(r"%Y-%m-%d %H:%M:%S")
-        if isinstance(v, np.float32):
-            ops[k] = float(v)
         else:
             ops[k] = v
 
