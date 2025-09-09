@@ -134,6 +134,15 @@ def reextract_session(
             print(f"No masks for plane {iplane}. Skipping")
             continue
         re_register = True
+    # Update all attributes that are in ops by the ops value
+    for key, value in ops.items():
+        if key in suite2p_ds_annotated.extra_attributes:
+            if suite2p_ds_annotated.extra_attributes[key] == value:
+                continue
+            print(
+                f"Updating {key} from {suite2p_ds_annotated.extra_attributes[key]} to {value}"
+            )
+            suite2p_ds_annotated.extra_attributes[key] = value
 
     # Copy ops to the target directory and check if binaries exist
     ori_path = str(suite2p_ds.path)
