@@ -25,8 +25,10 @@ def get_weights(ops):
     Returns:
         weights (numpy.ndarray): weights for the suite2p detection
     """
-    mean_img = ops["meanImg"]
-    if ops.get("denoise", 1):
+    mean_img = ops["meanImgE"][
+        ops["yrange"][0] : ops["yrange"][1], ops["xrange"][0] : ops["xrange"][1]
+    ]
+    if int(ops.get("denoise", 1)):
         warnings.warn("Calculating weights on non-denoised data. F will change")
 
     if ops["anatomical_only"] == 1:
