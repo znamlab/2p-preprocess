@@ -124,11 +124,16 @@ def reextract_session(
     project = suite2p_ds.project
     fast_disk = flz.get_processed_path(project) / ops["fast_disk"].split(project)[1][1:]
     fast_disk /= "suite2p"
+    new_fast_disk = (
+        suite2p_ds_annotated.path / ops["fast_disk"].split(project)[1][1:] / "suite2p"
+    )
     empty_planes = [not np.any(m) for m in masks]
     for iplane in range(len(masks)):
-        bin_file = fast_disk / f"plane{iplane}" / "data.bin"
-        if bin_file.exists():
+        if (fast_disk / f"plane{iplane}" / "data.bin").exists():
             continue
+        if (new_fast_disk / f"plane{iplane}" / "data.bin").exists():
+            continue
+
         # Check if there are masks in this plane
         if empty_planes[iplane]:
             print(f"No masks for plane {iplane}. Skipping")
