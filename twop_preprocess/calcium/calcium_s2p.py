@@ -147,8 +147,21 @@ def reextract_masks(masks, suite2p_ds):
             stat[i]["iplane"] = iplane
         all_stat.append(stat)
 
-        ops = suite2p.run_plane(ops, ops_path=str(path2ops.resolve()), stat=stat)
-        all_ops.append(ops)
+        ops_s2p = suite2p.run_plane(ops, ops_path=str(path2ops.resolve()), stat=stat)
+        if ops_s2p["yrange"] != ops["yrange"] or ops_s2p["xrange"] != ops["xrange"]:
+            print("Updating Vcorr based on new registration range")
+            # that works only for anatomical_only = 3
+            if ops_s2p["anatomical_only"] != 3:
+                raise NotImplementedError(
+                    "Reextraction of masks only implemented for anatomical_only=3"
+                )
+            ops_s2p["Vcorr"] = ops_s2p["meanImgE"][
+                ops_s2p["yrange"][0] : ops_s2p["yrange"][1],
+                ops_s2p["xrange"][0] : ops_s2p["xrange"][1],
+            ]
+        # save modified ops
+        np.save(path2ops, ops_s2p, allow_pickle=True)
+        all_ops.append(ops_s2p)
 
     return merged_masks, all_original_masks, all_stat, all_ops
 

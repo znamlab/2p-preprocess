@@ -5,7 +5,7 @@ from pathlib import Path
 from znamutils import slurm_it
 
 from .calcium import process_concatenated_traces, split_recordings
-from .calcium_s2p import reextract_masks, spike_deconvolution_suite2p
+from .calcium_s2p import reextract_masks
 
 print = partial(print, flush=True)
 
