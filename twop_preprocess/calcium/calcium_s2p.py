@@ -148,7 +148,9 @@ def reextract_masks(masks, suite2p_ds):
         all_stat.append(stat)
 
         ops_s2p = suite2p.run_plane(ops, ops_path=str(path2ops.resolve()), stat=stat)
-        if ops_s2p["yrange"] != ops["yrange"] or ops_s2p["xrange"] != ops["xrange"]:
+        if np.any(ops_s2p["yrange"] != ops["yrange"]) or np.any(
+            ops_s2p["xrange"] != ops["xrange"]
+        ):
             print("Updating Vcorr based on new registration range")
             # that works only for anatomical_only = 3
             if ops_s2p["anatomical_only"] != 3:
