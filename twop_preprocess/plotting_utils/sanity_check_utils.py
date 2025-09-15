@@ -98,7 +98,7 @@ def plot_dff(Fast, dff, F0, random_rois, save_path=None):
 
 
 def plot_fluorescence_matrices(
-    F, Fneu, Fast, dff, neucoeff=0.7, max_frames=4000, save_path=None
+    F, Fneu, Fast, dff, neucoeff=0.7, max_frames=4000
 ):
     idx = np.min([F.shape[1], max_frames])
     to_plot = {
@@ -119,7 +119,7 @@ def plot_fluorescence_matrices(
             aspect="auto",
         )
         ax.set_title(key)
-        return fig
+    return fig
 
 
 def plot_offset_gmm(F, Fneu, cell_id, n_components, nframes=3000, save_path=None):

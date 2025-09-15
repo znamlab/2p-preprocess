@@ -235,7 +235,8 @@ def split_recordings(
         base_name (str, optional): base name for the split datasets. Default
             "suite2p_traces"
         extra_attributes (dict, optional): Extra attributes to add to the split datasets
-            on flexilims. Used only for identification. Default None.
+            on flexilims. Used to filter when looking for previously split datasets.
+            Default None
 
     """
     # get scanimage datasets
@@ -273,6 +274,7 @@ def split_recordings(
             base_name=base_name,
             flexilims_session=flz_session,
             conflicts=conflicts,
+            extra_attributes=extra_attributes,
         )
         # Set the extra_attributes to match that of suite2p
         # minimum number of frames across planes
@@ -375,7 +377,15 @@ def extract_session(
     """
     if ops is None:
         ops = {}
-
+    print("Running extract_session with parameters:")
+    print(f"Project: {project}")
+    print(f"Session: {session_name}")
+    print(f"Conflicts: {conflicts}")
+    print(f"Run split: {run_split}")
+    print(f"Run suite2p: {run_suite2p}")
+    print(f"Run dff: {run_dff}")
+    print(f"Delete previous run: {delete_previous_run}")
+    print(f"Ops: {ops}")
     # get session info from flexilims
     print("Connecting to flexilims...")
     flz_session = flz.get_flexilims_session(project)
@@ -416,5 +426,9 @@ def extract_session(
 
     if run_split:
         print("Splitting recordings...")
-        split_recordings(flz_session, suite2p_dataset, conflicts=conflicts)
+        split_recordings(
+            flz_session, 
+            suite2p_dataset, 
+            conflicts=conflicts,
+            extra_attributes={"ast_neuropil": ops["ast_neuropil"]},)
     print("Extraction finished.")

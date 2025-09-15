@@ -260,7 +260,7 @@ def calculate_and_save_dFF(dpath, F, filename_suffix, n_components=2):
     """
     print("Calculating dF/F...")
     # Calculate dFFs and save to the suite2p folder
-    print(f"n components for dFF calculation: n_components")
+    print(f"n components for dFF calculation: {n_components}")
     dff, f0 = dFF(F, n_components=n_components)
     np.save(dpath / f"dff{filename_suffix}.npy", dff)
     np.save(dpath / f"f0{filename_suffix}.npy", f0)
