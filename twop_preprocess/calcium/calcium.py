@@ -314,6 +314,9 @@ def split_recordings(
             np.save(split_path / "Fneu.npy", Fneu[:, start:end])
             np.save(split_path / "spks.npy", spks[:, start:end])
             do_ast = suite2p_dataset.extra_attributes["ast_neuropil"]
+            if extra_attributes is not None:
+                if "ast_neuropil" in extra_attributes:
+                    do_ast = extra_attributes["ast_neuropil"]
             if do_ast and (do_ast != "False"):
                 Fast, dff_ast, spks_ast = (
                     np.load(suite2p_path / "Fast.npy"),
