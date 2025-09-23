@@ -130,11 +130,17 @@ def reextract_masks(masks, suite2p_ds):
             continue
 
         # create ROIs stat
-        stat = list(
-            suite2p.detection.anatomical.masks_to_stats(
-                reordered_masks, get_weights(ops)
-            )
+        weights = get_weights(ops)
+        # weights in cropped Lyc x Lxc arrays, 0-pad to Ly x Lx
+        xrange, yrange = ops["xrange"], ops["yrange"]
+        weights = np.pad(
+            weights,
+            ((yrange[0], Ly - yrange[1]), (xrange[0], Lx - xrange[1])),
+            "constant",
         )
+        np.nan_to_num(weights, copy=False)
+
+        stat = suite2p.detection.anatomical.masks_to_stats(reordered_masks, weights)
         stat = suite2p.detection.roi_stats(
             stat,
             Ly,
@@ -142,6 +148,7 @@ def reextract_masks(masks, suite2p_ds):
             aspect=ops.get("aspect", None),
             diameter=ops.get("diameter", None),
             do_crop=ops.get("soma_crop", 1),
+            max_overlap=ops["max_overlap"],
         )
         for i in range(len(stat)):
             stat[i]["iplane"] = iplane
@@ -161,6 +168,7 @@ def reextract_masks(masks, suite2p_ds):
                 ops_s2p["yrange"][0] : ops_s2p["yrange"][1],
                 ops_s2p["xrange"][0] : ops_s2p["xrange"][1],
             ]
+        ops_s2p["weight_image"] = weights
         # save modified ops
         np.save(path2ops, ops_s2p, allow_pickle=True)
         all_ops.append(ops_s2p)
