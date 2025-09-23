@@ -139,6 +139,7 @@ def reextract_session(
             print(f"No masks for plane {iplane}. Skipping")
             continue
         re_register = True
+
     # Update all attributes that are in ops by the ops value
     for key, value in ops.items():
         if isinstance(value, Path):
@@ -150,61 +151,62 @@ def reextract_session(
             print(f"Updating {key} from {ori} ({type(ori)}) to {value} ({type(value)})")
             suite2p_ds_annotated.extra_attributes[key] = value
 
-    # Copy ops to the target directory and check if binaries exist
-    ori_path = str(suite2p_ds.path)
-    new_path = str(suite2p_ds_annotated.path)
-    for subdir in suite2p_ds.path_full.iterdir():
-        if not subdir.name.startswith("plane"):
-            continue
-        planei = int(subdir.name[5:])
-        if empty_planes[planei]:
-            print(f"No masks for plane {planei}. Not creating ops")
-            continue
-        if not subdir.is_dir():
-            continue
-        source_ops_file = subdir / "ops.npy"
-        if not source_ops_file.exists():
-            continue
+    if (not re_register) and (suite2p_ds_annotated.flexilims_status != "not online"):
+        print("suite2p_ds_annotated already online, no need to create ops")
+    else:
+        # Copy ops to the target directory and check if binaries exist
+        ori_path = str(suite2p_ds.path)
+        new_path = str(suite2p_ds_annotated.path)
+        for subdir in suite2p_ds.path_full.iterdir():
+            if not subdir.name.startswith("plane"):
+                continue
+            planei = int(subdir.name[5:])
+            if empty_planes[planei]:
+                print(f"No masks for plane {planei}. Not creating ops")
+                continue
+            if not subdir.is_dir():
+                continue
+            source_ops_file = subdir / "ops.npy"
+            if not source_ops_file.exists():
+                continue
 
-        # we replace all mentions to the original path with the new path
-        ori_ops = np.load(source_ops_file, allow_pickle=True).item()
-        ops = dict()
-        for k, v in ori_ops.items():
-            if isinstance(v, str) and (ori_path in v):
-                ops[k] = v.replace(ori_path, new_path)
-            elif isinstance(v, str) and (suite2p_ds.dataset_name in v):
-                ops[k] = v.replace(
-                    suite2p_ds.dataset_name, suite2p_ds_annotated.dataset_name
-                )
-            elif isinstance(v, Path) and (ori_path in str(v)):
-                ops[k] = v.with_name(v.name.replace(ori_path, new_path))
-            elif isinstance(v, str) and (v == "False"):
-                print(f"Found string False for {k}, converting to boolean")
-                ops[k] = False
-                suite2p_ds_annotated.extra_attributes[k] = False
-            elif isinstance(v, str) and (v == "True"):
-                print(f"Found string True for {k}, converting to boolean")
-                ops[k] = True
-                suite2p_ds_annotated.extra_attributes[k] = True
-            else:
-                ops[k] = v
-        # Add the empty planes to the ignore_flyback field
-        ops["ignore_flyback"] = list(np.where(empty_planes)[0])
+            # we replace all mentions to the original path with the new path
+            ori_ops = np.load(source_ops_file, allow_pickle=True).item()
+            ops = dict()
+            for k, v in ori_ops.items():
+                if isinstance(v, str) and (ori_path in v):
+                    ops[k] = v.replace(ori_path, new_path)
+                elif isinstance(v, str) and (suite2p_ds.dataset_name in v):
+                    ops[k] = v.replace(
+                        suite2p_ds.dataset_name, suite2p_ds_annotated.dataset_name
+                    )
+                elif isinstance(v, Path) and (ori_path in str(v)):
+                    ops[k] = v.with_name(v.name.replace(ori_path, new_path))
+                elif isinstance(v, str) and (v == "False"):
+                    print(f"Found string False for {k}, converting to boolean")
+                    ops[k] = False
+                    suite2p_ds_annotated.extra_attributes[k] = False
+                elif isinstance(v, str) and (v == "True"):
+                    print(f"Found string True for {k}, converting to boolean")
+                    ops[k] = True
+                    suite2p_ds_annotated.extra_attributes[k] = True
+                else:
+                    ops[k] = v
+            # Add the empty planes to the ignore_flyback field
+            ops["ignore_flyback"] = list(np.where(empty_planes)[0])
 
-        # Always keep raw and bin files, manually delete if needed
-        ops["keep_movie_raw"] = True
-        ops["delete_bin"] = False
-
-        # do_registration must > 1 to force redo
-        if re_register:
-            ops["do_registration"] = 2
-        else:
+            # Always keep raw and bin files, manually delete if needed
+            ops["keep_movie_raw"] = True
+            ops["delete_bin"] = False
             ops["do_registration"] = 1
-
-        # make a copy in the target directory
-        target_dir = suite2p_ds_annotated.path_full / subdir.name
-        target_dir.mkdir(exist_ok=True)
-        np.save(target_dir / "ops.npy", ops, allow_pickle=True)
+            # make a copy in the target directory
+            target_dir = suite2p_ds_annotated.path_full / subdir.name
+            target_dir.mkdir(exist_ok=True)
+            # do_registration must > 1 to force redo, do it after saving the ops, since we
+            # reload the ops only after the first call to s2p with roidetect = False
+            if re_register:
+                ops["do_registration"] = 2
+            np.save(target_dir / "ops.npy", ops, allow_pickle=True)
 
     if re_register:  # We need to ensure the raw also exists
         print(f"Binary files not found. Force re-registration", flush=True)
@@ -226,9 +228,31 @@ def reextract_session(
                 mini_ops.pop(key)
             elif key in plane_dpt:
                 mini_ops.pop(key)
-        ops = suite2p.io.tiff_to_binary(mini_ops)
+        mini_ops["roidetect"] = False
+        # run the registration but not detection else
+        suite2p.run_s2p(ops=mini_ops)
+
+        # Remove the force re-registration flag from ops
+        for target_dir in suite2p_ds_annotated.path_full.iterdir():
+            if not target_dir.name.startswith("plane"):
+                continue
+            planei = int(target_dir.name[5:])
+            if empty_planes[planei]:
+                continue
+            if not target_dir.is_dir():
+                continue
+            ops = np.load(target_dir / "ops.npy", allow_pickle=True).item()
+            # now we want to reextract the ROIs, so we set roidetect to True
+            # It will not redo the detection if a stat.npy file is found
+            ops["roidetect"] = True
+            if ops["do_registration"] > 1:
+                ops["do_registration"] = 1
+            np.save(target_dir / "ops.npy", ops, allow_pickle=True)
 
     # Reextract masks and fluorescence traces
+    # note that Lx,Ly and nplaces are read from the annotated ds, not from the ops
+    # because we need the number of plane before we start iterating over planes
+    print("Reextracting masks and fluorescence traces...")
     (
         merged_masks,
         all_original_masks,
