@@ -85,9 +85,9 @@ def reextract_session(
     suite2p_ds = flz.Dataset.from_dataseries(suite2p_ds.iloc[0], flz_session)
 
     # mark the original dataset as non annotated if needed
-    is_labeled = suite2p_ds.extra_attributes.get("annotated", "Not yet")
+    online_label = suite2p_ds.extra_attributes.get("annotated", "Not yet")
     # is_labeled might be NaN, we need to check for non-equality to 'no'
-    if is_labeled != "no":
+    if online_label != "no":
         suite2p_ds.extra_attributes["annotated"] = "no"
         suite2p_ds.update_flexilims(mode="update")
 
