@@ -25,18 +25,51 @@ def get_weights(ops):
     Returns:
         weights (numpy.ndarray): weights for the suite2p detection
     """
-    mean_img = ops["meanImgE"][
-        ops["yrange"][0] : ops["yrange"][1], ops["xrange"][0] : ops["xrange"][1]
-    ]
-    if int(ops.get("denoise", 1)):
-        warnings.warn("Calculating weights on non-denoised data. F will change")
+    try:
+        from suite2p import io
+        from suite2p.detection.detect import bin_movie
+        from suite2p.detection.denoise import pca_denoise
+        from suite2p.detection.utils import temporal_high_pass_filter
+    except ImportError:
+        raise ImportError(
+            "suite2p is not installed. Please install suite2p to use this function."
+        )
 
+    n_frames, Ly, Lx = ops["nframes"], ops["Ly"], ops["Lx"]
+    with io.BinaryFile(
+        Ly=Ly, Lx=Lx, filename=ops["reg_file"], n_frames=n_frames
+    ) as f_reg:
+        yrange = ops.get("yrange", [0, Ly])
+        xrange = ops.get("xrange", [0, Lx])
+
+        bin_size = int(
+            max(1, n_frames // ops["nbinned"], np.round(ops["tau"] * ops["fs"]))
+        )
+        print("Binning movie in chunks of length %2.2d" % bin_size)
+        mov = bin_movie(
+            f_reg,
+            bin_size,
+            yrange=yrange,
+            xrange=xrange,
+            badframes=ops.get("badframes", None),
+        )
+        if ops.get("inverted_activity", False):
+            mov -= mov.min()
+            mov *= -1
+            mov -= mov.min()
+
+        if ops.get("denoise", 1):
+            mov = pca_denoise(
+                mov,
+                block_size=[ops["block_size"][0] // 2, ops["block_size"][1] // 2],
+                n_comps_frac=0.5,
+            )
+    mean_img = mov.mean(axis=0)
+    mov = temporal_high_pass_filter(mov=mov, width=int(ops["high_pass"]))
+    # max_proj = np.percentile(mov, 90, axis=0) #.mean(axis=0)
     if ops["anatomical_only"] == 1:
-        raise NotImplementedError("anatomical_only=1 not implemented.")
-        img = np.log(np.maximum(1e-3, max_proj / np.maximum(1e-3, mean_img)))
-        weights = max_proj
+        weights = mov.max(axis=0)
     elif ops["anatomical_only"] == 2:
-        # img = mean_img
         weights = 0.1 + np.clip(
             (mean_img - np.percentile(mean_img, 1))
             / (np.percentile(mean_img, 99) - np.percentile(mean_img, 1)),
@@ -51,9 +84,8 @@ def get_weights(ops):
             1,
         )
     else:
-        raise NotImplementedError("Non anatomical not implemented. Requires max_proj")
-        img = max_proj.copy()
-        weights = max_proj
+        weights = mov.max(axis=0)
+
     return weights
 
 
