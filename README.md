@@ -10,7 +10,7 @@ There are two ways to install this package, the "pipeline" main install, which i
 run all other functions and start jobs which call the suite2p part of the pipeline.
 
 The suite2p compatible version, which requires **python < 3.10**. It should work with
-`pip install -e ".[dev]"` but has not been tested. The last working install was:
+`pip install -e ".[suite2p]"` but has not been tested. The last working install was:
 
 ## Going around suite2p limitation for old python
 
