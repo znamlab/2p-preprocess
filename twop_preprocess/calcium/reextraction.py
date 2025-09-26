@@ -195,8 +195,7 @@ def reextract_session(
             # Add the empty planes to the ignore_flyback field
             ops["ignore_flyback"] = list(np.where(empty_planes)[0])
 
-            # Always keep raw and bin files, manually delete if needed
-            ops["keep_movie_raw"] = True
+            ops["keep_movie_raw"] = False
             ops["delete_bin"] = False
             ops["do_registration"] = 1
             # make a copy in the target directory
