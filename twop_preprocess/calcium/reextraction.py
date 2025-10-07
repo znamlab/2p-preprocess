@@ -232,21 +232,21 @@ def reextract_session(
         suite2p.run_s2p(ops=mini_ops)
 
         # Remove the force re-registration flag from ops
-        for target_dir in suite2p_ds_annotated.path_full.iterdir():
-            if not target_dir.name.startswith("plane"):
+        for subdir in suite2p_ds_annotated.path_full.iterdir():
+            if not subdir.name.startswith("plane"):
                 continue
-            planei = int(target_dir.name[5:])
+            planei = int(subdir.name[5:])
             if empty_planes[planei]:
                 continue
-            if not target_dir.is_dir():
+            if not subdir.is_dir():
                 continue
-            ops = np.load(target_dir / "ops.npy", allow_pickle=True).item()
+            ops = np.load(subdir / "ops.npy", allow_pickle=True).item()
             # now we want to reextract the ROIs, so we set roidetect to True
             # It will not redo the detection if a stat.npy file is found
             ops["roidetect"] = True
             if ops["do_registration"] > 1:
                 ops["do_registration"] = 1
-            np.save(target_dir / "ops.npy", ops, allow_pickle=True)
+            np.save(subdir / "ops.npy", ops, allow_pickle=True)
 
     # Reextract masks and fluorescence traces
     # note that Lx,Ly and nplaces are read from the annotated ds, not from the ops
@@ -261,7 +261,9 @@ def reextract_session(
 
     # Save the mask correspondance for each plane and new mask stats
     np.save(
-        target_dir / "stat.npy", np.concatenate(all_stat, axis=0), allow_pickle=True
+        suite2p_ds_annotated.path_full / "stat.npy",
+        np.concatenate(all_stat, axis=0),
+        allow_pickle=True,
     )
     # mask for each plane have different length, cannot save a single array
     np.savez(
