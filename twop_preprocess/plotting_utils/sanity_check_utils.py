@@ -90,16 +90,17 @@ def plot_dff(Fast, dff, F0, random_rois, save_path=None):
     rounded_dff = np.round(dff, 2)
     for i, roi in enumerate(random_rois):
         plt.subplot2grid((len(random_rois), 4), (i, 3))
-        plt.hist(dff[i, :], bins=50)
-        plt.title(f"median {np.round(np.median(rounded_dff[i,:]),2)}")
+        if np.any(np.isnan(dff[i, :])):
+            plt.title("NaN in dff, skipping plot")
+        else:
+            plt.hist(dff[i, :], bins=50)
+            plt.title(f"median {np.round(np.median(rounded_dff[i,:]),2)}")
     plt.tight_layout()
     if save_path is not None:
         plt.savefig(save_path)
 
 
-def plot_fluorescence_matrices(
-    F, Fneu, Fast, dff, neucoeff=0.7, max_frames=4000
-):
+def plot_fluorescence_matrices(F, Fneu, Fast, dff, neucoeff=0.7, max_frames=4000):
     idx = np.min([F.shape[1], max_frames])
     to_plot = {
         "F": F[:, :idx],
@@ -108,8 +109,8 @@ def plot_fluorescence_matrices(
         "dF/F": dff[:, :idx],
         f"F - {neucoeff} * Fneu": F[:, :idx] - Fneu[:, :idx] * neucoeff,
     }
-    fig, axs  = plt.subplots(len(to_plot), 1, figsize=(9, 22), layout="constrained")
-    for ax, key in zip(axs.flat,to_plot.keys()):
+    fig, axs = plt.subplots(len(to_plot), 1, figsize=(9, 22), layout="constrained")
+    for ax, key in zip(axs.flat, to_plot.keys()):
         x = to_plot[key]
         ax.imshow(
             (x - np.mean(x, axis=1)[:, None]) / np.std(x, axis=1)[:, None],
