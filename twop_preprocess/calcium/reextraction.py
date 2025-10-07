@@ -74,7 +74,7 @@ def reextract_session(
         flexilims_session=flz_session,
         origin_name=session,
         dataset_type="suite2p_rois",
-        exclude_datasets={"annotated": "yes"},
+        exclude_datasets={"annotated": True},
         return_dataseries=True,
     )
     # remove datasets with annotated in the name
@@ -85,10 +85,10 @@ def reextract_session(
     suite2p_ds = flz.Dataset.from_dataseries(suite2p_ds.iloc[0], flz_session)
 
     # mark the original dataset as non annotated if needed
-    online_label = suite2p_ds.extra_attributes.get("annotated", "Not yet")
+    online_label = suite2p_ds.extra_attributes.get("annotated", None)
     # is_labeled might be NaN, we need to check for non-equality to 'no'
-    if online_label != "no":
-        suite2p_ds.extra_attributes["annotated"] = "no"
+    if online_label != False:
+        suite2p_ds.extra_attributes["annotated"] = False
         suite2p_ds.update_flexilims(mode="update")
 
     # create or load a new suite2p dataset
@@ -103,7 +103,7 @@ def reextract_session(
     )
     suite2p_ds_annotated.extra_attributes = suite2p_ds.extra_attributes
     # add a flag to the dataset to indicate that it is annotated
-    suite2p_ds_annotated.extra_attributes["annotated"] = "yes"
+    suite2p_ds_annotated.extra_attributes["annotated"] = True
 
     # handle conflicts
     target_dir = suite2p_ds_annotated.path_full / "combined"
