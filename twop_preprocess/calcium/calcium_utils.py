@@ -265,12 +265,16 @@ def dFF(f, n_components=2):
 
     """
     f0 = np.zeros(f.shape[0])
+
     for i in tqdm(range(f.shape[0])):
-        gmm = mixture.GaussianMixture(n_components=n_components, random_state=42).fit(
-            f[i].reshape(-1, 1)
-        )
-        gmm_means = np.sort(gmm.means_[:, 0])
-        f0[i] = gmm_means[0]
+        if np.all(np.isnan(f[i])):
+            f0[i] = np.nan
+        else:
+            gmm = mixture.GaussianMixture(
+                n_components=n_components, random_state=42
+            ).fit(f[i].reshape(-1, 1))
+            gmm_means = np.sort(gmm.means_[:, 0])
+            f0[i] = gmm_means[0]
     f0 = f0.reshape(-1, 1)
     dff = (f - f0) / f0
     return dff, f0
