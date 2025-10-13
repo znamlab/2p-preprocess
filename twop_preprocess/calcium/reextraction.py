@@ -192,6 +192,7 @@ def reextract_session(
                     suite2p_ds_annotated.extra_attributes[k] = True
                 else:
                     ops[k] = v
+            ops["fast_disk"] = str(new_fast_disk)
             # Add the empty planes to the ignore_flyback field
             ops["ignore_flyback"] = list(np.where(empty_planes)[0])
 
