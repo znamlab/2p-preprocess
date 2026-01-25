@@ -75,7 +75,7 @@ def reextract_masks(masks, suite2p_ds):
             plane
         all_F (list): list of F traces for each plane
         all_Fneu (list): list of Fneu traces
-        all_stat (list): list of stats
+        all_stats (list): list of stats
         all_ops (list): list of ops
 
 
@@ -102,7 +102,7 @@ def reextract_masks(masks, suite2p_ds):
     # Initialize outputs
     merged_masks = np.zeros((Ly * nY, Lx * nX))
     all_original_masks = []
-    all_stat = []
+    all_stats = []
     all_ops = []
 
     for iplane, masks_plane in enumerate(masks):
@@ -140,9 +140,9 @@ def reextract_masks(masks, suite2p_ds):
         )
         np.nan_to_num(weights, copy=False)
 
-        stat = suite2p.detection.anatomical.masks_to_stats(reordered_masks, weights)
-        stat = suite2p.detection.roi_stats(
-            stat,
+        stats = suite2p.detection.anatomical.masks_to_stats(reordered_masks, weights)
+        stats = suite2p.detection.roi_stats(
+            stats,
             Ly,
             Lx,
             aspect=ops.get("aspect", None),
@@ -150,11 +150,11 @@ def reextract_masks(masks, suite2p_ds):
             do_crop=ops.get("soma_crop", 1),
             max_overlap=ops["max_overlap"],
         )
-        for i in range(len(stat)):
-            stat[i]["iplane"] = iplane
-        all_stat.append(stat)
+        for i in range(len(stats)):
+            stats[i]["iplane"] = iplane
+        all_stats.append(stats)
 
-        ops_s2p = suite2p.run_plane(ops, ops_path=str(path2ops.resolve()), stat=stat)
+        ops_s2p = suite2p.run_plane(ops, ops_path=str(path2ops.resolve()), stat=stats)
         if np.any(ops_s2p["yrange"] != ops["yrange"]) or np.any(
             ops_s2p["xrange"] != ops["xrange"]
         ):
@@ -173,7 +173,7 @@ def reextract_masks(masks, suite2p_ds):
         np.save(path2ops, ops_s2p, allow_pickle=True)
         all_ops.append(ops_s2p)
 
-    return merged_masks, all_original_masks, all_stat, all_ops
+    return merged_masks, all_original_masks, all_stats, all_ops
 
 
 def run_extraction(

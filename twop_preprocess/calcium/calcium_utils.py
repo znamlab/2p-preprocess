@@ -36,11 +36,15 @@ def get_weights(ops):
         )
 
     n_frames, Ly, Lx = ops["nframes"], ops["Ly"], ops["Lx"]
-    # using ops['reg_file'], which points to the "fast disk" suite2p folder did not work
-    # for unknown reasons, so we use the original data path
-    filename = str(Path(ops["save_path"]) / "data.bin")
+    filename = Path(ops["reg_file"]).resolve()
+    if not filename.exists():
+        raise FileNotFoundError(f"Binary file not found at: {filename}")
+    if filename.stat().st_size == 0:
+        raise ValueError(f"Binary file is empty (0 bytes): {filename}")
 
-    with io.BinaryFile(Ly=Ly, Lx=Lx, filename=filename, n_frames=n_frames) as f_reg:
+    with io.BinaryFile(
+        Ly=Ly, Lx=Lx, filename=str(filename), n_frames=n_frames
+    ) as f_reg:
         yrange = ops.get("yrange", [0, Ly])
         xrange = ops.get("xrange", [0, Lx])
 

@@ -3,9 +3,10 @@ import flexiznam as flz
 import numpy as np
 from pathlib import Path
 from znamutils import slurm_it
-
+from matplotlib import pyplot as plt
 from .calcium import process_concatenated_traces, split_recordings
 from .calcium_s2p import reextract_masks
+from ..plotting_utils import s2p_plotting_utils
 
 print = partial(print, flush=True)
 
@@ -24,7 +25,12 @@ print = partial(print, flush=True)
     print_job_id=True,
 )
 def reextract_session(
-    session, masks, flz_session=None, project=None, conflicts="abort"
+    session,
+    masks,
+    flz_session=None,
+    project=None,
+    conflicts="abort",
+    attribute_changes=None,
 ):
     """Reextract masks and fluorescence traces for a session.
 
@@ -39,6 +45,8 @@ def reextract_session(
             inferred from the flexilims session.
         conflicts (str, optional): defines behavior if recordings have already been
             reextracted. One of `abort`, `skip`, `append`, `overwrite`. Default `abort`
+        attribute_changes (dict, optional): dictionary of attributes to change in the
+            annotated dataset compared to the original. Default None
 
     Returns:
         ndarray: merged masks
@@ -86,7 +94,6 @@ def reextract_session(
 
     # mark the original dataset as non annotated if needed
     online_label = suite2p_ds.extra_attributes.get("annotated", None)
-    # is_labeled might be NaN, we need to check for non-equality to 'no'
     if online_label != False:
         suite2p_ds.extra_attributes["annotated"] = False
         suite2p_ds.update_flexilims(mode="update")
@@ -102,6 +109,8 @@ def reextract_session(
         base_name="suite2p_rois_annotated",
     )
     suite2p_ds_annotated.extra_attributes = suite2p_ds.extra_attributes
+    if attribute_changes is not None:
+        suite2p_ds_annotated.extra_attributes.update(attribute_changes)
     # add a flag to the dataset to indicate that it is annotated
     suite2p_ds_annotated.extra_attributes["annotated"] = True
 
@@ -122,25 +131,31 @@ def reextract_session(
     # load one random ops file to get the project path
     ops = np.load(suite2p_ds.path_full / "plane0" / "ops.npy", allow_pickle=True).item()
     project = suite2p_ds.project
-    fast_disk = flz.get_processed_path(project) / ops["fast_disk"].split(project)[1][1:]
-    fast_disk /= "suite2p"
-    new_fast_disk = (
-        suite2p_ds_annotated.path / ops["fast_disk"].split(project)[1][1:] / "suite2p"
-    )
-    empty_planes = [not np.any(m) for m in masks]
-    for iplane in range(len(masks)):
-        if (fast_disk / f"plane{iplane}" / "data.bin").exists():
-            continue
-        if (new_fast_disk / f"plane{iplane}" / "data.bin").exists():
-            continue
+    fast_disk = Path(ops["fast_disk"])
+    if not fast_disk.exists():
+        print(f"Fast disk does not exist, has project root changed? {fast_disk}")
+        fast_disk = (
+            flz.get_processed_path(project) / str(fast_disk).split(project)[1][1:]
+        )
+        print(f"Replacing with {fast_disk}")
 
+    empty_planes = [not np.any(m) for m in masks]
+    print(f"Looking for data in {fast_disk}")
+    for iplane in range(len(masks)):
+        if (fast_disk / "suite2p" / f"plane{iplane}" / "data.bin").exists():
+            print(
+                f"Data found in {fast_disk / 'suite2p' / f'plane{iplane}' / 'data.bin'}"
+            )
+            continue
         # Check if there are masks in this plane
         if empty_planes[iplane]:
             print(f"No masks for plane {iplane}. Skipping")
             continue
+        print(f"No data for plane {iplane}. Re-registering")
         re_register = True
 
     # Update all attributes that are in ops by the ops value
+    rewrite_ops = False
     for key, value in ops.items():
         if isinstance(value, Path):
             value = str(value)
@@ -148,15 +163,28 @@ def reextract_session(
             ori = suite2p_ds_annotated.extra_attributes[key]
             if ori == value:
                 continue
+            if key in attribute_changes:
+                print(f"Keeping {key} different ({ori} instead of {value})")
+                rewrite_ops = True
+                continue
             print(f"Updating {key} from {ori} ({type(ori)}) to {value} ({type(value)})")
             suite2p_ds_annotated.extra_attributes[key] = value
 
-    if (not re_register) and (suite2p_ds_annotated.flexilims_status != "not online"):
+    folder_exists = suite2p_ds_annotated.path_full.exists()
+    # For debug
+    print("\n")
+    print(f"Dataset name: {suite2p_ds_annotated.full_name}")
+    print(f"Folder exists: {folder_exists}")
+    flm_stat = suite2p_ds_annotated.flexilims_status()
+    print(f"Flexilims status: {flm_stat}")
+    is_online = flm_stat != "not online"
+    if (not re_register) and folder_exists and is_online and not rewrite_ops:
         print("suite2p_ds_annotated already online, no need to create ops")
+        print("\n")
     else:
         # Copy ops to the target directory and check if binaries exist
-        ori_path = str(suite2p_ds.path)
-        new_path = str(suite2p_ds_annotated.path)
+        ori_path = str(suite2p_ds.path_full)
+        new_path = str(suite2p_ds_annotated.path_full)
         for subdir in suite2p_ds.path_full.iterdir():
             if not subdir.name.startswith("plane"):
                 continue
@@ -174,7 +202,10 @@ def reextract_session(
             ori_ops = np.load(source_ops_file, allow_pickle=True).item()
             ops = dict()
             for k, v in ori_ops.items():
-                if isinstance(v, str) and (ori_path in v):
+                if k in attribute_changes:
+                    ops[k] = attribute_changes[k]
+                    print(f"Setting new ops file with {k}={attribute_changes[k]}")
+                elif isinstance(v, str) and (ori_path in v):
                     ops[k] = v.replace(ori_path, new_path)
                 elif isinstance(v, str) and (suite2p_ds.dataset_name in v):
                     ops[k] = v.replace(
@@ -192,7 +223,19 @@ def reextract_session(
                     suite2p_ds_annotated.extra_attributes[k] = True
                 else:
                     ops[k] = v
-            ops["fast_disk"] = str(new_fast_disk)
+
+            print(f"\nSource file {source_ops_file}:")
+            for k in [
+                "save_path0",
+                "save_path",
+                "save_folder",
+                "fast_disk",
+                "ops_path",
+                "reg_file",
+            ]:
+                print(f"{k}: {ops[k]}")
+
+            ops["fast_disk"] = str(fast_disk)
             # Add the empty planes to the ignore_flyback field
             ops["ignore_flyback"] = list(np.where(empty_planes)[0])
 
@@ -201,12 +244,14 @@ def reextract_session(
             ops["do_registration"] = 1
             # make a copy in the target directory
             target_dir = suite2p_ds_annotated.path_full / subdir.name
+            ops_path = target_dir / "ops.npy"
+            assert ops["ops_path"] == str(ops_path)
             target_dir.mkdir(exist_ok=True)
             # do_registration must > 1 to force redo, do it after saving the ops, since we
             # reload the ops only after the first call to s2p with roidetect = False
             if re_register:
                 ops["do_registration"] = 2
-            np.save(target_dir / "ops.npy", ops, allow_pickle=True)
+            np.save(ops_path, ops, allow_pickle=True)
 
     if re_register:  # We need to ensure the raw also exists
         print(f"Binary files not found. Force re-registration", flush=True)
@@ -231,6 +276,26 @@ def reextract_session(
         mini_ops["roidetect"] = False
         # run the registration but not detection else
         suite2p.run_s2p(ops=mini_ops)
+
+        # Verifying registered binaries
+        print("Verifying registered binaries...")
+        for iplane in range(len(masks)):
+            if empty_planes[iplane]:
+                continue
+            bin_path = (
+                suite2p_ds_annotated.path_full.parent
+                / "suite2p"
+                / f"plane{iplane}"
+                / "data.bin"
+            )
+            if not bin_path.exists():
+                raise FileNotFoundError(
+                    f"Registration failed to produce binary for plane {iplane} at {bin_path}"
+                )
+            if bin_path.stat().st_size == 0:
+                raise ValueError(
+                    f"Registration produced an empty binary for plane {iplane} at {bin_path}"
+                )
 
         # Remove the force re-registration flag from ops
         for subdir in suite2p_ds_annotated.path_full.iterdir():
@@ -306,6 +371,11 @@ def reextract_session(
 
     print("Updating flexilims...")
     suite2p_ds_annotated.update_flexilims(mode="update")
+
+    # Finally add some plots to check everything went fine: the original masks and the
+    # new masks
+    plot_reextraction_sanity(suite2p_ds_annotated, suite2p_ds, masks)
+
     return suite2p_ds_annotated
 
 
@@ -331,3 +401,41 @@ def load_mask(path2mask):
         return imread(path2mask)
     else:
         raise ValueError(f"Unsupported mask file format: {path2mask}")
+
+
+def plot_reextraction_sanity(suite2p_ds, suite2p_ds_annotated, masks):
+    """Plot the original masks and the new masks to check the reextraction.
+
+    Args:
+        suite2p_ds (Suite2pDataset): the original dataset
+        suite2p_ds_annotated (Suite2pDataset): the annotated dataset
+        masks (ndarray): the masks to be reextracted
+    """
+
+    # Load masks from the two suite2p_ds, iterate on the plane folders and read from ops
+
+    fig, axes = plt.subplots(len(masks), 3, figsize=(10, len(masks) * 5), squeeze=False)
+
+    for imask, mask in enumerate(masks):
+        for col, ds in enumerate([suite2p_ds, suite2p_ds_annotated]):
+            f, f_neu, spks, stats, iscell, ops = s2p_plotting_utils.load_s2p_output(
+                ds.path_full / f"plane{imask}"
+            )
+            all_cells = s2p_plotting_utils.stats_to_array(
+                stats, Ly=ops["Ly"], Lx=ops["Lx"], label_id=True
+            )
+            all_cells[all_cells == 0] = np.nan
+            im = np.nanmax(all_cells, axis=0)
+            axes[imask, col].imshow(im % 20, cmap="tab20", interpolation="none")
+            if imask == 0:
+                axes[imask, col].set_title(ds.dataset_name)
+        mask = mask.astype(float)
+        mask[mask == 0] = np.nan
+        axes[imask, 2].imshow(mask % 20, cmap="tab20", interpolation="none")
+        if imask == 0:
+            axes[imask, 2].set_title("Input mask")
+        axes[imask, 0].set_ylabel(f"Plane {imask}")
+    for ax in axes.flatten():
+        ax.set_xticks([])
+        ax.set_yticks([])
+    fig.savefig(suite2p_ds_annotated.path_full / "reextraction_sanity.png")

@@ -76,7 +76,7 @@ def stats_to_array(
     return np.stack(arrays)
 
 
-def plot_detection_outcome(stats, ops, iscell, fname, output_dir):
+def plot_detection_outcome(stats, ops, iscell, fname=None, output_dir=None):
     """
     generates a four panel plot with maximum intensity projection, both cell and non-cell ROIs
     detected in recording, all non-cell ROIs and all cell ROIs
@@ -107,11 +107,11 @@ def plot_detection_outcome(stats, ops, iscell, fname, output_dir):
     plt.subplot(1, 4, 4)
     plt.imshow(np.nanmax(im[iscell], axis=0), cmap="jet")
     plt.title("all cell ROIs")
-
-    fig_name = Path(output_dir).joinpath("%s_cell-detect-outcomes.svg" % fname)
-
-    fig.savefig(fig_name, format="svg", dpi=1200)
-    plt.close(fig)
+    if output_dir is not None:
+        assert fname is not None, "fname must be provided if output_dir is provided"
+        fig_name = Path(output_dir).joinpath("%s_cell-detect-outcomes.svg" % fname)
+        fig.savefig(fig_name, format="svg", dpi=1200)
+    return fig
 
 
 def make_bounding_box(stat):

@@ -71,8 +71,12 @@ def process_concatenated_traces(suite2p_dataset, ops, project, flz_session):
             np.random.seed(0)
             n_rois_to_plot = min(ops.get("plot_nrois", 5), F_raw.shape[0])
             if n_rois_to_plot > 0:
+                valid_rois = np.where(~np.isnan(F_raw).all(axis=1))[0]
+                if len(valid_rois) == 0:
+                    raise ValueError("F for all rois is NaN")
+
                 random_rois = np.random.choice(
-                    F_raw.shape[0], n_rois_to_plot, replace=False
+                    valid_rois, n_rois_to_plot, replace=False
                 )
             else:
                 print(
@@ -430,8 +434,9 @@ def extract_session(
     if run_split:
         print("Splitting recordings...")
         split_recordings(
-            flz_session, 
-            suite2p_dataset, 
+            flz_session,
+            suite2p_dataset,
             conflicts=conflicts,
-            extra_attributes={"ast_neuropil": ops["ast_neuropil"]},)
+            extra_attributes={"ast_neuropil": ops["ast_neuropil"]},
+        )
     print("Extraction finished.")
