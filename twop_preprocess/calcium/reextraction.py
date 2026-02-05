@@ -113,6 +113,8 @@ def reextract_session(
     suite2p_ds_annotated.extra_attributes = suite2p_ds.extra_attributes
     if attribute_changes is not None:
         suite2p_ds_annotated.extra_attributes.update(attribute_changes)
+    else:
+        attribute_changes = {}
     # add a flag to the dataset to indicate that it is annotated
     suite2p_ds_annotated.extra_attributes["annotated"] = True
 
