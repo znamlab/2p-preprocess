@@ -3,6 +3,8 @@ import flexiznam as flz
 import numpy as np
 from pathlib import Path
 from znamutils import slurm_it
+from skimage.measure import label
+from skimage.io import imsave
 from matplotlib import pyplot as plt
 from .calcium import process_concatenated_traces, split_recordings
 from .calcium_s2p import reextract_masks
@@ -401,6 +403,102 @@ def load_mask(path2mask):
         return imread(path2mask)
     else:
         raise ValueError(f"Unsupported mask file format: {path2mask}")
+
+
+def verify_mask(path2mask, verbose=True):
+    """Verifies that a mask file has unique and continuous cell IDs.
+
+    Also checks that each ID corresponds to exactly one connected component.
+
+    Args:
+        path2mask (str or Path): Path to the mask image file.
+        verbose (bool): Whether to print verification details. Defaults to True.
+
+    Returns:
+        tuple: (bool, set) where the bool is True if the mask is valid (continuous IDs
+            and each ID is a single component), False otherwise and the set contains the
+            IDs that correspond to multiple cells.
+    """
+    if verbose:
+        print(f"Verifying {Path(path2mask).name}...")
+    mask = load_mask(path2mask)
+    unique_vals = np.unique(mask)
+
+    # Check if 0 is present
+    has_background = 0 in unique_vals
+
+    # Check if continuous
+    max_val = unique_vals.max()
+    is_continuous = np.array_equal(unique_vals, np.arange(len(unique_vals)))
+
+    if verbose and not is_continuous:
+        print(f"  IDs are NOT continuous.")
+
+    # Also check that each id corresponds to only 1 cell
+    is_unique = True
+    bad_masks = set()
+    for mask_id in unique_vals:
+        if mask_id == 0:
+            continue
+        binary_mask = mask == mask_id
+        labeled_components = label(binary_mask, connectivity=2)
+        n_comp = labeled_components.max()
+        if n_comp > 1:
+            is_unique = False
+            bad_masks.add(mask_id)
+
+    if verbose and not is_unique:
+        print(f"  FAILURE: IDs {bad_masks} correspond to multiple cells.")
+
+    return is_continuous and is_unique, bad_masks
+
+
+def relabel_mask(mask_path, output_path=None, verbose=True):
+    """Relabels a mask file to ensure unique and continuous cell IDs.
+
+    Processes each original ID separately to split disconnected regions into unique
+    new IDs while preserving separations between touching cells that already had
+    different IDs.
+
+    Args:
+        mask_path (str or Path): Path to the input mask image file.
+        output_path (str or Path, optional): Path where the relabeled mask will be
+            saved. If None, the original file will be overwritten. Defaults to None.
+        verbose (bool): Whether to print progress details. Defaults to True.
+    """
+
+    if verbose:
+        print(f"Relabeling {Path(mask_path).name}...")
+    mask = load_mask(mask_path)
+
+    unique_ids = np.unique(mask)
+    unique_ids = unique_ids[unique_ids != 0]
+
+    new_mask = np.zeros_like(mask)
+    next_id = 1
+
+    for old_id in sorted(unique_ids):
+        # Create a mask for just this ID
+        id_mask = mask == old_id
+        # Label components within this ID
+        labeled_components = label(id_mask, connectivity=2)
+        n_comp = labeled_components.max()
+
+        for c in range(1, n_comp + 1):
+            new_mask[labeled_components == c] = next_id
+            next_id += 1
+    if verbose:
+        print(
+            f"  Processed {len(unique_ids)} original IDs into {next_id - 1} unique components."
+        )
+
+    # Save as a new file
+    if output_path is None:
+        output_path = mask_path
+
+    imsave(output_path, new_mask.astype(np.int16), check_contrast=False)
+    if verbose:
+        print(f"  Saved {Path(output_path).name}.")
 
 
 def plot_reextraction_sanity(suite2p_ds, suite2p_ds_annotated, masks):
