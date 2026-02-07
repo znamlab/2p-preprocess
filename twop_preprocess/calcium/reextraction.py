@@ -136,6 +136,7 @@ def reextract_session(
     ops = np.load(suite2p_ds.path_full / "plane0" / "ops.npy", allow_pickle=True).item()
     project = suite2p_ds.project
     fast_disk = Path(ops["fast_disk"])
+
     if not fast_disk.exists():
         print(f"Fast disk does not exist, has project root changed? {fast_disk}")
         fast_disk = (
@@ -144,19 +145,38 @@ def reextract_session(
         print(f"Replacing with {fast_disk}")
 
     empty_planes = [not np.any(m) for m in masks]
+    found_binaries = {}
     print(f"Looking for data in {fast_disk}")
     for iplane in range(len(masks)):
-        if (fast_disk / "suite2p" / f"plane{iplane}" / "data.bin").exists():
-            print(
-                f"Data found in {fast_disk / 'suite2p' / f'plane{iplane}' / 'data.bin'}"
-            )
-            continue
-        # Check if there are masks in this plane
         if empty_planes[iplane]:
-            print(f"No masks for plane {iplane}. Skipping")
             continue
-        print(f"No data for plane {iplane}. Re-registering")
-        re_register = True
+
+        # Check standard location
+        candidate_paths = [fast_disk / "suite2p" / f"plane{iplane}" / "data.bin"]
+
+        # Check original dataset location
+        original_plane_ops_path = suite2p_ds.path_full / f"plane{iplane}" / "ops.npy"
+        if original_plane_ops_path.exists():
+            plane_ops = np.load(original_plane_ops_path, allow_pickle=True).item()
+            if "reg_file" in plane_ops:
+                candidate_paths.append(Path(plane_ops["reg_file"]))
+            # Fallback to local data.bin in same folder as ops
+            candidate_paths.append(original_plane_ops_path.parent / "data.bin")
+
+        # Check if we already have it in the annotated dataset (e.g. from previous run)
+        candidate_paths.append(
+            suite2p_ds_annotated.path_full / f"plane{iplane}" / "data.bin"
+        )
+
+        for path in candidate_paths:
+            if path.exists():
+                print(f"Data found for plane {iplane} at {path}")
+                found_binaries[iplane] = str(path)
+                break
+
+        if iplane not in found_binaries:
+            print(f"No data for plane {iplane}. Re-registering")
+            re_register = True
 
     # Update all attributes that are in ops by the ops value
     rewrite_ops = False
@@ -188,7 +208,7 @@ def reextract_session(
     else:
         # Copy ops to the target directory and check if binaries exist
         ori_path = str(suite2p_ds.path_full)
-        new_path = str(suite2p_ds_annotated.path_full)
+        new_path = str(suite2p_ds_annotated.path_full.resolve())
         for subdir in suite2p_ds.path_full.iterdir():
             if not subdir.name.startswith("plane"):
                 continue
@@ -209,6 +229,8 @@ def reextract_session(
                 if k in attribute_changes:
                     ops[k] = attribute_changes[k]
                     print(f"Setting new ops file with {k}={attribute_changes[k]}")
+                elif k == "reg_file" and planei in found_binaries:
+                    ops[k] = found_binaries[planei]
                 elif isinstance(v, str) and (ori_path in v):
                     ops[k] = v.replace(ori_path, new_path)
                 elif isinstance(v, str) and (suite2p_ds.dataset_name in v):
@@ -240,6 +262,10 @@ def reextract_session(
                 print(f"{k}: {ops[k]}")
 
             ops["fast_disk"] = str(fast_disk)
+            if planei not in found_binaries:
+                ops["reg_file"] = str(
+                    fast_disk / "suite2p" / f"plane{planei}" / "data.bin"
+                )
             # Add the empty planes to the ignore_flyback field
             ops["ignore_flyback"] = list(np.where(empty_planes)[0])
 
@@ -249,7 +275,7 @@ def reextract_session(
             # make a copy in the target directory
             target_dir = suite2p_ds_annotated.path_full / subdir.name
             ops_path = target_dir / "ops.npy"
-            assert ops["ops_path"] == str(ops_path)
+            assert Path(ops["ops_path"]).resolve() == ops_path.resolve()
             target_dir.mkdir(exist_ok=True)
             # do_registration must > 1 to force redo, do it after saving the ops, since we
             # reload the ops only after the first call to s2p with roidetect = False
@@ -278,6 +304,11 @@ def reextract_session(
             elif key in plane_dpt:
                 mini_ops.pop(key)
         mini_ops["roidetect"] = False
+        mini_ops["delete_bin"] = False
+        mini_ops["move_bin"] = False
+        mini_ops["save_folder"] = "suite2p"
+        mini_ops["save_path0"] = str(fast_disk)
+
         # run the registration but not detection else
         suite2p.run_s2p(ops=mini_ops)
 
@@ -286,12 +317,13 @@ def reextract_session(
         for iplane in range(len(masks)):
             if empty_planes[iplane]:
                 continue
-            bin_path = (
-                suite2p_ds_annotated.path_full.parent
-                / "suite2p"
-                / f"plane{iplane}"
-                / "data.bin"
+            plane_ops_path = (
+                suite2p_ds_annotated.path_full / f"plane{iplane}" / "ops.npy"
             )
+            if not plane_ops_path.exists():
+                raise FileNotFoundError(f"Ops file not found for plane {iplane}")
+            plane_ops = np.load(plane_ops_path, allow_pickle=True).item()
+            bin_path = Path(plane_ops["reg_file"])
             if not bin_path.exists():
                 raise FileNotFoundError(
                     f"Registration failed to produce binary for plane {iplane} at {bin_path}"
@@ -498,7 +530,16 @@ def relabel_mask(mask_path, output_path=None, verbose=True):
     if output_path is None:
         output_path = mask_path
 
-    imsave(output_path, new_mask.astype(np.int16), check_contrast=False)
+    import tifffile
+
+    output_path = Path(output_path)
+    if output_path.suffix.lower() == ".png":
+        print(
+            f"  Warning: Saving masks as .png can trigger warnings. Converting to .tif"
+        )
+        output_path = output_path.with_suffix(".tif")
+
+    tifffile.imwrite(str(output_path), new_mask.astype(np.uint16))
     if verbose:
         print(f"  Saved {Path(output_path).name}.")
 
