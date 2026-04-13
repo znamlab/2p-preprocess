@@ -19,7 +19,7 @@ dependencies = [
         "optax",
         "scikit-learn",
         "numba",
-        "suite2p",
+        "suite2p <= 0.14",
         "tifffile",
         ]
 license = {text = "MIT"}
