@@ -1,0 +1,50 @@
+twop_preprocess.plotting_utils.s2p_movie_utils
+==============================================
+
+.. py:module:: twop_preprocess.plotting_utils.s2p_movie_utils
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   twop_preprocess.plotting_utils.s2p_movie_utils.simple_open_binaries
+   twop_preprocess.plotting_utils.s2p_movie_utils.load_s2p_reg_stack
+   twop_preprocess.plotting_utils.s2p_movie_utils.moving_average_im
+   twop_preprocess.plotting_utils.s2p_movie_utils.write_moving_average_tif
+
+
+Module Contents
+---------------
+
+.. py:function:: simple_open_binaries(ops)
+
+.. py:function:: load_s2p_reg_stack(reg_path)
+
+   loads registered tif files from run_s2p with reg_tif=True
+
+   :param reg_path: str, path to registered tif files (including reg_tif directory)
+   :return im: ndarray, array of registered movie of nframes x xpix x ypix
+
+
+.. py:function:: moving_average_im(im, w=100)
+
+   Calculates moving average of pixel values of single plane recording in a numpy array of nframes x xpix x ypix
+
+   :param im: ndarray, array with single plane recording of nframes x xpix x ypix
+   :param w: int, size of window for calculating the moving average
+   :return m_im: ndarray, moving average of pixel values along time axis in array of nframes x xpix x ypix
+
+
+.. py:function:: write_moving_average_tif(im, out_dir, fname, w=100)
+
+   Writes output of moving_average_im to a tif file
+
+   :param im: ndarray, array with single plane recording of nframes x xpix x ypix
+   :param w: int, size of window for calculating the moving average
+   :param out_dir: str, path to output directory for writing tif file
+   :param fname: str, basename for recording and run, if applicable
+   :return: none
+
+

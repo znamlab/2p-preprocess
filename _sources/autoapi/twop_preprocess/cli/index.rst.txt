@@ -1,0 +1,37 @@
+twop_preprocess.cli
+===================
+
+.. py:module:: twop_preprocess.cli
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   twop_preprocess.cli.cli
+   twop_preprocess.cli.calcium
+   twop_preprocess.cli.reextract
+   twop_preprocess.cli.zstack
+
+
+Module Contents
+---------------
+
+.. py:function:: cli()
+
+.. py:function:: calcium(project, session, conflicts=None, run_neuropil=None, run_split=True, run_suite2p=True, run_dff=True, keep_binary=False, roidetect=True, tau=None)
+
+   Run calcium imaging preprocessing pipeline
+
+
+.. py:function:: reextract(project, session, masks_path, conflicts, use_slurm)
+
+   Re-extract masks for a session.
+
+
+.. py:function:: zstack(project, session, conflicts=None, channel=None, max_shift=None, align_planes=None, iter=None, bidi_correction=None, sequential_volumes=None, datasets=None, zstack_concat=None)
+
+   Run zstack registration
+
+

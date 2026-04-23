@@ -1,0 +1,34 @@
+twop_preprocess.plotting_utils.sanity_check_utils
+=================================================
+
+.. py:module:: twop_preprocess.plotting_utils.sanity_check_utils
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   twop_preprocess.plotting_utils.sanity_check_utils.plot_trace
+   twop_preprocess.plotting_utils.sanity_check_utils.plot_raw_trace
+   twop_preprocess.plotting_utils.sanity_check_utils.plot_detrended_trace
+   twop_preprocess.plotting_utils.sanity_check_utils.plot_dff
+   twop_preprocess.plotting_utils.sanity_check_utils.plot_fluorescence_matrices
+   twop_preprocess.plotting_utils.sanity_check_utils.plot_offset_gmm
+
+
+Module Contents
+---------------
+
+.. py:function:: plot_trace(F, rois, plot_baseline=False, baseline=0, ncols=2, icol=0, linecolor='b', title='F', save_path=None)
+
+.. py:function:: plot_raw_trace(F, random_rois, Fneu=[], titles=['F', 'Fneu'], save_path=None)
+
+.. py:function:: plot_detrended_trace(F_original, F_trend, F_detrended, Fneu_original, Fneu_trend, Fneu_detrended, random_rois, save_path=None)
+
+.. py:function:: plot_dff(Fast, dff, F0, random_rois, save_path=None)
+
+.. py:function:: plot_fluorescence_matrices(F, Fneu, Fast, dff, neucoeff=0.7, max_frames=4000)
+
+.. py:function:: plot_offset_gmm(F, Fneu, cell_id, n_components, nframes=3000, save_path=None)
+

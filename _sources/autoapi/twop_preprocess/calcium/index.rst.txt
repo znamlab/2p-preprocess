@@ -1,0 +1,27 @@
+twop_preprocess.calcium
+=======================
+
+.. py:module:: twop_preprocess.calcium
+
+.. autoapi-nested-parse::
+
+   Calcium processing module for 2p-preprocess.
+
+   This package contains functions for extracting fluorescence traces (using Suite2p),
+   calculating dF/F, deconvolving spikes, splitting recordings, and related utilities.
+
+
+
+Submodules
+----------
+
+.. toctree::
+   :maxdepth: 1
+
+   /autoapi/twop_preprocess/calcium/calcium/index
+   /autoapi/twop_preprocess/calcium/calcium_s2p/index
+   /autoapi/twop_preprocess/calcium/calcium_utils/index
+   /autoapi/twop_preprocess/calcium/processing_steps/index
+   /autoapi/twop_preprocess/calcium/reextraction/index
+
+

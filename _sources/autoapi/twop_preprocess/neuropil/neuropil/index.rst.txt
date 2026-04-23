@@ -1,0 +1,19 @@
+twop_preprocess.neuropil.neuropil
+=================================
+
+.. py:module:: twop_preprocess.neuropil.neuropil
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   twop_preprocess.neuropil.neuropil.correct_neuropil
+
+
+Module Contents
+---------------
+
+.. py:function:: correct_neuropil(suite2p_dataset, iplane)
+

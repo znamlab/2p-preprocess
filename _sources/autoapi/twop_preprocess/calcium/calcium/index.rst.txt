@@ -1,0 +1,92 @@
+twop_preprocess.calcium.calcium
+===============================
+
+.. py:module:: twop_preprocess.calcium.calcium
+
+
+Attributes
+----------
+
+.. autoapisummary::
+
+   twop_preprocess.calcium.calcium.print
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   twop_preprocess.calcium.calcium.process_concatenated_traces
+   twop_preprocess.calcium.calcium.split_recordings
+   twop_preprocess.calcium.calcium.extract_session
+
+
+Module Contents
+---------------
+
+.. py:data:: print
+
+.. py:function:: process_concatenated_traces(suite2p_dataset, ops, project, flz_session)
+
+   Correct offsets, detrend, calculate dF/F and deconvolve spikes for the whole session.
+
+   :param suite2p_dataset: dataset containing concatenated recordings
+   :type suite2p_dataset: Dataset
+   :param ops: dictionary of suite2p settings
+   :type ops: dict
+
+
+.. py:function:: split_recordings(flz_session, suite2p_dataset, conflicts, base_name='suite2p_traces', extra_attributes=None)
+
+   suite2p concatenates all the recordings in a given session into a single file.
+   To facilitate downstream analyses, we cut them back into chunks and add them
+   to flexilims as children of the corresponding recordings.
+
+   :param flz_session: flexilims session
+   :type flz_session: Flexilims
+   :param suite2p_dataset: dataset containing concatenated recordings
+                           to split
+   :type suite2p_dataset: Dataset
+   :param conflicts: defines behavior if recordings have already been split
+   :type conflicts: str
+   :param base_name: base name for the split datasets. Default
+                     "suite2p_traces"
+   :type base_name: str, optional
+   :param extra_attributes: Extra attributes to add to the split datasets
+                            on flexilims. Used to filter when looking for previously split datasets.
+                            Default None
+   :type extra_attributes: dict, optional
+
+
+.. py:function:: extract_session(project, session_name, conflicts=None, run_split=False, run_suite2p=True, run_dff=True, delete_previous_run=False, ops=None)
+
+   Process all the 2p datasets for a given session
+
+   :param project: name of the project, e.g. '3d_vision'
+   :type project: str
+   :param session_name: name of the session
+   :type session_name: str
+   :param conflicts: how to treat existing processed data
+   :type conflicts: str
+   :param run_split: whether or not to run splitting for different folders
+   :type run_split: bool
+   :param run_suite2p: whether or not to run extraction
+   :type run_suite2p: bool
+   :param run_dff: whether or not to run dff calculation
+   :type run_dff: bool
+   :param delete_previous_run: whether to delete previous runs. Default False
+   :type delete_previous_run: bool
+   :param ops: dictionary of suite2p settings
+   :type ops: dict
+   :param use_slurm: whether to use slurm or not. Default False
+   :type use_slurm: bool
+   :param slurm_folder: path to the slurm folder. Default None
+   :type slurm_folder: Path
+   :param scripts_name: name of the slurm script. Default None
+   :type scripts_name: str
+
+   :returns: object containing the generated dataset
+   :rtype: Dataset
+
+

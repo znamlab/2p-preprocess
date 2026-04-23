@@ -1,0 +1,41 @@
+twop_preprocess.neuropil.ast_model
+==================================
+
+.. py:module:: twop_preprocess.neuropil.ast_model
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   twop_preprocess.neuropil.ast_model.black_box_variational_inference
+   twop_preprocess.neuropil.ast_model.K
+   twop_preprocess.neuropil.ast_model.log_density_ast
+   twop_preprocess.neuropil.ast_model.ast_model
+
+
+Module Contents
+---------------
+
+.. py:function:: black_box_variational_inference(logprob, n_samples)
+
+   Implements http://arxiv.org/abs/1401.0118, and uses the
+   local reparameterization trick from http://arxiv.org/abs/1506.02557
+
+
+.. py:function:: K(nu)
+
+   helper function for asymmetric Student pdf
+
+
+.. py:function:: log_density_ast(y, alpha, nu1, nu2, mu, sigma)
+
+   log pdf of asymmetric Student distribution
+
+
+.. py:function:: ast_model(traces, n_sectors, n_samples=1, n_iters=5000, lr=0.01, verbose=False)
+
+   asymmetric Student model inferred with black-box SVI
+
+

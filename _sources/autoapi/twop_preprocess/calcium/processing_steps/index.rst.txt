@@ -1,0 +1,66 @@
+twop_preprocess.calcium.processing_steps
+========================================
+
+.. py:module:: twop_preprocess.calcium.processing_steps
+
+
+Attributes
+----------
+
+.. autoapisummary::
+
+   twop_preprocess.calcium.processing_steps.print
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   twop_preprocess.calcium.processing_steps.detrend
+   twop_preprocess.calcium.processing_steps.estimate_offsets
+
+
+Module Contents
+---------------
+
+.. py:data:: print
+
+.. py:function:: detrend(F, first_frames, last_frames, ops, fs)
+
+   Detrend the concatenated fluorescence trace for each recording.
+
+   :param F: shape nrois x time, raw fluorescence trace for all rois
+             extracted from suite2p
+   :type F: numpy.ndarray
+   :param first_frames: shape nrecordings, first frame of each recording
+   :type first_frames: numpy.ndarray
+   :param last_frames: shape nrecordings, last frame of each recording
+   :type last_frames: numpy.ndarray
+   :param ops: dictionary of suite2p settings
+   :type ops: dict
+
+   :returns:
+
+             shape nrois x time, detrended fluorescence trace for all rois
+                 extracted from suite2p
+   :rtype: F (numpy.ndarray)
+
+
+.. py:function:: estimate_offsets(suite2p_dataset, ops, project, flz_session)
+
+   Estimate the offsets for each recording in the session.
+
+   :param suite2p_dataset: dataset containing concatenated recordings
+   :type suite2p_dataset: Dataset
+   :param ops: dictionary of suite2p settings
+   :type ops: dict
+   :param project: name of the project
+   :type project: str
+   :param flz_session: flexilims session
+   :type flz_session: Flexilims
+
+   :returns: list of offsets for each recording
+   :rtype: list
+
+

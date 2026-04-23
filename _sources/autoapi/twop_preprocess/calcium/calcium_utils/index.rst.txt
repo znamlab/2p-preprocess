@@ -1,0 +1,165 @@
+twop_preprocess.calcium.calcium_utils
+=====================================
+
+.. py:module:: twop_preprocess.calcium.calcium_utils
+
+
+Attributes
+----------
+
+.. autoapisummary::
+
+   twop_preprocess.calcium.calcium_utils.print
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   twop_preprocess.calcium.calcium_utils.get_weights
+   twop_preprocess.calcium.calcium_utils.rolling_percentile
+   twop_preprocess.calcium.calcium_utils.correct_neuropil_ast
+   twop_preprocess.calcium.calcium_utils.correct_neuropil_standard
+   twop_preprocess.calcium.calcium_utils.dFF
+   twop_preprocess.calcium.calcium_utils.calculate_and_save_dFF
+   twop_preprocess.calcium.calcium_utils.estimate_offset
+   twop_preprocess.calcium.calcium_utils.correct_offset
+   twop_preprocess.calcium.calcium_utils.get_recording_frames
+
+
+Module Contents
+---------------
+
+.. py:data:: print
+
+.. py:function:: get_weights(ops)
+
+   Get the weights for the suite2p detection.
+
+   suite2p does not extract raw fluorescence traces, but rather uses a weighted sum of
+   the raw fluorescence traces to detect ROIs. This function calculates the weights
+   as in suite2p.detection.anatomical.select_rois (L161).
+   For anatomical == 3 the weights are the intensity of each pixel relative to the
+   1st and 99th percentile of the mean image + 0.1.
+
+   :param ops: suite2p ops dictionary
+   :type ops: dict
+
+   :returns: weights for the suite2p detection
+   :rtype: weights (numpy.ndarray)
+
+
+.. py:function:: rolling_percentile(arr, window, percentile)
+
+.. py:function:: correct_neuropil_ast(dpath, Fr, Fn)
+
+   Correct neuropil contamination using the ASt method.
+
+   :param dpath: path to the suite2p folder
+   :type dpath: str
+   :param Fr: shape nrois x time, raw fluorescence trace for all rois
+              extracted from suite2p
+   :type Fr: numpy.ndarray
+   :param Fn: shape nrois x time, neuropil fluorescence trace for all rois
+              extracted from suite2p
+   :type Fn: numpy.ndarray
+
+   :returns:
+
+             shape nrois x time, neuropil corrected fluorescence trace
+                 for all rois extracted from suite2p
+   :rtype: Fast (numpy.ndarray)
+
+
+.. py:function:: correct_neuropil_standard(F, Fneu, neucoeff, save_path=None)
+
+   Applies standard neuropil correction: F = F - neucoeff * (Fneu - median(Fneu)).
+
+   :param F: shape nrois x time, raw fluorescence trace for all rois
+   :type F: numpy.ndarray
+   :param Fneu: shape nrois x time, neuropil fluorescence trace for all
+                rois
+   :type Fneu: numpy.ndarray
+   :param neucoeff: neuropil correction coefficient
+   :type neucoeff: float
+   :param save_path: path to save the neuropil corrected fluorescence trace. If None, will not save. Default None.
+   :type save_path: str, optional
+
+   :returns: shape nrois x time, neuropil corrected fluorescence trace
+   :rtype: F_corrected (numpy.ndarray)
+
+
+.. py:function:: dFF(f, n_components=2)
+
+   Helper function for calculating dF/F from raw fluorescence trace.
+   :param f: shape nrois x time, raw fluorescence trace for all rois extracted from suite2p
+   :type f: numpy.ndarray
+   :param n_components: number of components for GMM. default 2.
+   :type n_components: int
+
+   :returns: shape nrois x time, dF/F for all rois extracted from suite2p
+   :rtype: dffs (numpy.ndarray)
+
+
+.. py:function:: calculate_and_save_dFF(dpath, F, filename_suffix, n_components=2)
+
+   Calculate dF/F for the whole session with concatenated recordings after neuropil correction.
+
+   :param dpath: path to the suite2p folder
+   :type dpath: str
+   :param F: shape nrois x time, neuropil
+   :type F: numpy.ndarray
+   :param filename_suffix: suffix to add to the filename
+   :type filename_suffix: str
+   :param n_components: number of components for GMM. default 2.
+   :type n_components: int
+
+   :returns: shape nrois x time, dF/F for all rois extracted from suite2p
+             f0 (numpy.ndarray): shape nrois, f0 for each roi
+   :rtype: dff (numpy.ndarray)
+
+
+.. py:function:: estimate_offset(datapath, n_components=3)
+
+   Estimate the offset for a given tiff file using a GMM with n_components.
+
+
+   :param datapath: path to the tiff file
+   :type datapath: str
+   :param n_components: number of components for GMM. default 3.
+   :type n_components: int
+
+   :returns: estimated offset
+   :rtype: offset (float)
+
+
+.. py:function:: correct_offset(datapath, offsets, first_frames, last_frames)
+
+   Load the concatenated fluorescence trace and subtract offset for each recording.
+
+   :param datapath: path to the concatenated fluorescence trace
+   :type datapath: str
+   :param offsets: shape nrecordings, offsets for each recording
+   :type offsets: numpy.ndarray
+   :param first_frames: shape nrecordings, first frame of each recording
+   :type first_frames: numpy.ndarray
+   :param last_frames: shape nrecordings, last frame of each recording
+   :type last_frames: numpy.ndarray
+
+   :returns: shape nrois x time, raw fluorescence trace for all rois extracted from suite2p
+   :rtype: F (numpy.ndarray)
+
+
+.. py:function:: get_recording_frames(suite2p_dataset)
+
+   Get the first and last frames of each recording in the session.
+
+   :param suite2p_dataset: dataset containing concatenated recordings
+   :type suite2p_dataset: Dataset
+
+   :returns: shape nrecordings x nplanes, first frame of each recording
+             last_frames (numpy.ndarray): shape nrecordings x nplanes, last frame of each recording
+   :rtype: first_frames (numpy.ndarray)
+
+

@@ -1,0 +1,43 @@
+twop_preprocess.utils
+=====================
+
+.. py:module:: twop_preprocess.utils
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   twop_preprocess.utils.parse_si_metadata
+   twop_preprocess.utils.load_ops
+
+
+Module Contents
+---------------
+
+.. py:function:: parse_si_metadata(tiff_path)
+
+   Reads metadata from a Scanimage TIFF and return a dictionary with
+   specified key values.
+
+   Currently can only extract numerical data.
+
+   :param tiff_path: path to TIFF or directory containing tiffs
+
+   :returns: dictionary of SI parameters
+   :rtype: dict
+
+
+.. py:function:: load_ops(user_ops, zstack=False)
+
+   Generate a dictionary of ops by updating suite2p defaults and
+   pipeline defaults with user specified ops.
+
+   :param user_ops: dictionary of user specified ops
+   :param zstack: boolean, if True, load zstack ops
+
+   :returns: dictionary of ops
+   :rtype: dict
+
+

@@ -1,0 +1,89 @@
+twop_preprocess.calcium.calcium_s2p
+===================================
+
+.. py:module:: twop_preprocess.calcium.calcium_s2p
+
+
+Attributes
+----------
+
+.. autoapisummary::
+
+   twop_preprocess.calcium.calcium_s2p.print
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   twop_preprocess.calcium.calcium_s2p.spike_deconvolution_suite2p
+   twop_preprocess.calcium.calcium_s2p.reextract_masks
+   twop_preprocess.calcium.calcium_s2p.run_extraction
+
+
+Module Contents
+---------------
+
+.. py:data:: print
+
+.. py:function:: spike_deconvolution_suite2p(suite2p_dataset, iplane, ops=None, ast_neuropil=True)
+
+   Run spike deconvolution on the concatenated recordings after ASt neuropil correction
+
+   :param suite2p_dataset: dataset containing concatenated recordings
+   :type suite2p_dataset: Dataset
+   :param iplane: which plane to run on
+   :type iplane: int
+   :param ops: dictionary of suite2p settings
+   :type ops: dict, optional
+   :param ast_neuropil: wether to use Fast or Fstandard neuropil
+                        corrected trace for deconvolution. Default True.
+   :type ast_neuropil: bool, optional
+
+
+.. py:function:: reextract_masks(masks, suite2p_ds)
+
+   Reextract masks from a suite2p dataset.
+
+   :param masks: Z x X x Y array of masks to be reextracted
+   :type masks: ndarray
+   :param suite2p_ds: suite2p dataset
+   :type suite2p_ds: Dataset
+
+   :returns: merged masks
+             all_original_masks (list): list of original masks IDs corresponding to each plane
+             all_F (list): list of F traces for each plane
+             all_Fneu (list): list of Fneu traces
+             all_stats (list): list of stats
+             all_ops (list): list of ops
+   :rtype: merged_masks (ndarray)
+
+
+.. py:function:: run_extraction(flz_session, project, session_name, conflicts, ops, delete_previous_run=False)
+
+   Fetch data from flexilims and run suite2p with the provided settings
+
+   Suite2p will generate a temporary folder, called suite2p where the initial binary
+   are saved. It will save the actual output in the folder of the suite2p datasets.
+   If conflict is overwrite, we re-run s2p.run but this function does not always redo
+   everything is some files already exists. To start from a blank state, use
+   delete_previous_run
+
+   :param flz_session: flexilims session
+   :type flz_session: Flexilims
+   :param project: name of the project, determines save path
+   :type project: str
+   :param session_name: name of the session, used to find data on flexilims
+   :type session_name: str
+   :param conflicts: defines behavior if recordings have already been split
+   :type conflicts: str
+   :param ops: dictionary of suite2p settings
+   :type ops: dict
+   :param delete_previous_run: whether to delete previous runs. Default False
+   :type delete_previous_run: bool
+
+   :returns: object containing the generated dataset
+   :rtype: Dataset
+
+

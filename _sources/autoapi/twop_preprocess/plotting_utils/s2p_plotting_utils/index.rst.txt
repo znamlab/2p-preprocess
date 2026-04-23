@@ -1,0 +1,110 @@
+twop_preprocess.plotting_utils.s2p_plotting_utils
+=================================================
+
+.. py:module:: twop_preprocess.plotting_utils.s2p_plotting_utils
+
+
+Attributes
+----------
+
+.. autoapisummary::
+
+   twop_preprocess.plotting_utils.s2p_plotting_utils.jet
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   twop_preprocess.plotting_utils.s2p_plotting_utils.load_s2p_output
+   twop_preprocess.plotting_utils.s2p_plotting_utils.stats_to_array
+   twop_preprocess.plotting_utils.s2p_plotting_utils.plot_detection_outcome
+   twop_preprocess.plotting_utils.s2p_plotting_utils.make_bounding_box
+   twop_preprocess.plotting_utils.s2p_plotting_utils.plot_roi_and_neuropil
+   twop_preprocess.plotting_utils.s2p_plotting_utils.plot_f_f_neu
+   twop_preprocess.plotting_utils.s2p_plotting_utils.plot_reg_metrics
+
+
+Module Contents
+---------------
+
+.. py:data:: jet
+
+.. py:function:: load_s2p_output(output_dir)
+
+   Loads suite2p output for directory of choice
+   :param output_dir: path to directory with stat.npy et al.
+   :return f: numpy array with fluorescence values for each ROI
+   :return f_neu: numpy array with fluorescence values for neuropil mask for each ROI
+   :return spks: numpy array with deconvolved fluorescence
+   :return stats: numpy array containing dict with stats output
+   :return iscell: boolean array of ROIs identified as cells
+   :return ops: dict of suite2p run settings
+
+
+.. py:function:: stats_to_array(stats: Sequence[Dict[str, Any]], Ly: int, Lx: int, label_id: bool = False)
+
+   converts stats sequence of dictionaries to an array
+   :param stats: sequence of dictionaries from stat.npy
+   :param Ly: number of pixels along dim Y from ops dictionary
+   :param Lx: number of pixels along dim X
+   :param label_id: keeps ROI indexing
+   :return: numpy stack of arrays, each containing x and y pixels for each ROI
+
+
+.. py:function:: plot_detection_outcome(stats, ops, iscell, fname=None, output_dir=None)
+
+   generates a four panel plot with maximum intensity projection, both cell and non-cell ROIs
+   detected in recording, all non-cell ROIs and all cell ROIs
+   :param stats: stats array from stat.npy
+   :param ops: dictionary of suite2p settings
+   :param iscell: boolean array of which ROIs are identified as cells
+   :param fname: name of recording for writing plots to file
+   :param output_dir: path to directory for writing plots to file
+   :return: none
+
+
+.. py:function:: make_bounding_box(stat)
+
+   utility function for creating a bounding box around cells and neuropil masks
+   :param stat: numpy array from stat.npy
+   :returns y_lim1, y_lim2, x_lim1, x_lim2: x and y pixels for adding ~ 40 px border around cell ROI or mask
+
+
+.. py:function:: plot_roi_and_neuropil(f, f_neu, spks, ops, stat, which_roi, fname, out_dir)
+
+   utility for generating a multipanel plot by user-selected ROI. plots
+   fluoresence trace, neuropil fluo trace, deconvolved spikes, cell ROI and
+   neuropil mask. f, f_neu and spks are only plotted for first 2000 frames
+   :param f: numpy array of fluorescence values
+   :param f_neu: numpy array of neuropil fluorescence values
+   :param spks: numpy array of deconvolved spikes
+   :param ops: dictionary of suite2p settings
+   :param stat: numpy array of stat.npy
+   :param which_roi: index of ROI to be plotted
+   :param fname: string containing name of recording for writing figure to file
+   :param out_dir: path to write .svg files
+   :return: none
+
+
+.. py:function:: plot_f_f_neu(f, f_neu, which_roi, fname, out_dir)
+
+   a function that plots f vs f_neu for user-selected ROI, displays as a colour map of the KDE
+   :param f: numpy array of cell fluorescence values
+   :param f_neu: numpy array of neuropil fluorescence values
+   :param which_roi: index of ROI
+   :param fname: str, name of recording for writing figure to file
+   :param out_dir: str, path to directory for writing .svg files
+   :return: none
+
+
+.. py:function:: plot_reg_metrics(ops, fname, out_dir)
+
+   plots registration metrics for s2p run, writes to .svg file
+   :param ops: dictionary of options values from ops.npy
+   :param fname: str, name of recording for writing figure to file
+   :param out_dir: str, path to directory for writing .svg files
+   :return: none
+
+

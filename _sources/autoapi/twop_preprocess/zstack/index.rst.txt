@@ -1,0 +1,93 @@
+twop_preprocess.zstack
+======================
+
+.. py:module:: twop_preprocess.zstack
+
+
+Attributes
+----------
+
+.. autoapisummary::
+
+   twop_preprocess.zstack.print
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   twop_preprocess.zstack.phase_corr
+   twop_preprocess.zstack.estimate_bidi_correction
+   twop_preprocess.zstack.apply_bidi_correction
+   twop_preprocess.zstack.register_zstack
+   twop_preprocess.zstack.run_zstack_registration
+
+
+Module Contents
+---------------
+
+.. py:data:: print
+
+.. py:function:: phase_corr(reference: numpy.ndarray, target: numpy.ndarray, max_shift=None, whiten=True, fft_ref=True) -> numpy.ndarray
+
+   Compute phase correlation of two images.
+
+   :param reference: reference image
+   :type reference: numpy.ndarray
+   :param target: target image
+   :type target: numpy.ndarray
+   :param max_shift: the range over which to search for the maximum of the
+                     cross-correlogram
+   :type max_shift: int
+   :param whiten: whether or not to whiten the FFTs of the images. If True,
+                  the method performs phase correlation, otherwise cross correlation
+   :type whiten: bool
+   :param fft_ref: whether to compute the FFT transform of the reference
+   :type fft_ref: bool
+
+   :returns: numpy.array of the location of the peak of the cross-correlogram
+             cc: numpy.ndarray of the cross-correlagram itself.
+   :rtype: shift
+
+
+.. py:function:: estimate_bidi_correction(im)
+
+.. py:function:: apply_bidi_correction(im, shift)
+
+.. py:function:: register_zstack(tiff_paths, ops)
+
+   Apply motion correction to a z-stack.
+
+   We first apply motion correction to individual frames in each slice and the
+   register adjacent slices to each other.
+
+   :param tiff_paths: list of full paths to the z-stack files
+   :type tiff_paths: list
+   :param ops: dictionary of ops
+   :type ops: dict
+
+   Rerurns:
+       numpy.ndarray: z-stack after applying motion correction (X x Y x Z)
+       nz: int, number of slices in aligned_stack
+       nchannels: int, number of channels in aligned_stack
+
+
+
+.. py:function:: run_zstack_registration(project, session_name, conflicts='append', ops={})
+
+   Apply motion correction to all zstacks for a single session, create Flexylims
+   entries for each registered zstacks
+
+   :param project: human-readable string for project name in Flexylims
+                   (hexadecimal id fails with Dataset.from_origin)
+   :type project: str
+   :param session_name: string matching Flexylims session name
+   :type session_name: str
+   :param conflicts: string for handling flexilims conflicts, if more than
+                     one zstack needs to be registered for session, use conflicts="append"
+   :type conflicts: str
+   :param ops: dictionary of ops
+   :type ops: dict
+
+
