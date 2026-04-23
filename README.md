@@ -1,4 +1,8 @@
-# Installing the pipeline
+# 2p-preprocess
+
+[![Docs](https://img.shields.io/badge/docs-GitHub%20Pages-blue?logo=readthedocs)](https://znamlab.github.io/2p-preprocess/)
+
+
 
 Clone the repo from github:
 ```

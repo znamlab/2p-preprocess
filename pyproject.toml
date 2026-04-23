@@ -46,6 +46,14 @@ dev = [
 ]
 suite2p = [
           "suite2p",]
+docs = [
+  "sphinx>=7",
+  "furo",
+  "myst-parser",
+  "sphinx-autoapi",
+  "sphinx-copybutton",
+  "setuptools_scm",
+]
 
 [build-system]
 requires = [
@@ -72,6 +80,7 @@ skip-string-normalization = false
 line-length = 88
 
 [tool.setuptools_scm]
+version_file = "twop_preprocess/_version.py"
 
 [tool.check-manifest]
 ignore = [

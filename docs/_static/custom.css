@@ -1,0 +1,11 @@
+/* Minor tweaks on top of the furo theme */
+
+/* Slightly wider content area */
+.wy-nav-content {
+    max-width: 900px;
+}
+
+/* Make inline code stand out a bit more */
+code.literal {
+    font-size: 0.9em;
+}

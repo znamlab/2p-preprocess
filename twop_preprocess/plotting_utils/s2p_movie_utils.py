@@ -6,6 +6,7 @@ from scipy.ndimage import uniform_filter1d
 
 # add skimage to environment.yml for 2p-preprocess?
 
+
 def load_s2p_reg_stack(reg_path):
     """
     loads registered tif files from run_s2p with reg_tif=True
@@ -16,6 +17,7 @@ def load_s2p_reg_stack(reg_path):
     im = io.imread(reg_path)
     return im
 
+
 def moving_average_im(im, w=100):
     """
     Calculates moving average of pixel values of single plane recording in a numpy array of nframes x xpix x ypix
@@ -24,10 +26,11 @@ def moving_average_im(im, w=100):
     :param w: int, size of window for calculating the moving average
     :return m_im: ndarray, moving average of pixel values along time axis in array of nframes x xpix x ypix
     """
-    m_im = uniform_filter1d(im, size=w, axis=0, mode='nearest')
+    m_im = uniform_filter1d(im, size=w, axis=0, mode="nearest")
     return m_im
 
-def write_moving_average_tif(im, w=100, out_dir, fname):
+
+def write_moving_average_tif(im, out_dir, fname, w=100):
     """
     Writes output of moving_average_im to a tif file
 
@@ -41,7 +44,6 @@ def write_moving_average_tif(im, w=100, out_dir, fname):
     # calculate moving average along time axis with window size w
     m_im = moving_average_im(im, w=w)
     # write m_im to file
-    fname = fname + "_w%s_time-avg.tif"%w
+    fname = fname + "_w%s_time-avg.tif" % w
     fname = out_dir + "/" + fname
     io.imsave(fname=fname, arr=m_im, check_contrast=False)
-
