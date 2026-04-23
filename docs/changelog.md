@@ -47,5 +47,7 @@ proper packaging, documentation, and CI infrastructure.
 
 - `twop_preprocess/__init__.py` — now exposes `__version__`.
 - `.gitignore` — added `twop_preprocess/_version.py` (auto-generated, not for VCS).
+- **Docstring Standardization**: Completed comprehensive Google-style docstring coverage across all core modules (`calcium.py`, `calcium_s2p.py`, `calcium_utils.py`, `neuropil.py`, `ast_model.py`, `processing_steps.py`, `utils.py`, and `plotting_utils`). This ensures high-quality auto-generated API documentation.
+- `README.md` — added dedicated Documentation section with a link to the hosted GitHub Pages site.
 
 [0.1.0]: https://github.com/znamlab/2p-preprocess/releases/tag/v0.1.0

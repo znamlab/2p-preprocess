@@ -13,16 +13,20 @@ print = partial(print, flush=True)
 
 def spike_deconvolution_suite2p(suite2p_dataset, iplane, ops=None, ast_neuropil=True):
     """
-    Run spike deconvolution on the concatenated recordings after ASt neuropil correction
+    Run spike deconvolution on the concatenated recordings after ASt neuropil correction.
+
+    This function uses Suite2p's OASIS implementation to extract spikes from
+    neuropil-corrected fluorescence traces. It can use either ASt-corrected
+    traces (Fast.npy) or standard-corrected traces (Fstandard.npy).
 
     Args:
-        suite2p_dataset (Dataset): dataset containing concatenated recordings
-        iplane (int): which plane to run on
-        ops (dict, optional): dictionary of suite2p settings
-        ast_neuropil (bool, optional): wether to use Fast or Fstandard neuropil
-            corrected trace for deconvolution. Default True.
-
-
+        suite2p_dataset (Dataset): Flexilims Dataset object containing concatenated recordings.
+        iplane (int): The plane index to process.
+        ops (dict, optional): Dictionary of Suite2p settings. If None, uses the
+            settings stored in the dataset's ops.npy.
+        ast_neuropil (bool, optional): Whether to use the ASt-corrected trace
+            (`Fast.npy`) or the standard trace (`Fstandard.npy`) for deconvolution.
+            Default True.
     """
     try:
         from suite2p.extraction import dcnv
@@ -63,20 +67,23 @@ def spike_deconvolution_suite2p(suite2p_dataset, iplane, ops=None, ast_neuropil=
 
 def reextract_masks(masks, suite2p_ds):
     """
-    Reextract masks from a suite2p dataset.
+    Re-extract fluorescence traces from registered binaries using a new set of masks.
+
+    This function takes an existing Suite2p dataset and a new set of ROI masks,
+    calculates ROI statistics (weights, overlap, etc.), and runs the Suite2p
+    extraction pipeline to generate new fluorescence (F) and neuropil (Fneu) traces.
 
     Args:
-        masks (ndarray): Z x X x Y array of masks to be reextracted
-        suite2p_ds (Dataset): suite2p dataset
+        masks (np.ndarray): 3D array of masks (Z x Ly x Lx) where each non-zero value
+            represents a unique ROI ID.
+        suite2p_ds (Dataset): Flexilims Dataset object for the existing Suite2p results.
 
     Returns:
-        merged_masks (ndarray): merged masks
-        all_original_masks (list): list of original masks IDs corresponding to each plane
-        all_F (list): list of F traces for each plane
-        all_Fneu (list): list of Fneu traces
-        all_stats (list): list of stats
-        all_ops (list): list of ops
-
+        tuple: (merged_masks, all_original_masks, all_stats, all_ops)
+            - merged_masks (np.ndarray): 2D array of all plane masks tiled into one image.
+            - all_original_masks (list): List of unique ROI IDs found in each plane.
+            - all_stats (list): List of Suite2p stats dictionaries for the new ROIs.
+            - all_ops (list): List of updated Suite2p ops for each plane.
     """
     try:
         import suite2p
@@ -178,26 +185,25 @@ def run_extraction(
     flz_session, project, session_name, conflicts, ops, delete_previous_run=False
 ):
     """
-    Fetch data from flexilims and run suite2p with the provided settings
+    Fetch data from Flexilims and run Suite2p ROI extraction.
 
-    Suite2p will generate a temporary folder, called suite2p where the initial binary
-    are saved. It will save the actual output in the folder of the suite2p datasets.
-    If conflict is overwrite, we re-run s2p.run but this function does not always redo
-    everything is some files already exists. To start from a blank state, use
-    delete_previous_run
+    This function identifies ScanImage datasets on Flexilims for the given session,
+    configures the Suite2p `ops` dictionary (including frame rate and cell diameter
+    calculations based on ScanImage metadata), and runs the Suite2p pipeline.
+    Results are saved to the project's processed data path and registered on Flexilims.
 
     Args:
-        flz_session (Flexilims): flexilims session
-        project (str): name of the project, determines save path
-        session_name (str): name of the session, used to find data on flexilims
-        conflicts (str): defines behavior if recordings have already been split
-        ops (dict): dictionary of suite2p settings
-        delete_previous_run (bool): whether to delete previous runs. Default False
-
+        flz_session (Flexilims): Active Flexilims session object.
+        project (str): Flexilims project name.
+        session_name (str): Name of the experimental session.
+        conflicts (str): Behavior if a Suite2p dataset already exists
+            ('skip', 'overwrite', 'abort').
+        ops (dict): Dictionary of Suite2p settings.
+        delete_previous_run (bool, optional): If True, deletes existing Suite2p binary files
+            and output before starting. Default False.
 
     Returns:
-        Dataset: object containing the generated dataset
-
+        Dataset: The newly created (or existing) Flexilims Suite2p ROIs Dataset.
     """
     import suite2p
 

@@ -8,8 +8,20 @@ import optax
 
 # taken from example files of autograd package
 def black_box_variational_inference(logprob, n_samples):
-    """Implements http://arxiv.org/abs/1401.0118, and uses the
-    local reparameterization trick from http://arxiv.org/abs/1506.02557"""
+    """
+    Implements Black-Box Variational Inference (BBVI).
+
+    Based on http://arxiv.org/abs/1401.0118, using the local reparameterization
+    trick from http://arxiv.org/abs/1506.02557. This function creates a variational
+    objective (ELBO) that can be minimized to find the best variational parameters.
+
+    Args:
+        logprob (callable): Function that computes the log probability of the model.
+        n_samples (int): Number of Monte Carlo samples to use for the ELBO estimate.
+
+    Returns:
+        callable: The variational objective function.
+    """
 
     def variational_objective(params, t, traces):
         """Provides a stochastic estimate of the variational lower bound."""
@@ -27,7 +39,17 @@ def black_box_variational_inference(logprob, n_samples):
 
 
 def K(nu):
-    """helper function for asymmetric Student pdf"""
+    """
+    Helper function for the Asymmetric Student distribution PDF.
+
+    Computes the normalization constant for the Student's t-distribution.
+
+    Args:
+        nu (float): Degrees of freedom.
+
+    Returns:
+        float: The constant K(nu).
+    """
     # this part does not get differentiated so using the scipy method
     # the scipy functions will be executed at compile time and their output
     # will be passed to the GPU
@@ -37,7 +59,22 @@ def K(nu):
 # from Zhu and Galbraith - 2009 - A Generalized Asymmetric Student-t
 # Distribution with Application to Financial Econometrics
 def log_density_ast(y, alpha, nu1, nu2, mu, sigma):
-    """log pdf of asymmetric Student distribution"""
+    """
+    Computes the log probability density of the Asymmetric Student distribution.
+
+    Based on Zhu and Galbraith (2009).
+
+    Args:
+        y (jnp.ndarray): Data points.
+        alpha (float): Skewness parameter.
+        nu1 (float): Degrees of freedom for the left branch.
+        nu2 (float): Degrees of freedom for the right branch.
+        mu (jnp.ndarray): Location parameter (mean).
+        sigma (jnp.ndarray): Scale parameter.
+
+    Returns:
+        jnp.ndarray: Log density at points y.
+    """
     z = (y - mu) / (2 * sigma)
     left_branch = -jnp.log(sigma) - 0.5 * (nu1 + 1) * jnp.log1p(
         (z / (alpha * K(nu1))) ** 2 / nu1
@@ -49,7 +86,26 @@ def log_density_ast(y, alpha, nu1, nu2, mu, sigma):
 
 
 def ast_model(traces, n_sectors, n_samples=1, n_iters=5000, lr=0.01, verbose=False):
-    """asymmetric Student model inferred with black-box SVI"""
+    """
+    Infers the ASt model using Black-Box Stochastic Variational Inference (SVI).
+
+    This function separates neural activity from neuropil contamination by
+    modeling the signal as an Asymmetric Student distribution.
+
+    Args:
+        traces (jnp.ndarray): Input signal (e.g., [F, Fneu]) normalized by scale.
+        n_sectors (jnp.ndarray): Number of pixels in each mask (ROI and neuropil).
+        n_samples (int, optional): Number of samples for BBVI. Default 1.
+        n_iters (int, optional): Number of optimization iterations. Default 5000.
+        lr (float, optional): Learning rate for the Adam optimizer. Default 0.01.
+        verbose (bool, optional): Whether to print progress. Default False.
+
+    Returns:
+        tuple: (cleaned_trace, params, elbo)
+            - cleaned_trace (jnp.ndarray): The neuropil-corrected trace.
+            - params (jnp.ndarray): The optimized variational parameters.
+            - elbo (list): History of the Evidence Lower Bound objective values.
+    """
     nsig, nt = traces.shape
     scale = traces.std()
     traces = traces / scale

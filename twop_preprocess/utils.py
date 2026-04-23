@@ -6,17 +6,16 @@ import yaml
 
 def parse_si_metadata(tiff_path):
     """
-    Reads metadata from a Scanimage TIFF and return a dictionary with
-    specified key values.
+    Read metadata from a ScanImage TIFF file.
 
-    Currently can only extract numerical data.
+    Extracts the 'FrameData' metadata dictionary from the TIFF header.
 
     Args:
-        tiff_path: path to TIFF or directory containing tiffs
+        tiff_path (str or Path): Path to a ScanImage TIFF file or a directory
+            containing TIFF files.
 
     Returns:
-        dict: dictionary of SI parameters
-
+        dict: Dictionary of ScanImage parameters, or None if no TIFFs found.
     """
     assert os.path.exists(tiff_path), f"Error: {tiff_path} does not exist"
 
@@ -34,16 +33,18 @@ def parse_si_metadata(tiff_path):
 
 def load_ops(user_ops, zstack=False):
     """
-    Generate a dictionary of ops by updating suite2p defaults and
-    pipeline defaults with user specified ops.
+    Generate the final options (ops) dictionary for the pipeline.
+
+    Combines Suite2p defaults, pipeline-specific defaults (from default_ops.yml),
+    user configuration (~/.2p_preprocess/config.yml), and runtime overrides.
 
     Args:
-        user_ops: dictionary of user specified ops
-        zstack: boolean, if True, load zstack ops
+        user_ops (dict): Dictionary of user-specified overrides provided at runtime.
+        zstack (bool, optional): If True, loads settings for z-stack registration.
+            Default False.
 
     Returns:
-        dict: dictionary of ops
-
+        dict: The final consolidated options dictionary.
     """
     from suite2p import default_ops
 

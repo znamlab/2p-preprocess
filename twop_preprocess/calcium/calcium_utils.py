@@ -97,10 +97,17 @@ def get_weights(ops):
 
 @njit(parallel=True)
 def rolling_percentile(arr, window, percentile):
-    output = np.empty(len(arr) - window + 1)
-    for i in prange(len(output)):
-        output[i] = np.percentile(arr[i : i + window], percentile)
-    return output
+    """
+    Compute a rolling percentile over a 1D array.
+
+    Args:
+        arr (numpy.ndarray): 1D input array.
+        window (int): Window size in samples.
+        percentile (float): Percentile to compute (0-100).
+
+    Returns:
+        numpy.ndarray: The rolling percentile values (length = len(arr) - window + 1).
+    """
 
 
 @njit(parallel=True, cache=True)  # cache=True for potential speedup on subsequent runs
@@ -193,19 +200,15 @@ def _calculate_rolling_baseline_parallel(F_segment, win_frames, percentile):
 
 def correct_neuropil_ast(dpath, Fr, Fn):
     """
-    Correct neuropil contamination using the ASt method.
+    Correct neuropil contamination using the Asymmetric Student's t-model (ASt).
 
     Args:
-        dpath (str): path to the suite2p folder
-        Fr (numpy.ndarray): shape nrois x time, raw fluorescence trace for all rois
-            extracted from suite2p
-        Fn (numpy.ndarray): shape nrois x time, neuropil fluorescence trace for all rois
-            extracted from suite2p
+        dpath (Path): Path to the Suite2p plane folder.
+        Fr (numpy.ndarray): Raw fluorescence traces (n_rois x n_frames).
+        Fn (numpy.ndarray): Neuropil fluorescence traces (n_rois x n_frames).
 
     Returns:
-        Fast (numpy.ndarray): shape nrois x time, neuropil corrected fluorescence trace
-            for all rois extracted from suite2p
-
+        np.ndarray: The ASt-corrected fluorescence traces (Fast).
     """
 
     from twop_preprocess.neuropil.ast_model import ast_model
@@ -233,17 +236,19 @@ def correct_neuropil_ast(dpath, Fr, Fn):
 
 def correct_neuropil_standard(F, Fneu, neucoeff, save_path=None):
     """
-    Applies standard neuropil correction: F = F - neucoeff * (Fneu - median(Fneu)).
+    Apply standard neuropil correction to fluorescence traces.
+
+    Formula: F_corrected = F - neucoeff * (Fneu - median(Fneu)).
 
     Args:
-        F (numpy.ndarray): shape nrois x time, raw fluorescence trace for all rois
-        Fneu (numpy.ndarray): shape nrois x time, neuropil fluorescence trace for all
-            rois
-        neucoeff (float): neuropil correction coefficient
-        save_path (str, optional): path to save the neuropil corrected fluorescence trace. If None, will not save. Default None.
+        F (numpy.ndarray): Raw fluorescence traces (n_rois x n_frames).
+        Fneu (numpy.ndarray): Neuropil fluorescence traces (n_rois x n_frames).
+        neucoeff (float): Neuropil correction coefficient (usually 0.7).
+        save_path (Path or str, optional): Path to save the corrected trace as a
+            .npy file. If None, does not save. Default None.
 
     Returns:
-        F_corrected (numpy.ndarray): shape nrois x time, neuropil corrected fluorescence trace
+        np.ndarray: The neuropil-corrected fluorescence traces.
     """
 
     Fneu_demeaned = Fneu - np.median(Fneu, axis=1, keepdims=True)
@@ -255,14 +260,19 @@ def correct_neuropil_standard(F, Fneu, neucoeff, save_path=None):
 
 def dFF(f, n_components=2):
     """
-    Helper function for calculating dF/F from raw fluorescence trace.
+    Calculate ΔF/F using a Gaussian Mixture Model (GMM) to estimate baseline (F0).
+
+    The baseline F0 is estimated as the mean of the lower component of a GMM
+    fitted to the fluorescence distribution.
+
     Args:
-        f (numpy.ndarray): shape nrois x time, raw fluorescence trace for all rois extracted from suite2p
-        n_components (int): number of components for GMM. default 2.
+        f (numpy.ndarray): Fluorescence traces (n_rois x n_frames).
+        n_components (int, optional): Number of GMM components. Default 2.
 
     Returns:
-        dffs (numpy.ndarray): shape nrois x time, dF/F for all rois extracted from suite2p
-
+        tuple: (dff, f0)
+            - dff (np.ndarray): The calculated ΔF/F traces.
+            - f0 (np.ndarray): The estimated baseline values (n_rois x 1).
     """
     f0 = np.zeros(f.shape[0])
 
@@ -282,17 +292,19 @@ def dFF(f, n_components=2):
 
 def calculate_and_save_dFF(dpath, F, filename_suffix, n_components=2):
     """
-    Calculate dF/F for the whole session with concatenated recordings after neuropil correction.
+    Calculate ΔF/F and save results to the Suite2p folder.
 
     Args:
-        dpath (str): path to the suite2p folder
-        F (numpy.ndarray): shape nrois x time, neuropil
-        filename_suffix (str): suffix to add to the filename
-        n_components (int): number of components for GMM. default 2.
+        dpath (Path): Path to the Suite2p plane folder.
+        F (numpy.ndarray): Neuropil-corrected fluorescence traces.
+        filename_suffix (str): Suffix for the output filenames (e.g., '_ast').
+        n_components (int, optional): Number of GMM components for baseline estimation.
+            Default 2.
 
     Returns:
-        dff (numpy.ndarray): shape nrois x time, dF/F for all rois extracted from suite2p
-        f0 (numpy.ndarray): shape nrois, f0 for each roi
+        tuple: (dff, f0)
+            - dff (np.ndarray): The calculated ΔF/F traces.
+            - f0 (np.ndarray): The estimated baseline values.
     """
     print("Calculating dF/F...")
     # Calculate dFFs and save to the suite2p folder
@@ -305,16 +317,14 @@ def calculate_and_save_dFF(dpath, F, filename_suffix, n_components=2):
 
 def estimate_offset(datapath, n_components=3):
     """
-    Estimate the offset for a given tiff file using a GMM with n_components.
-
+    Estimate the optical offset for a session by fitting a GMM to a raw TIFF frame.
 
     Args:
-        datapath (str): path to the tiff file
-        n_components (int): number of components for GMM. default 3.
+        datapath (str or Path): Path to the folder containing raw ScanImage TIFFs.
+        n_components (int, optional): Number of GMM components. Default 3.
 
     Returns:
-        offset (float): estimated offset
-
+        float: The estimated offset (mean of the lowest GMM component).
     """
     # find the first tiff at the path
     tiffs = list(Path(datapath).glob("*.tif"))
@@ -335,17 +345,16 @@ def estimate_offset(datapath, n_components=3):
 
 def correct_offset(datapath, offsets, first_frames, last_frames):
     """
-    Load the concatenated fluorescence trace and subtract offset for each recording.
+    Subtract estimated offsets from concatenated fluorescence traces.
 
     Args:
-        datapath (str): path to the concatenated fluorescence trace
-        offsets (numpy.ndarray): shape nrecordings, offsets for each recording
-        first_frames (numpy.ndarray): shape nrecordings, first frame of each recording
-        last_frames (numpy.ndarray): shape nrecordings, last frame of each recording
+        datapath (str or Path): Path to the .npy file containing concatenated traces.
+        offsets (numpy.ndarray): Array of offsets, one per recording.
+        first_frames (numpy.ndarray): Start frame indices for each recording.
+        last_frames (numpy.ndarray): End frame indices for each recording.
 
     Returns:
-        F (numpy.ndarray): shape nrois x time, raw fluorescence trace for all rois extracted from suite2p
-
+        np.ndarray: The offset-corrected fluorescence traces.
     """
     # load the concatenated fluorescence trace
     F = np.load(datapath)
@@ -357,16 +366,15 @@ def correct_offset(datapath, offsets, first_frames, last_frames):
 
 def get_recording_frames(suite2p_dataset):
     """
-    Get the first and last frames of each recording in the session.
+    Get the frame boundaries for each recording in a concatenated Suite2p session.
 
     Args:
-        suite2p_dataset (Dataset): dataset containing concatenated recordings
-
+        suite2p_dataset (Dataset): Flexilims Dataset object for the Suite2p ROIs.
 
     Returns:
-        first_frames (numpy.ndarray): shape nrecordings x nplanes, first frame of each recording
-        last_frames (numpy.ndarray): shape nrecordings x nplanes, last frame of each recording
-
+        tuple: (first_frames, last_frames)
+            - first_frames (np.ndarray): Indices of the first frame for each recording.
+            - last_frames (np.ndarray): Indices of the last frame for each recording.
     """
     # load the ops file to find length of individual recordings
     try:

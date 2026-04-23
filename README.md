@@ -2,7 +2,13 @@
 
 [![Docs](https://img.shields.io/badge/docs-GitHub%20Pages-blue?logo=readthedocs)](https://znamlab.github.io/2p-preprocess/)
 
+## Documentation
 
+The full documentation for this package, including installation guides, usage examples, and detailed pipeline descriptions, is available online:
+
+👉 **[https://znamlab.github.io/2p-preprocess/](https://znamlab.github.io/2p-preprocess/)**
+
+## Installation
 
 Clone the repo from github:
 ```

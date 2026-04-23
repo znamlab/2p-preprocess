@@ -27,10 +27,17 @@ def process_concatenated_traces(suite2p_dataset, ops, project, flz_session):
     """
     Correct offsets, detrend, calculate dF/F and deconvolve spikes for the whole session.
 
-    Args:
-        suite2p_dataset (Dataset): dataset containing concatenated recordings
-        ops (dict): dictionary of suite2p settings
+    This function iterates through all planes of a Suite2p dataset, applying a series
+    of preprocessing steps (offset correction, detrending, neuropil correction,
+    dF/F calculation, and spike deconvolution). It also generates sanity plots if
+    configured in the ops.
 
+    Args:
+        suite2p_dataset (Dataset): Flexilims Dataset object containing concatenated recordings.
+        ops (dict): Dictionary of preprocessing settings (e.g., 'correct_offset', 'detrend',
+            'ast_neuropil', 'sanity_plots').
+        project (str): Flexilims project name.
+        flz_session (Flexilims): Active Flexilims session object.
     """
     print("Starting processing of concatenated traces...")
     first_frames, last_frames = get_recording_frames(suite2p_dataset)
@@ -362,25 +369,30 @@ def extract_session(
     ops=None,
 ):
     """
-    Process all the 2p datasets for a given session
+    Main entry point to process all 2p datasets for a given session.
+
+    This function coordinates the full pipeline: running Suite2p extraction
+    (or loading existing results), calculating dF/F with optional neuropil
+    correction, and optionally splitting the concatenated traces back into
+    individual recording datasets on Flexilims.
 
     Args:
-        project (str): name of the project, e.g. '3d_vision'
-        session_name (str): name of the session
-        conflicts (str): how to treat existing processed data
-        run_split (bool): whether or not to run splitting for different folders
-        run_suite2p (bool): whether or not to run extraction
-        run_dff (bool): whether or not to run dff calculation
-        delete_previous_run (bool): whether to delete previous runs. Default False
-        ops (dict): dictionary of suite2p settings
-        use_slurm (bool): whether to use slurm or not. Default False
-        slurm_folder (Path): path to the slurm folder. Default None
-        scripts_name (str): name of the slurm script. Default None
+        project (str): Name of the Flexilims project (e.g., '3d_vision').
+        session_name (str): Name of the experimental session.
+        conflicts (str, optional): How to handle existing data on Flexilims
+            ('skip', 'overwrite', 'abort').
+        run_split (bool, optional): Whether to split concatenated traces into
+            individual recording datasets. Default False.
+        run_suite2p (bool, optional): Whether to run Suite2p ROI extraction. Default True.
+        run_dff (bool, optional): Whether to run dF/F calculation and neuropil correction.
+            Default True.
+        delete_previous_run (bool, optional): If True, deletes existing Suite2p binary files
+            and output before starting. Default False.
+        ops (dict, optional): Dictionary of Suite2p and preprocessing settings.
+            If None, default ops are loaded.
 
     Returns:
-        Dataset: object containing the generated dataset
-
-
+        Dataset: The Flexilims Dataset object for the Suite2p ROIs.
     """
     if ops is None:
         ops = {}

@@ -10,19 +10,25 @@ print = partial(print, flush=True)
 
 def detrend(F, first_frames, last_frames, ops, fs):
     """
-    Detrend the concatenated fluorescence trace for each recording.
+    Detrend fluorescence traces for each recording in a session.
+
+    This function applies a rolling percentile filter to estimate the baseline
+    of each ROI's fluorescence trace for each individual recording. The baseline
+    is then either subtracted or divided out, relative to the first recording's baseline
+    to maintain cross-recording consistency.
 
     Args:
-        F (numpy.ndarray): shape nrois x time, raw fluorescence trace for all rois
-            extracted from suite2p
-        first_frames (numpy.ndarray): shape nrecordings, first frame of each recording
-        last_frames (numpy.ndarray): shape nrecordings, last frame of each recording
-        ops (dict): dictionary of suite2p settings
+        F (numpy.ndarray): Concatenated fluorescence traces (n_rois x n_frames).
+        first_frames (numpy.ndarray): Start frame indices for each recording.
+        last_frames (numpy.ndarray): End frame indices for each recording.
+        ops (dict): Dictionary of settings, must include 'detrend_win' (window size in s),
+            'detrend_pctl' (percentile), and 'detrend_method' ('subtract' or 'divide').
+        fs (float): Sampling frequency in Hz.
 
     Returns:
-        F (numpy.ndarray): shape nrois x time, detrended fluorescence trace for all rois
-            extracted from suite2p
-
+        tuple: (F_detrended, all_rec_baseline)
+            - F_detrended (np.ndarray): The detrended fluorescence traces.
+            - all_rec_baseline (np.ndarray): The estimated baseline values.
     """
     win_frames = int(ops["detrend_win"] * fs)
 
@@ -60,16 +66,20 @@ def detrend(F, first_frames, last_frames, ops, fs):
 
 def estimate_offsets(suite2p_dataset, ops, project, flz_session):
     """
-    Estimate the offsets for each recording in the session.
+    Estimate optical offsets for all recordings associated with a Suite2p session.
+
+    This function iterates through the raw data paths stored in the Suite2p dataset,
+    identifies the original ScanImage TIFFs, and estimates the optical offset
+    for each recording using a GMM.
 
     Args:
-        suite2p_dataset (Dataset): dataset containing concatenated recordings
-        ops (dict): dictionary of suite2p settings
-        project (str): name of the project
-        flz_session (Flexilims): flexilims session
+        suite2p_dataset (Dataset): Flexilims Dataset object for the Suite2p ROIs.
+        ops (dict): Dictionary of preprocessing settings.
+        project (str): Flexilims project name.
+        flz_session (Flexilims): Active Flexilims session object.
 
     Returns:
-        list: list of offsets for each recording
+        list: A list of estimated offsets, one per recording.
     """
     print("Estimating offsets...")
 

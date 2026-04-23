@@ -3,6 +3,15 @@ from scipy.ndimage import uniform_filter1d
 
 
 def simple_open_binaries(ops):
+    """
+    Open the primary binary file (raw or registered) for a Suite2p session.
+
+    Args:
+        ops (dict): Suite2p settings dictionary.
+
+    Returns:
+        list: A list containing the opened file handle.
+    """
     reg_file = []
     if ops["keep_movie_raw"]:
         reg_file.append(open(ops["raw_file"], "rb"))
@@ -13,10 +22,13 @@ def simple_open_binaries(ops):
 
 def load_s2p_reg_stack(reg_path):
     """
-    loads registered tif files from run_s2p with reg_tif=True
+    Load registered TIFF files from a Suite2p run.
 
-    :param reg_path: str, path to registered tif files (including reg_tif directory)
-    :return im: ndarray, array of registered movie of nframes x xpix x ypix
+    Args:
+        reg_path (str or Path): Path to the registered TIFF files.
+
+    Returns:
+        np.ndarray: The registered movie (n_frames x Ly x Lx).
     """
     im = io.imread(reg_path)
     return im
@@ -24,11 +36,14 @@ def load_s2p_reg_stack(reg_path):
 
 def moving_average_im(im, w=100):
     """
-    Calculates moving average of pixel values of single plane recording in a numpy array of nframes x xpix x ypix
+    Calculate a moving average of pixel values along the time axis.
 
-    :param im: ndarray, array with single plane recording of nframes x xpix x ypix
-    :param w: int, size of window for calculating the moving average
-    :return m_im: ndarray, moving average of pixel values along time axis in array of nframes x xpix x ypix
+    Args:
+        im (np.ndarray): Movie array (n_frames x Ly x Lx).
+        w (int, optional): Size of the window for the moving average. Default 100.
+
+    Returns:
+        np.ndarray: The smoothed movie array.
     """
     m_im = uniform_filter1d(im, size=w, axis=0, mode="nearest")
     return m_im
@@ -36,13 +51,13 @@ def moving_average_im(im, w=100):
 
 def write_moving_average_tif(im, out_dir, fname, w=100):
     """
-    Writes output of moving_average_im to a tif file
+    Calculate a moving average and save it as a TIFF file.
 
-    :param im: ndarray, array with single plane recording of nframes x xpix x ypix
-    :param w: int, size of window for calculating the moving average
-    :param out_dir: str, path to output directory for writing tif file
-    :param fname: str, basename for recording and run, if applicable
-    :return: none
+    Args:
+        im (np.ndarray): Movie array (n_frames x Ly x Lx).
+        out_dir (str or Path): Directory to save the output file.
+        fname (str): Base name for the recording.
+        w (int, optional): Size of the window for the moving average. Default 100.
     """
 
     # calculate moving average along time axis with window size w
