@@ -71,13 +71,11 @@ def reextract_masks(masks, suite2p_ds):
 
     Returns:
         merged_masks (ndarray): merged masks
-        all_original_masks (list): list of original masks IDs corresponding to each
-            plane
+        all_original_masks (list): list of original masks IDs corresponding to each plane
         all_F (list): list of F traces for each plane
         all_Fneu (list): list of Fneu traces
         all_stats (list): list of stats
         all_ops (list): list of ops
-
 
     """
     try:

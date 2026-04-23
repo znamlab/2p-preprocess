@@ -240,12 +240,10 @@ def correct_neuropil_standard(F, Fneu, neucoeff, save_path=None):
         Fneu (numpy.ndarray): shape nrois x time, neuropil fluorescence trace for all
             rois
         neucoeff (float): neuropil correction coefficient
-        save_path (str, optional): path to save the neuropil corrected fluorescence
-            trace. If None, will not save. Default None.
+        save_path (str, optional): path to save the neuropil corrected fluorescence trace. If None, will not save. Default None.
 
     Returns:
-        F_corrected (numpy.ndarray): shape nrois x time, neuropil corrected fluorescence
-            trace
+        F_corrected (numpy.ndarray): shape nrois x time, neuropil corrected fluorescence trace
     """
 
     Fneu_demeaned = Fneu - np.median(Fneu, axis=1, keepdims=True)
@@ -259,13 +257,11 @@ def dFF(f, n_components=2):
     """
     Helper function for calculating dF/F from raw fluorescence trace.
     Args:
-        f (numpy.ndarray): shape nrois x time, raw fluorescence trace for all rois
-            extracted from suite2p
+        f (numpy.ndarray): shape nrois x time, raw fluorescence trace for all rois extracted from suite2p
         n_components (int): number of components for GMM. default 2.
 
     Returns:
-        dffs (numpy.ndarray): shape nrois x time, dF/F for all rois extracted from
-            suite2p
+        dffs (numpy.ndarray): shape nrois x time, dF/F for all rois extracted from suite2p
 
     """
     f0 = np.zeros(f.shape[0])
@@ -286,8 +282,7 @@ def dFF(f, n_components=2):
 
 def calculate_and_save_dFF(dpath, F, filename_suffix, n_components=2):
     """
-    Calculate dF/F for the whole session with concatenated recordings after neuropil
-        correction.
+    Calculate dF/F for the whole session with concatenated recordings after neuropil correction.
 
     Args:
         dpath (str): path to the suite2p folder
@@ -296,8 +291,7 @@ def calculate_and_save_dFF(dpath, F, filename_suffix, n_components=2):
         n_components (int): number of components for GMM. default 2.
 
     Returns:
-        dff (numpy.ndarray): shape nrois x time, dF/F for all rois extracted from
-            suite2p
+        dff (numpy.ndarray): shape nrois x time, dF/F for all rois extracted from suite2p
         f0 (numpy.ndarray): shape nrois, f0 for each roi
     """
     print("Calculating dF/F...")
