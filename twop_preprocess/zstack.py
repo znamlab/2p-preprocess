@@ -115,7 +115,7 @@ def register_zstack(tiff_paths, ops):
 
     # if the zstack is split into multiple acquisitions to be concatenated, then get the total number of z planes
     if ops["zstack_concat"]:
-    # check if dataset is in a single acquisition
+        # check if dataset is in a single acquisition
         for dataset in ops["datasets"]:
             dataset_suffix = dataset.split("_")[2:]
             si_acquisition = "_".join(dataset_suffix)
@@ -124,8 +124,8 @@ def register_zstack(tiff_paths, ops):
                     pass
                 else:
                     tiff_paths_subset = [
-                        tiff_path 
-                        for tiff_path in tiff_paths 
+                        tiff_path
+                        for tiff_path in tiff_paths
                         if si_acquisition in str(tiff_path)
                     ]
                     tmp = parse_si_metadata(tiff_paths_subset[-1])
@@ -310,18 +310,26 @@ def run_zstack_registration(project, session_name, conflicts="append", ops={}):
         # sorting tifs so that they are in order of acquisition
         zstack.tif_files.sort()
         zstack_tifs = [zstack.path_full / tif for tif in zstack.tif_files]
-        
+
         if ops["zstack_concat"]:
             all_zstack_tifs.extend(zstack_tifs)
             if i < zstacks.shape[0] - 1:
                 continue
-            registered_stack, nz, nchannels, frame_shifts, plane_shifts = (
-                register_zstack(all_zstack_tifs, ops)
-            )
+            (
+                registered_stack,
+                nz,
+                nchannels,
+                frame_shifts,
+                plane_shifts,
+            ) = register_zstack(all_zstack_tifs, ops)
         else:
-            registered_stack, nz, nchannels, frame_shifts, plane_shifts = (
-                register_zstack(zstack_tifs, ops)
-            )
+            (
+                registered_stack,
+                nz,
+                nchannels,
+                frame_shifts,
+                plane_shifts,
+            ) = register_zstack(zstack_tifs, ops)
 
         registered_dataset = Dataset.from_origin(
             project=project,

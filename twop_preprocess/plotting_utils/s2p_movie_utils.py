@@ -1,10 +1,14 @@
 from skimage import io
 from scipy.ndimage import uniform_filter1d
 
-# add function for loading image from collection of tif files from s2p output
-# with file[0-9]_chan[0-9] naming pattern
 
-# add skimage to environment.yml for 2p-preprocess?
+def simple_open_binaries(ops):
+    reg_file = []
+    if ops["keep_movie_raw"]:
+        reg_file.append(open(ops["raw_file"], "rb"))
+    else:
+        reg_file.append(open(ops["reg_file"], "rb"))
+    return reg_file
 
 
 def load_s2p_reg_stack(reg_path):
