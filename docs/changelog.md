@@ -4,6 +4,8 @@ All notable changes to `2p-preprocess` will be documented here.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [Unreleased]
+
 ---
 
 ## [0.1.0] — 2026-04-23
@@ -50,4 +52,5 @@ proper packaging, documentation, and CI infrastructure.
 - **Docstring Standardization**: Completed comprehensive Google-style docstring coverage across all core modules (`calcium.py`, `calcium_s2p.py`, `calcium_utils.py`, `neuropil.py`, `ast_model.py`, `processing_steps.py`, `utils.py`, and `plotting_utils`). This ensures high-quality auto-generated API documentation.
 - `README.md` — added dedicated Documentation section with a link to the hosted GitHub Pages site.
 
-[0.1.0]: https://github.com/znamlab/2p-preprocess/releases/tag/v0.1.0
+[Unreleased]: https://github.com/znamlab/2p-preprocess/compare/v0.1.0...dev
+ [0.1.0]: https://github.com/znamlab/2p-preprocess/releases/tag/v0.1.0
