@@ -17,6 +17,7 @@ dependencies = [
         "numpy",
         "scikit-learn",
         "numba",
+        "suite2p <= 0.14",
         "tifffile",
           "jax",
         "optax",
@@ -45,7 +46,7 @@ dev = [
   "setuptools_scm",
 ]
 suite2p = [
-          "suite2p",]
+          "suite2p <= 0.14",]
 docs = [
   "sphinx>=7",
   "furo",
