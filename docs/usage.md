@@ -126,6 +126,29 @@ Options:
 
 ---
 
+### `2p sanity` — re-generate diagnostic plots
+
+Re-generate all sanity plots for a previously processed session without re-running the entire pipeline.
+
+```
+Usage: 2p sanity [OPTIONS]
+
+  Re-generate sanity plots for a session.
+
+Options:
+  -p, --project TEXT  Name of the project  [required]
+  -s, --session TEXT  Flexilims name of the session  [required]
+  --help              Show this message and exit.
+```
+
+**Example:**
+
+```bash
+2p sanity --project depth_mismatch_seq --session BRAC9057.4j_S20240517
+```
+
+---
+
 ## Running via SLURM (recommended for HPC)
 
 The repository ships with example SLURM batch scripts. Navigate to the repo root and submit with `sbatch`, passing session details as environment variables:

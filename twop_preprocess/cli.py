@@ -187,3 +187,15 @@ def zstack(
     run_zstack_registration(
         project=project, session_name=session, conflicts=conflicts, ops=ops
     )
+
+
+@cli.command()
+@click.option("--project", "-p", required=True, help="Name of the project")
+@click.option("--session", "-s", required=True, help="Flexilims name of the session")
+def sanity(project, session):
+    """Re-generate sanity plots for a session."""
+    from twop_preprocess.calcium.calcium import generate_sanity_plots
+    import flexiznam as flz
+
+    flz_session = flz.get_flexilims_session(project)
+    generate_sanity_plots(project, session, flz_session)

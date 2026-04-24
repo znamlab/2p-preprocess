@@ -452,3 +452,187 @@ def extract_session(
             extra_attributes={"ast_neuropil": ops["ast_neuropil"]},
         )
     print("Extraction finished.")
+
+
+def generate_sanity_plots(project, session_name, flz_session):
+    """
+    Re-generate all sanity plots for a previously processed session.
+
+    This function loads the Suite2p dataset, re-calculates necessary intermediate
+    steps (like detrending) that aren't saved to disk, and recreates the full
+    suite of diagnostic figures.
+
+    Args:
+        project (str): Flexilims project name.
+        session_name (str): Name of the experimental session.
+        flz_session (Flexilims): Active Flexilims session object.
+    """
+    print(f"Generating sanity plots for session {session_name}...")
+
+    # get experimental session
+    exp_session = flz.get_entity(
+        datatype="session", name=session_name, flexilims_session=flz_session
+    )
+    if exp_session is None:
+        raise ValueError(f"Session {session_name} not found on flexilims")
+
+    # fetch existing suite2p dataset
+    suite2p_datasets = flz.get_datasets(
+        origin_id=exp_session["id"],
+        dataset_type="suite2p_rois",
+        project=project,
+        flexilims_session=flz_session,
+    )
+    if not suite2p_datasets:
+        raise ValueError(f"No Suite2p dataset found for session {session_name}")
+
+    # Use the most recent one if multiple exist
+    if len(suite2p_datasets) > 1:
+        suite2p_dataset = suite2p_datasets[
+            np.argmax(
+                [
+                    datetime.datetime.strptime(i.created, "%Y-%m-%d %H:%M:%S")
+                    for i in suite2p_datasets
+                ]
+            )
+        ]
+    else:
+        suite2p_dataset = suite2p_datasets[0]
+
+    first_frames, last_frames = get_recording_frames(suite2p_dataset)
+    fs = suite2p_dataset.extra_attributes["fs"]
+    nplanes = int(suite2p_dataset.extra_attributes["nplanes"])
+
+    # --- 1. Re-estimate Offsets (generates optical offset plot) ---
+    # We pass sanity_plots=True implicitly to ensure the plot is generated
+    ops_base = suite2p_dataset.extra_attributes.copy()
+    ops_base["sanity_plots"] = True
+    offsets = estimate_offsets(suite2p_dataset, ops_base, project, flz_session)
+
+    # --- 2. Process each plane ---
+    for iplane in range(nplanes):
+        print(f"\n--- Plotting Plane {iplane} ---")
+        dpath = suite2p_dataset.path_full / f"plane{iplane}"
+        plot_path = dpath / "sanity_plots"
+        plot_path.mkdir(exist_ok=True)
+
+        # Load plane-specific ops
+        ops = np.load(dpath / "ops.npy", allow_pickle=True).item()
+        ops["sanity_plots"] = True
+
+        F_raw = np.load(dpath / "F.npy")
+        Fneu_raw = np.load(dpath / "Fneu.npy")
+
+        # Select ROIs for plotting
+        np.random.seed(0)
+        n_rois_to_plot = min(ops.get("plot_nrois", 5), F_raw.shape[0])
+        valid_rois = np.where(~np.isnan(F_raw).all(axis=1))[0]
+        if len(valid_rois) == 0:
+            print(f"No valid ROIs for plane {iplane}. Skipping.")
+            continue
+        random_rois = np.random.choice(valid_rois, n_rois_to_plot, replace=False)
+
+        # 01. Raw
+        sanity.plot_raw_trace(
+            F_raw,
+            random_rois,
+            Fneu_raw,
+            save_path=plot_path / "01_raw_traces.png",
+        )
+
+        # 02. Offset Corrected
+        F_offset_corrected = correct_offset(
+            dpath / "F.npy",
+            offsets,
+            first_frames[:, iplane],
+            last_frames[:, iplane],
+        )
+        Fneu_offset_corrected = correct_offset(
+            dpath / "Fneu.npy",
+            offsets,
+            first_frames[:, iplane],
+            last_frames[:, iplane],
+        )
+        sanity.plot_raw_trace(
+            F_offset_corrected,
+            random_rois,
+            Fneu_offset_corrected,
+            save_path=plot_path / "02_offset_corrected.png",
+        )
+
+        # 03. Detrended
+        F_detrended, F_trend = detrend(
+            F_offset_corrected,
+            first_frames[:, iplane],
+            last_frames[:, iplane],
+            ops,
+            fs,
+        )
+        Fneu_detrended, Fneu_trend = detrend(
+            Fneu_offset_corrected,
+            first_frames[:, iplane],
+            last_frames[:, iplane],
+            ops,
+            fs,
+        )
+        sanity.plot_detrended_trace(
+            F_offset_corrected,
+            F_trend,
+            F_detrended,
+            Fneu_offset_corrected,
+            Fneu_trend,
+            Fneu_detrended,
+            random_rois,
+            save_path=plot_path / "03_detrended.png",
+        )
+
+        # 04. Neuropil Corrected
+        ast_enabled = ops.get("ast_neuropil", True)
+        if ast_enabled:
+            F_processed = np.load(dpath / "Fast.npy")
+            filename_suffix = "_ast"
+            sfx = "AST"
+        else:
+            F_processed = np.load(dpath / "Fstandard.npy")
+            filename_suffix = ""
+            sfx = "Standard"
+
+        sanity.plot_raw_trace(
+            F_detrended,
+            random_rois,
+            F_processed,
+            titles=["F Detrended", f"F Corrected ({sfx})"],
+            save_path=plot_path / "04b_neuropil_corrected.png",
+        )
+
+        # 05. dF/F
+        dff = np.load(dpath / f"dff{filename_suffix}.npy")
+        f0 = np.load(dpath / f"f0{filename_suffix}.npy")
+        sanity.plot_dff(
+            F_processed,
+            dff,
+            f0,
+            random_rois,
+            save_path=plot_path / f"05_dff{filename_suffix}.png",
+        )
+
+        # 06. Matrix heatmaps
+        Fast = F_processed if ast_enabled else np.zeros_like(F_detrended)
+        fig = sanity.plot_fluorescence_matrices(
+            F_detrended, Fneu_detrended, Fast, dff, ops.get("neucoeff", 0.7)
+        )
+        fig.savefig(plot_path / f"fluorescence_matrices.png")
+        plt.close(fig)
+
+        # 07. GMM f0 fits
+        for roi in random_rois:
+            sanity.plot_offset_gmm(
+                F_detrended,
+                F_processed,
+                roi,
+                ops.get("dff_ncomponents", 2),
+                save_path=plot_path / f"07_dff_gmm_roi{roi}{filename_suffix}.png",
+            )
+            plt.close()
+
+    print(f"\nFinished generating sanity plots for session {session_name}.")

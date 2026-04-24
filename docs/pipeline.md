@@ -160,3 +160,13 @@ After a full run, each `plane{N}` subdirectory of the `suite2p_rois` dataset con
  *   **Trace Diagnostics**: Raw traces, offset-corrected traces, detrended traces, and neuropil-corrected traces.
  *   **ΔF/F Diagnostics**: ΔF/F traces and the GMM fit used for $F_0$ baseline estimation.
  *   **Fluorescence Matrices**: Normalized heatmaps of `F`, `Fneu`, and corrected traces across all neurons.
+
+ ### Re-running diagnostics
+
+ If you want to re-generate the sanity plots without re-running the entire pipeline (e.g., after updating the plotting code or to change the number of ROIs plotted), you can use the `sanity` command:
+
+ ```bash
+ twop_preprocess sanity --project <project_name> --session <session_name>
+ ```
+
+ This command loads the existing processed data, re-calculates the necessary intermediate steps (like detrending), and overwrites the files in the `sanity_plots/` directories.
