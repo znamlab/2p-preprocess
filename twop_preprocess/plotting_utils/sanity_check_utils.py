@@ -245,12 +245,14 @@ def plot_optical_offset_gmm(pixels, gmm, offset, save_path=None):
     )
 
     plt.yscale("log")
-    plt.ylim(bottom=1e-6)
+    # Cap the top limit to avoid singular components blowing up the scale
+    max_pdf = pdf.max()
+    plt.ylim(bottom=1e-6, top=max_pdf * 5)
 
     plt.title("Optical Offset Estimation (GMM Fit to Raw Frame)")
     plt.xlabel("Intensity (a.u.)")
     plt.ylabel("Density (Log)")
-    plt.legend()
+    plt.legend(loc="upper right")
     plt.grid(alpha=0.3, which="both")
 
     if save_path is not None:
