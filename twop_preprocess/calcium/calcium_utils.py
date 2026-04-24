@@ -96,7 +96,7 @@ def get_weights(ops):
     return weights
 
 
-@njit(parallel=True)
+@njit(cache=True)
 def rolling_percentile(arr, window, percentile):
     """
     Compute a rolling percentile over a 1D array.
@@ -109,6 +109,10 @@ def rolling_percentile(arr, window, percentile):
     Returns:
         numpy.ndarray: The rolling percentile values (length = len(arr) - window + 1).
     """
+    output = np.empty(len(arr) - window + 1)
+    for i in range(len(output)):
+        output[i] = np.percentile(arr[i : i + window], percentile)
+    return output
 
 
 @njit(parallel=True, cache=True)  # cache=True for potential speedup on subsequent runs
