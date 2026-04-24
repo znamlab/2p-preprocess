@@ -6,6 +6,7 @@ import warnings
 from sklearn import mixture
 from tifffile import TiffFile
 from tqdm import tqdm
+from ..plotting_utils import sanity_check_utils as sanity
 
 print = partial(print, flush=True)
 
@@ -315,13 +316,14 @@ def calculate_and_save_dFF(dpath, F, filename_suffix, n_components=2):
     return dff, f0
 
 
-def estimate_offset(datapath, n_components=3):
+def estimate_offset(datapath, n_components=3, save_path=None):
     """
     Estimate the optical offset for a session by fitting a GMM to a raw TIFF frame.
 
     Args:
         datapath (str or Path): Path to the folder containing raw ScanImage TIFFs.
         n_components (int, optional): Number of GMM components. Default 3.
+        save_path (str or Path, optional): Path to save a diagnostic plot of the GMM fit.
 
     Returns:
         float: The estimated offset (mean of the lowest GMM component).
@@ -331,16 +333,31 @@ def estimate_offset(datapath, n_components=3):
     if len(tiffs) == 0:
         raise ValueError(f"No tiffs found at {datapath}")
     tiff = tiffs[0]
-    # load the tiff using tifffile
-    with TiffFile(tiff) as tif:
-        # get the first frame
-        frame = tif.asarray(key=0)
-    # find the offset
+
+    with TiffFile(tiff) as tf:
+        # Load the first frame
+        im = tf.asarray(key=0)
+
+    # fit a gmm to the image pixels
+    X = im.flatten().reshape(-1, 1)
+    # Subset if the image is too large
+    if X.shape[0] > 1000000:
+        np.random.seed(42)
+        X_subset = np.random.choice(X.flatten(), 1000000, replace=False).reshape(-1, 1)
+    else:
+        X_subset = X
+
     gmm = mixture.GaussianMixture(n_components=n_components, random_state=42).fit(
-        frame.reshape(-1, 1)
+        X_subset
     )
-    gmm_means = np.sort(gmm.means_[:, 0])
-    return gmm_means[0]
+
+    # find the lowest component
+    offset = np.min(gmm.means_)
+
+    if save_path is not None:
+        sanity.plot_optical_offset_gmm(X_subset, gmm, offset, save_path=save_path)
+
+    return offset
 
 
 def correct_offset(datapath, offsets, first_frames, last_frames):

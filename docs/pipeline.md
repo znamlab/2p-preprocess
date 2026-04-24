@@ -154,4 +154,9 @@ After a full run, each `plane{N}` subdirectory of the `suite2p_rois` dataset con
 
 ## Sanity plots
 
-When `sanity_plots: True` (default), the pipeline generates diagnostic figures in a `sanity_plots/` subdirectory within each plane folder. These include raw traces, offset-corrected traces, detrended traces, neuropil-corrected traces, ΔF/F traces, and GMM fit diagnostics.
+ When `sanity_plots: True` (default), the pipeline generates diagnostic figures in a `sanity_plots/` subdirectory within each plane folder and at the top level of the dataset. These include:
+
+ *   **Optical Offset Diagnostics**: Shows the GMM fit to the raw pixel intensity histogram for each recording, illustrating how the optical offset was estimated.
+ *   **Trace Diagnostics**: Raw traces, offset-corrected traces, detrended traces, and neuropil-corrected traces.
+ *   **ΔF/F Diagnostics**: ΔF/F traces and the GMM fit used for $F_0$ baseline estimation.
+ *   **Fluorescence Matrices**: Normalized heatmaps of `F`, `Fneu`, and corrected traces across all neurons.

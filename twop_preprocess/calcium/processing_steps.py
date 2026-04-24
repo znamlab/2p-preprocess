@@ -2,6 +2,7 @@ from functools import partial
 import os
 import flexiznam as flz
 import numpy as np
+from pathlib import Path
 
 from .calcium_utils import estimate_offset, rolling_percentile
 
@@ -90,9 +91,19 @@ def estimate_offsets(suite2p_dataset, ops, project, flz_session):
         return offsets
 
     data_root = flz.get_data_root("raw", project, flz_session)
-    for datapath in suite2p_dataset.extra_attributes["data_path"]:
+    plot_dir = Path(suite2p_dataset.path_full) / "sanity_plots"
+    if ops.get("sanity_plots", False):
+        plot_dir.mkdir(exist_ok=True)
+
+    for i, datapath in enumerate(suite2p_dataset.extra_attributes["data_path"]):
         datapath = os.path.join(data_root, *str(datapath).split("/")[-4:])
-        offsets.append(estimate_offset(datapath))
+
+        save_path = None
+        if ops.get("sanity_plots", False):
+            rec_name = Path(datapath).name
+            save_path = plot_dir / f"optical_offset_rec{i}_{rec_name}.png"
+
+        offsets.append(estimate_offset(datapath, save_path=save_path))
         print(f"Estimated offset for {datapath} is {offsets[-1]}")
         np.save(suite2p_dataset.path_full / "offsets.npy", offsets)
     return offsets
