@@ -267,3 +267,61 @@ def plot_optical_offset_gmm(pixels, gmm, offset, save_path=None):
         plt.savefig(save_path)
 
     return fig
+
+
+def plot_population_metrics(f0, dff, save_path=None):
+    """
+    Plot population-level quality metrics: F0 distribution, median dF/F distribution,
+    and frequency of large spikes.
+
+    Args:
+        f0 (np.ndarray): F0 values (n_rois x n_frames or n_rois x 1).
+        dff (np.ndarray): dF/F values (n_rois x n_frames).
+        save_path (str, optional): Path to save the plot.
+    """
+    n_rois = dff.shape[0]
+
+    # Calculate metrics
+    # F0 can be a trace or a single value per ROI
+    if f0.ndim == 2 and f0.shape[1] > 1:
+        f0_means = np.nanmean(f0, axis=1)
+    else:
+        f0_means = f0.flatten()
+
+    median_dff = np.nanmedian(dff, axis=1)
+    max_dff = np.nanmax(dff, axis=1)
+
+    f0_below_zero = np.sum(f0_means < 0)
+    median_dff_below_zero = np.sum(median_dff < 0)
+    large_spikes = np.sum(max_dff > 10.0)  # > 1000% is 10.0
+
+    fig, axes = plt.subplots(1, 3, figsize=(18, 5))
+
+    # 1. F0 Distribution
+    axes[0].hist(f0_means, bins=50, color="skyblue", edgecolor="black")
+    axes[0].axvline(0, color="red", linestyle="--")
+    axes[0].set_title(f"F0 Distribution\n({f0_below_zero}/{n_rois} cells < 0)")
+    axes[0].set_xlabel("F0 value")
+    axes[0].set_ylabel("Count")
+
+    # 2. Median dF/F Distribution
+    axes[1].hist(median_dff, bins=50, color="salmon", edgecolor="black")
+    axes[1].axvline(0, color="red", linestyle="--")
+    axes[1].set_title(
+        f"Median dF/F Distribution\n({median_dff_below_zero}/{n_rois} cells < 0)"
+    )
+    axes[1].set_xlabel("Median dF/F")
+    axes[1].set_ylabel("Count")
+
+    # 3. Max dF/F (Spikes) Distribution
+    axes[2].hist(max_dff, bins=50, color="lightgreen", edgecolor="black")
+    axes[2].axvline(10, color="red", linestyle="--")
+    axes[2].set_title(f"Max dF/F Distribution\n({large_spikes}/{n_rois} cells > 1000%)")
+    axes[2].set_xlabel("Max dF/F")
+    axes[2].set_ylabel("Count")
+    axes[2].set_yscale("log")  # Log scale often better for max values
+
+    plt.tight_layout()
+    if save_path:
+        plt.savefig(save_path)
+    return fig

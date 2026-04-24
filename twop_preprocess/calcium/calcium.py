@@ -536,6 +536,7 @@ def generate_sanity_plots(project, session_name, flz_session):
         random_rois = np.random.choice(valid_rois, n_rois_to_plot, replace=False)
 
         # 01. Raw
+        print("Plotting raw traces")
         sanity.plot_raw_trace(
             F_raw,
             random_rois,
@@ -544,6 +545,7 @@ def generate_sanity_plots(project, session_name, flz_session):
         )
 
         # 02. Offset Corrected
+        print("Plotting offset corrected traces")
         F_offset_corrected = correct_offset(
             dpath / "F.npy",
             offsets,
@@ -564,6 +566,7 @@ def generate_sanity_plots(project, session_name, flz_session):
         )
 
         # 03. Detrended
+        print("Plotting detrended traces")
         F_detrended, F_trend = detrend(
             F_offset_corrected,
             first_frames[:, iplane],
@@ -590,6 +593,7 @@ def generate_sanity_plots(project, session_name, flz_session):
         )
 
         # 04. Neuropil Corrected
+        print("Plotting neuropil corrected traces")
         ast_enabled = ops.get("ast_neuropil", True)
         processed_file = "Fast.npy" if ast_enabled else "Fstandard.npy"
         filename_suffix = "_ast" if ast_enabled else ""
@@ -625,26 +629,41 @@ def generate_sanity_plots(project, session_name, flz_session):
         dff_file = dpath / f"dff{filename_suffix}.npy"
         f0_file = dpath / f"f0{filename_suffix}.npy"
 
-        if dff_file.exists() and f0_file.exists() and F_processed is not None:
+        # 05. dF/F and Population Metrics
+        if dff_file.exists() and f0_file.exists():
             dff = np.load(dff_file)
             f0 = np.load(f0_file)
-            sanity.plot_dff(
-                F_processed,
-                dff,
+
+            if F_processed is not None:
+                print("Plotting dF/F traces")
+                sanity.plot_dff(
+                    F_processed,
+                    dff,
+                    f0,
+                    random_rois,
+                    save_path=plot_path / f"05_dff{filename_suffix}.png",
+                )
+
+            # 05b. Population Metrics (always run if data exists)
+            print("Plotting population metrics")
+            sanity.plot_population_metrics(
                 f0,
-                random_rois,
-                save_path=plot_path / f"05_dff{filename_suffix}.png",
+                dff,
+                save_path=plot_path / f"05b_population_metrics{filename_suffix}.png",
             )
+            plt.close()
 
             # 06. Matrix heatmaps
+            print("Plotting matrix heatmaps")
             Fast = F_processed if ast_enabled else np.zeros_like(F_detrended)
             fig = sanity.plot_fluorescence_matrices(
-                F_detrended, Fneu_detrended, Fast, dff, ops.get("neucoeff", 0.7)
+                F_detrended, Fneu_detrended, Fast, dff, ops["neucoeff"]
             )
             fig.savefig(plot_path / f"fluorescence_matrices.png")
             plt.close(fig)
 
             # 07. GMM f0 fits
+            print("Plotting GMM f0 fits")
             for roi in random_rois:
                 sanity.plot_offset_gmm(
                     F_detrended,
@@ -655,12 +674,12 @@ def generate_sanity_plots(project, session_name, flz_session):
                 )
                 plt.close()
         else:
-            print(f"Warning: dF/F files or F_processed missing. Skipping dF/F plots.")
+            print(f"Warning: dF/F files missing. Skipping dF/F and population plots.")
             fig, ax = plt.subplots()
             ax.text(
                 0.5,
                 0.5,
-                f"dF/F files or corrected trace missing.\ndF/F plots skipped.",
+                f"dF/F files missing.\ndF/F plots skipped.",
                 ha="center",
                 va="center",
                 transform=ax.transAxes,
