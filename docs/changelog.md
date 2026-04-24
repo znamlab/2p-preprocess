@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Added
+
+- **Technical Pipeline Documentation**: Expanded `docs/pipeline.md` with a detailed technical overview of the `2p calcium` command, documenting the exact calculation scopes (per-recording vs. per-neuron vs. per-session) for optical offsets, rolling baseline detrending, and GMM-based ΔF/F.
+- **Optical Offset Diagnostics**: New sanity plot for optical offset estimation. It displays the raw pixel intensity histogram of the first frame alongside the fitted GMM components and the selected offset value.
+- Memory-safe subsampling in `estimate_offset` to handle high-resolution raw TIFFs without excessive memory usage.
+
 ---
 
 ## [0.1.0] — 2026-04-23
