@@ -39,11 +39,26 @@ After Suite2p extraction, the following per-plane corrections are applied to the
 
 ### 2a — Offset correction (`correct_offset`)
 
-Removes a systematic fluorescence offset that arises between different recordings within the session (e.g., due to PMT gain changes between runs). The offset is estimated as the median baseline fluorescence in a dark period at the start of each recording.
+Removes the systematic optical offset (dark current) that arises from the PMT and electronics. This offset must be removed before any multiplicative corrections (like detrending or ΔF/F) are applied.
+
+*   **Calculation**: For each individual recording in the session, the pipeline loads the first frame of the raw ScanImage TIFF. It fits a 3-component Gaussian Mixture Model (GMM) to the pixel intensity distribution of this frame. The mean of the lowest Gaussian component is taken as the optical offset.
+*   **Scope**: Calculated **per recording**.
+*   **Application**: The offset is subtracted from the concatenated fluorescence traces on a per-recording basis.
+*   **Implementation**:
+     *   [`estimate_offset`](https://github.com/znamlab/2p-preprocess/blob/dev/twop_preprocess/calcium/calcium_utils.py#L318) (in `calcium_utils.py`) is the core function that calculates the offset for a **single recording** by fitting the GMM to its first frame.
+     *   [`estimate_offsets`](https://github.com/znamlab/2p-preprocess/blob/dev/twop_preprocess/calcium/processing_steps.py#L71) (in `processing_steps.py`) is the wrapper that orchestrates this across all recordings in the session.
 
 ### 2b — Detrending (`detrend`)
 
-Removes slow drift in fluorescence using a rolling percentile filter. This corrects for photobleaching and long-term baseline shifts.
+Removes slow baseline drifts caused by photobleaching or changes in focus.
+
+*   **Calculation**: A rolling percentile filter (default 20th percentile) is applied to each ROI's fluorescence trace.
+*   **Scope**: Calculated **per recording** and **per neuron**.
+*   **Normalization**: To avoid baseline "jumps" between concatenated recordings, the baseline for each recording segment is aligned to the median baseline of the **first recording** in the session.
+*   **Method**:
+    *   `subtract`: `F_corrected = F - (baseline - first_rec_baseline_median)`
+    *   `divide`: `F_corrected = F / (baseline / first_rec_baseline_median)`
+*   **Implementation**: [`detrend`](https://github.com/znamlab/2p-preprocess/blob/dev/twop_preprocess/calcium/processing_steps.py#L11) in `twop_preprocess/calcium/processing_steps.py`.
 
 | Parameter | Default | Description |
 |---|---|---|
@@ -60,12 +75,12 @@ Removes contamination of the ROI signal by the surrounding neuropil.
 
 The Asymmetric Student's t (ASt) model fits a probabilistic model jointly to `F` and `Fneu` for each ROI, estimating the neuropil contamination coefficient and the true neuronal signal simultaneously using variational inference with JAX. See the [ASt model documentation](https://basellasermouse.github.io/ast_model/model.html) for the statistical derivation.
 
-Outputs: `Fast.npy` (corrected fluorescence), `ast_stat.npy` (variational parameters), `ast_elbo.npy` (ELBO).
+*   **Implementation**: [`ast_model`](https://github.com/znamlab/2p-preprocess/blob/dev/twop_preprocess/neuropil/ast_model.py#L51) in `twop_preprocess/neuropil/ast_model.py`.
 
 **Option B — Fixed coefficient** (`ast_neuropil: False`):
 
 ```
-F_corrected = F - neucoeff * Fneu
+F_corrected = F - neucoeff * (Fneu - median(Fneu))
 ```
 
 | Parameter | Default | Description |
@@ -75,13 +90,12 @@ F_corrected = F - neucoeff * Fneu
 
 ### 2d — ΔF/F extraction
 
-Calculates ΔF/F using a Gaussian Mixture Model (GMM) to estimate the baseline fluorescence F₀:
+Calculates ΔF/F using a Gaussian Mixture Model (GMM) to estimate the baseline fluorescence $F_0$.
 
-```
-dF/F = (F - F₀) / F₀
-```
-
-The GMM decomposes the fluorescence distribution into `dff_ncomponents` Gaussian components; the component with the lowest mean is taken as the baseline.
+*   **Calculation**: For each neuron, a GMM with `dff_ncomponents` (default 2) is fitted to the distribution of all fluorescence values across the **entire session**. The mean of the component with the lowest mean value is defined as $F_0$.
+*   **Scope**: Calculated **per session** and **per neuron**.
+*   **Formula**: $\Delta F/F = (F - F_0) / F_0$
+*   **Implementation**: [`dFF`](https://github.com/znamlab/2p-preprocess/blob/dev/twop_preprocess/calcium/calcium_utils.py#L261) in `twop_preprocess/calcium/calcium_utils.py`.
 
 | Parameter | Default | Description |
 |---|---|---|
