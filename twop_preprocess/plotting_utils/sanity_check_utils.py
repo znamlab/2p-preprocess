@@ -196,7 +196,7 @@ def plot_offset_gmm(F, Fneu, cell_id, n_components, nframes=3000, save_path=None
 def plot_optical_offset_gmm(pixels, gmm, offset, save_path=None):
     """
     Illustrate the optical offset calculation by plotting the pixel intensity
-    histogram and the fitted GMM components.
+    histogram and the fitted GMM components in both linear and log-y scales.
 
     Args:
         pixels (np.ndarray): Flattened pixel intensities from a raw frame.
@@ -204,56 +204,64 @@ def plot_optical_offset_gmm(pixels, gmm, offset, save_path=None):
         offset (float): The estimated optical offset (lowest component mean).
         save_path (str or Path, optional): Path to save the plot.
     """
-    fig = plt.figure(figsize=(8, 6))
+    fig, axes = plt.subplots(1, 2, figsize=(15, 6))
 
-    # Plot histogram
-    # Use a reasonable range for optical offsets (usually low intensity)
+    # Determine histogram range
     hist_range = [np.percentile(pixels, 0.01), np.percentile(pixels, 99.9)]
-    plt.hist(
-        pixels,
-        bins=100,
-        range=hist_range,
-        density=True,
-        alpha=0.5,
-        color="gray",
-        label="Pixel intensities",
-    )
-
-    # Plot GMM components
     x = np.linspace(hist_range[0], hist_range[1], 1000).reshape(-1, 1)
     logprob = gmm.score_samples(x)
     responsibilities = gmm.predict_proba(x)
     pdf = np.exp(logprob)
     pdf_individual = responsibilities * pdf[:, np.newaxis]
-
     gmm_order = np.argsort(gmm.means_[:, 0])
 
-    for i, idx in enumerate(gmm_order):
-        plt.plot(
-            x, pdf_individual[:, idx], label=f"Comp {i} (μ={gmm.means_[idx, 0]:.2f})"
+    for i, ax in enumerate(axes):
+        is_log = i == 1
+        # Plot histogram
+        ax.hist(
+            pixels,
+            bins=100,
+            range=hist_range,
+            density=True,
+            alpha=0.5,
+            color="gray",
+            label="Pixel intensities",
         )
 
-    plt.plot(x, pdf, "k--", label="Full GMM")
+        # Plot GMM components
+        for j, idx in enumerate(gmm_order):
+            ax.plot(
+                x,
+                pdf_individual[:, idx],
+                label=f"Comp {j} (μ={gmm.means_[idx, 0]:.2f})",
+            )
 
-    # Highlight the selected offset
-    plt.axvline(
-        offset,
-        color="r",
-        linestyle="--",
-        linewidth=2,
-        label=f"Estimated Offset: {offset:.2f}",
-    )
+        ax.plot(x, pdf, "k--", label="Full GMM")
 
-    plt.yscale("log")
-    # Cap the top limit to avoid singular components blowing up the scale
-    max_pdf = pdf.max()
-    plt.ylim(bottom=1e-6, top=max_pdf * 5)
+        # Highlight the selected offset
+        ax.axvline(
+            offset,
+            color="r",
+            linestyle="--",
+            linewidth=2,
+            label=f"Offset: {offset:.2f}",
+        )
 
-    plt.title("Optical Offset Estimation (GMM Fit to Raw Frame)")
-    plt.xlabel("Intensity (a.u.)")
-    plt.ylabel("Density (Log)")
-    plt.legend(loc="upper right")
-    plt.grid(alpha=0.3, which="both")
+        if is_log:
+            ax.set_yscale("log")
+            ax.set_ylim(bottom=1e-6, top=pdf.max() * 2)
+            ax.set_ylabel("Density (Log)")
+            ax.set_title("Log-y scale")
+        else:
+            ax.set_ylabel("Density")
+            ax.set_title("Linear scale")
+
+        ax.set_xlabel("Intensity (a.u.)")
+        ax.legend(loc="upper right", fontsize="small")
+        ax.grid(alpha=0.3, which="both" if is_log else "major")
+
+    fig.suptitle("Optical Offset Estimation (GMM Fit to Raw Frame)", fontsize=14)
+    plt.tight_layout()
 
     if save_path is not None:
         plt.savefig(save_path)
