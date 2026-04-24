@@ -209,14 +209,17 @@ def run_extraction(
 
     # get experimental session
     exp_session = flz.get_entity(
-        datatype="session", name=session_name, flexilims_session=flz_session
+        datatype="session",
+        name=session_name,
+        project_id=project,
+        flexilims_session=flz_session,
     )
     if exp_session is None:
         raise ValueError(f"Session {session_name} not found on flexilims")
 
     # fetch an existing suite2p dataset or create a new suite2p dataset
     suite2p_dataset = Dataset.from_origin(
-        project=project,
+        project_id=project,
         origin_type="session",
         origin_id=exp_session["id"],
         dataset_type="suite2p_rois",

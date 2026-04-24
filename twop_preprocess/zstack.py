@@ -293,6 +293,7 @@ def run_zstack_registration(project, session_name, conflicts="append", ops={}):
         origin_id=exp_session["id"],
         query_key="stack_type",
         query_value="zstack",
+        project_id=project,
         flexilims_session=flz_session,
     )
     if ops["datasets"] is not None:

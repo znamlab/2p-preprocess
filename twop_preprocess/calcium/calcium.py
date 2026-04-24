@@ -471,7 +471,10 @@ def generate_sanity_plots(project, session_name, flz_session):
 
     # get experimental session
     exp_session = flz.get_entity(
-        datatype="session", name=session_name, flexilims_session=flz_session
+        datatype="session",
+        name=session_name,
+        project_id=project,
+        flexilims_session=flz_session,
     )
     if exp_session is None:
         raise ValueError(f"Session {session_name} not found on flexilims")
@@ -480,7 +483,7 @@ def generate_sanity_plots(project, session_name, flz_session):
     suite2p_datasets = flz.get_datasets(
         origin_id=exp_session["id"],
         dataset_type="suite2p_rois",
-        project=project,
+        project_id=project,
         flexilims_session=flz_session,
     )
     if not suite2p_datasets:

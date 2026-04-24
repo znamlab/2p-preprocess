@@ -84,6 +84,7 @@ def reextract_session(
         flexilims_session=flz_session,
         origin_name=session,
         dataset_type="suite2p_rois",
+        project_id=project,
         exclude_datasets={"annotated": True},
         return_dataseries=True,
     )
