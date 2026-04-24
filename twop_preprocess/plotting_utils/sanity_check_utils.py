@@ -244,11 +244,14 @@ def plot_optical_offset_gmm(pixels, gmm, offset, save_path=None):
         label=f"Estimated Offset: {offset:.2f}",
     )
 
+    plt.yscale("log")
+    plt.ylim(bottom=1e-6)
+
     plt.title("Optical Offset Estimation (GMM Fit to Raw Frame)")
     plt.xlabel("Intensity (a.u.)")
-    plt.ylabel("Density")
+    plt.ylabel("Density (Log)")
     plt.legend()
-    plt.grid(alpha=0.3)
+    plt.grid(alpha=0.3, which="both")
 
     if save_path is not None:
         plt.savefig(save_path)
