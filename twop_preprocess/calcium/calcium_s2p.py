@@ -219,7 +219,7 @@ def run_extraction(
 
     # fetch an existing suite2p dataset or create a new suite2p dataset
     suite2p_dataset = Dataset.from_origin(
-        project_id=project,
+        project=project,
         origin_type="session",
         origin_id=exp_session["id"],
         dataset_type="suite2p_rois",

@@ -105,5 +105,6 @@ def estimate_offsets(suite2p_dataset, ops, project, flz_session):
 
         offsets.append(estimate_offset(datapath, save_path=save_path))
         print(f"Estimated offset for {datapath} is {offsets[-1]}")
-        np.save(suite2p_dataset.path_full / "offsets.npy", offsets)
+
+    np.save(suite2p_dataset.path_full / "offsets.npy", offsets)
     return offsets

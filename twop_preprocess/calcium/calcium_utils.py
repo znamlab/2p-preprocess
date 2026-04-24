@@ -410,6 +410,11 @@ def get_recording_frames(suite2p_dataset):
     ops = []
     for iplane in range(nplanes):
         ops_path = suite2p_dataset.path_full / f"plane{iplane}" / "ops.npy"
+        if not ops_path.exists():
+            raise FileNotFoundError(
+                f"Suite2p ops file not found at {ops_path}. "
+                "Ensure that Suite2p processing completed successfully."
+            )
         ops.append(np.load(ops_path, allow_pickle=True).item())
     # different planes may have different number of frames if recording is stopped mid-volume
     last_frames = []
