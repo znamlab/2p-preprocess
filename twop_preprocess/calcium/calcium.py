@@ -591,51 +591,81 @@ def generate_sanity_plots(project, session_name, flz_session):
 
         # 04. Neuropil Corrected
         ast_enabled = ops.get("ast_neuropil", True)
-        if ast_enabled:
-            F_processed = np.load(dpath / "Fast.npy")
-            filename_suffix = "_ast"
-            sfx = "AST"
-        else:
-            F_processed = np.load(dpath / "Fstandard.npy")
-            filename_suffix = ""
-            sfx = "Standard"
+        processed_file = "Fast.npy" if ast_enabled else "Fstandard.npy"
+        filename_suffix = "_ast" if ast_enabled else ""
+        sfx = "AST" if ast_enabled else "Standard"
 
-        sanity.plot_raw_trace(
-            F_detrended,
-            random_rois,
-            F_processed,
-            titles=["F Detrended", f"F Corrected ({sfx})"],
-            save_path=plot_path / "04b_neuropil_corrected.png",
-        )
+        if (dpath / processed_file).exists():
+            F_processed = np.load(dpath / processed_file)
+            sanity.plot_raw_trace(
+                F_detrended,
+                random_rois,
+                F_processed,
+                titles=["F Detrended", f"F Corrected ({sfx})"],
+                save_path=plot_path / "04b_neuropil_corrected.png",
+            )
+        else:
+            print(
+                f"Warning: {processed_file} not found. Skipping neuropil correction plots."
+            )
+            F_processed = None
+            fig, ax = plt.subplots()
+            ax.text(
+                0.5,
+                0.5,
+                f"{processed_file} not found.\nNeuropil correction plot skipped.",
+                ha="center",
+                va="center",
+                transform=ax.transAxes,
+            )
+            fig.savefig(plot_path / "04b_neuropil_corrected.png")
+            plt.close(fig)
 
         # 05. dF/F
-        dff = np.load(dpath / f"dff{filename_suffix}.npy")
-        f0 = np.load(dpath / f"f0{filename_suffix}.npy")
-        sanity.plot_dff(
-            F_processed,
-            dff,
-            f0,
-            random_rois,
-            save_path=plot_path / f"05_dff{filename_suffix}.png",
-        )
+        dff_file = dpath / f"dff{filename_suffix}.npy"
+        f0_file = dpath / f"f0{filename_suffix}.npy"
 
-        # 06. Matrix heatmaps
-        Fast = F_processed if ast_enabled else np.zeros_like(F_detrended)
-        fig = sanity.plot_fluorescence_matrices(
-            F_detrended, Fneu_detrended, Fast, dff, ops.get("neucoeff", 0.7)
-        )
-        fig.savefig(plot_path / f"fluorescence_matrices.png")
-        plt.close(fig)
-
-        # 07. GMM f0 fits
-        for roi in random_rois:
-            sanity.plot_offset_gmm(
-                F_detrended,
+        if dff_file.exists() and f0_file.exists() and F_processed is not None:
+            dff = np.load(dff_file)
+            f0 = np.load(f0_file)
+            sanity.plot_dff(
                 F_processed,
-                roi,
-                ops.get("dff_ncomponents", 2),
-                save_path=plot_path / f"07_dff_gmm_roi{roi}{filename_suffix}.png",
+                dff,
+                f0,
+                random_rois,
+                save_path=plot_path / f"05_dff{filename_suffix}.png",
             )
-            plt.close()
+
+            # 06. Matrix heatmaps
+            Fast = F_processed if ast_enabled else np.zeros_like(F_detrended)
+            fig = sanity.plot_fluorescence_matrices(
+                F_detrended, Fneu_detrended, Fast, dff, ops.get("neucoeff", 0.7)
+            )
+            fig.savefig(plot_path / f"fluorescence_matrices.png")
+            plt.close(fig)
+
+            # 07. GMM f0 fits
+            for roi in random_rois:
+                sanity.plot_offset_gmm(
+                    F_detrended,
+                    F_processed,
+                    roi,
+                    ops.get("dff_ncomponents", 2),
+                    save_path=plot_path / f"07_dff_gmm_roi{roi}{filename_suffix}.png",
+                )
+                plt.close()
+        else:
+            print(f"Warning: dF/F files or F_processed missing. Skipping dF/F plots.")
+            fig, ax = plt.subplots()
+            ax.text(
+                0.5,
+                0.5,
+                f"dF/F files or corrected trace missing.\ndF/F plots skipped.",
+                ha="center",
+                va="center",
+                transform=ax.transAxes,
+            )
+            fig.savefig(plot_path / f"05_dff{filename_suffix}.png")
+            plt.close(fig)
 
     print(f"\nFinished generating sanity plots for session {session_name}.")
