@@ -123,15 +123,17 @@ def plot_fluorescence_matrices(F, Fneu, Fast, dff, neucoeff=0.7, max_frames=4000
     return fig
 
 
-def plot_offset_gmm(F, Fneu, cell_id, n_components, nframes=3000, save_path=None):
+def plot_offset_gmm(
+    F, Fneu, cell_id, n_components, nframes=3000, save_path=None, neucoeff=0.7
+):
     fig = plt.figure(figsize=(10, 5))
-    f = F[cell_id] - 0.7 * (Fneu[cell_id] - np.median(Fneu[cell_id]))
+    f = F[cell_id] - neucoeff * (Fneu[cell_id] - np.median(Fneu[cell_id]))
     ax = plt.subplot2grid((2, 5), (0, 0), colspan=4)
     s = len(f) // 2
     e = s + nframes
     plt.plot(F[cell_id, s:e], label="F")
     plt.plot(Fneu[cell_id, s:e], label="Fneu")
-    plt.plot(f[s:e], label="F - 0.7 * Fneu")
+    plt.plot(f[s:e], label=f"F - {neucoeff} * Fneu")
     plt.legend(loc="upper right")
     plt.ylabel("Fluorescence (a.u.)")
     plt.title("Neuropil subtraction")
@@ -189,6 +191,146 @@ def plot_offset_gmm(F, Fneu, cell_id, n_components, nframes=3000, save_path=None
     plt.tight_layout()
 
     if save_path is not None:
+        plt.savefig(save_path)
+    return fig
+
+
+def plot_roi_pipeline(
+    roi_id,
+    F_raw,
+    Fneu_raw,
+    F_offset_corrected,
+    F_detrended,
+    F_trend,
+    Fneu_detrended,
+    Fneu_trend,
+    F_processed,
+    f0,
+    dff,
+    save_path=None,
+    neucoeff=0.7,
+    boundaries=None,
+    offsets=None,
+):
+    """
+    Plot all processing stages for a single ROI in one figure (2 columns).
+    """
+    fig, axes = plt.subplots(4, 2, figsize=(20, 15))
+    axes = axes.flatten()
+
+    # helper to plot boundaries
+    def add_boundaries(ax):
+        if boundaries is not None:
+            for b in boundaries:
+                ax.axvline(float(b), color="gray", linestyle=":", alpha=0.5)
+
+    # 1. Raw
+    axes[0].plot(F_raw[roi_id], label="F raw", color="tab:blue", alpha=0.7)
+    axes[0].plot(Fneu_raw[roi_id], label="Fneu raw", color="tab:orange", alpha=0.7)
+    add_boundaries(axes[0])
+
+    # Plot offsets
+    if offsets is not None:
+        all_frames = [0] + list(boundaries) + [F_raw.shape[1]]
+        for i, offset in enumerate(offsets):
+            if i < len(all_frames) - 1:
+                axes[0].hlines(
+                    float(offset),
+                    float(all_frames[i]),
+                    float(all_frames[i + 1]),
+                    color="red",
+                    linestyle="--",
+                    label="Offset" if i == 0 else None,
+                )
+
+    axes[0].set_title(f"ROI {roi_id}: Raw Fluorescence (Concatenated)")
+    axes[0].legend(loc="upper right", fontsize="small")
+
+    # 2. Offset Corrected & Trend
+    axes[1].plot(
+        F_offset_corrected[roi_id], label="F offset corrected", color="tab:blue"
+    )
+    axes[1].plot(F_trend[roi_id], label="F trend", color="tab:red", linestyle="--")
+    add_boundaries(axes[1])
+    axes[1].set_title("Offset Corrected & Detrending Trend")
+    axes[1].legend(loc="upper right", fontsize="small")
+
+    # 3. Detrended F & Fneu
+    axes[2].plot(F_detrended[roi_id], label="F detrended", color="tab:blue")
+    axes[2].plot(Fneu_detrended[roi_id], label="Fneu detrended", color="tab:orange")
+    add_boundaries(axes[2])
+    axes[2].set_title("Detrended F & Fneu")
+    axes[2].legend(loc="upper right", fontsize="small")
+
+    # 4. Neuropil subtraction components
+    # Show F_detrended and neucoeff * Fneu_detrended
+    axes[3].plot(F_detrended[roi_id], label="F detrended", color="tab:blue", alpha=0.5)
+    axes[3].plot(
+        neucoeff * Fneu_detrended[roi_id],
+        label=f"{neucoeff} * Fneu detrended",
+        color="tab:orange",
+        alpha=0.5,
+    )
+    add_boundaries(axes[3])
+    axes[3].set_title("Neuropil Subtraction Components")
+    axes[3].legend(loc="upper right", fontsize="small")
+
+    # 5. Processed & F0
+    if F_processed is not None:
+        axes[4].plot(F_processed[roi_id], label="F processed", color="tab:green")
+        if f0.ndim == 2 and f0.shape[1] > 1:
+            axes[4].plot(
+                f0[roi_id], label="F0 baseline", color="tab:red", linestyle="--"
+            )
+        else:
+            axes[4].axhline(
+                float(f0[roi_id]), label="F0 baseline", color="tab:red", linestyle="--"
+            )
+        add_boundaries(axes[4])
+        axes[4].set_title("Neuropil Corrected Signal & F0 Baseline")
+        axes[4].legend(loc="upper right", fontsize="small")
+    else:
+        axes[4].text(0.5, 0.5, "F_processed missing", ha="center", va="center")
+
+    # 6. dF/F trace
+    if dff is not None:
+        axes[5].plot(dff[roi_id], label="dF/F", color="tab:purple")
+        axes[5].axhline(0, color="black", linestyle="-", alpha=0.3)
+        add_boundaries(axes[5])
+        axes[5].set_title("dF/F Trace")
+        axes[5].legend(loc="upper right", fontsize="small")
+
+    # 7. dF/F Distribution
+    if dff is not None:
+        valid_data = dff[roi_id][~np.isnan(dff[roi_id])]
+        if len(valid_data) > 0:
+            axes[6].hist(valid_data, bins=100, color="tab:purple", alpha=0.7)
+            axes[6].axvline(0, color="black", linestyle="-", alpha=0.3)
+            median_val = np.nanmedian(valid_data)
+            axes[6].axvline(
+                float(median_val),
+                color="red",
+                linestyle="--",
+                label=f"Median: {median_val:.2f}",
+            )
+            axes[6].set_title("dF/F Distribution")
+            axes[6].legend(loc="upper right", fontsize="small")
+        else:
+            axes[6].text(0.5, 0.5, "No valid dF/F data", ha="center", va="center")
+
+    # 8. Empty or extra info
+    axes[7].axis("off")
+    # Maybe add text info about ROI
+    axes[7].text(
+        0.1, 0.5, f"ROI: {roi_id}\nNeuropil Coeff: {neucoeff}", fontsize=12, va="center"
+    )
+
+    for i in range(6):
+        axes[i].set_xlabel("Frame #")
+    axes[6].set_xlabel("dF/F")
+
+    plt.tight_layout()
+    if save_path:
         plt.savefig(save_path)
     return fig
 
@@ -289,7 +431,7 @@ def plot_population_metrics(f0, dff, save_path=None):
         f0_means = f0.flatten()
 
     median_dff = np.nanmedian(dff, axis=1)
-    max_dff = np.nanmax(dff, axis=1)
+    max_dff = np.nanmax(np.abs(dff), axis=1)
 
     f0_below_zero = np.sum(f0_means < 0)
     median_dff_below_zero = np.sum(median_dff < 0)

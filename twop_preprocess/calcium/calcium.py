@@ -535,17 +535,8 @@ def generate_sanity_plots(project, session_name, flz_session):
             continue
         random_rois = np.random.choice(valid_rois, n_rois_to_plot, replace=False)
 
-        # 01. Raw
-        print("Plotting raw traces")
-        sanity.plot_raw_trace(
-            F_raw,
-            random_rois,
-            Fneu_raw,
-            save_path=plot_path / "01_raw_traces.png",
-        )
-
+        # --- Calculation of intermediate traces for diagnostics ---
         # 02. Offset Corrected
-        print("Plotting offset corrected traces")
         F_offset_corrected = correct_offset(
             dpath / "F.npy",
             offsets,
@@ -558,15 +549,8 @@ def generate_sanity_plots(project, session_name, flz_session):
             first_frames[:, iplane],
             last_frames[:, iplane],
         )
-        sanity.plot_raw_trace(
-            F_offset_corrected,
-            random_rois,
-            Fneu_offset_corrected,
-            save_path=plot_path / "02_offset_corrected.png",
-        )
 
         # 03. Detrended
-        print("Plotting detrended traces")
         F_detrended, F_trend = detrend(
             F_offset_corrected,
             first_frames[:, iplane],
@@ -581,51 +565,17 @@ def generate_sanity_plots(project, session_name, flz_session):
             ops,
             fs,
         )
-        sanity.plot_detrended_trace(
-            F_offset_corrected,
-            F_trend,
-            F_detrended,
-            Fneu_offset_corrected,
-            Fneu_trend,
-            Fneu_detrended,
-            random_rois,
-            save_path=plot_path / "03_detrended.png",
-        )
 
-        # 04. Neuropil Corrected
-        print("Plotting neuropil corrected traces")
+        # 04. Neuropil Corrected (Load final result if it exists)
         ast_enabled = ops.get("ast_neuropil", True)
         processed_file = "Fast.npy" if ast_enabled else "Fstandard.npy"
         filename_suffix = "_ast" if ast_enabled else ""
-        sfx = "AST" if ast_enabled else "Standard"
 
         if (dpath / processed_file).exists():
             F_processed = np.load(dpath / processed_file)
-            sanity.plot_raw_trace(
-                F_detrended,
-                random_rois,
-                F_processed,
-                titles=["F Detrended", f"F Corrected ({sfx})"],
-                save_path=plot_path / "04b_neuropil_corrected.png",
-            )
         else:
-            print(
-                f"Warning: {processed_file} not found. Skipping neuropil correction plots."
-            )
             F_processed = None
-            fig, ax = plt.subplots()
-            ax.text(
-                0.5,
-                0.5,
-                f"{processed_file} not found.\nNeuropil correction plot skipped.",
-                ha="center",
-                va="center",
-                transform=ax.transAxes,
-            )
-            fig.savefig(plot_path / "04b_neuropil_corrected.png")
-            plt.close(fig)
 
-        # 05. dF/F
         dff_file = dpath / f"dff{filename_suffix}.npy"
         f0_file = dpath / f"f0{filename_suffix}.npy"
 
@@ -633,16 +583,6 @@ def generate_sanity_plots(project, session_name, flz_session):
         if dff_file.exists() and f0_file.exists():
             dff = np.load(dff_file)
             f0 = np.load(f0_file)
-
-            if F_processed is not None:
-                print("Plotting dF/F traces")
-                sanity.plot_dff(
-                    F_processed,
-                    dff,
-                    f0,
-                    random_rois,
-                    save_path=plot_path / f"05_dff{filename_suffix}.png",
-                )
 
             # 05b. Population Metrics (always run if data exists)
             print("Plotting population metrics")
@@ -662,17 +602,88 @@ def generate_sanity_plots(project, session_name, flz_session):
             fig.savefig(plot_path / f"fluorescence_matrices.png")
             plt.close(fig)
 
-            # 07. GMM f0 fits
-            print("Plotting GMM f0 fits")
+            # 07. ROI Pipeline Plots
+            print(f"Plotting ROI pipeline diagnostics for {len(random_rois)} ROIs")
+            roi_plot_path = plot_path / "roi_pipelines"
+            roi_plot_path.mkdir(exist_ok=True)
             for roi in random_rois:
-                sanity.plot_offset_gmm(
-                    F_detrended,
-                    F_processed,
+                sanity.plot_roi_pipeline(
                     roi,
-                    ops.get("dff_ncomponents", 2),
-                    save_path=plot_path / f"07_dff_gmm_roi{roi}{filename_suffix}.png",
+                    F_raw,
+                    Fneu_raw,
+                    F_offset_corrected,
+                    F_detrended,
+                    F_trend,
+                    Fneu_detrended,
+                    Fneu_trend,
+                    F_processed,
+                    f0,
+                    dff,
+                    save_path=roi_plot_path / f"roi{roi}_pipeline.png",
+                    neucoeff=ops.get("neucoeff", 0.7),
+                    boundaries=first_frames[1:, iplane],
+                    offsets=offsets,
                 )
                 plt.close()
+
+            # 08. GMM f0 fits for problematic ROIs
+            print("Plotting GMM f0 fits")
+            gmm_plot_path = plot_path / "gmm_offsets"
+            gmm_plot_path.mkdir(exist_ok=True)
+
+            # Identify problematic ROIs
+            if f0.ndim == 2 and f0.shape[1] > 1:
+                f0_means = np.nanmean(f0, axis=1)
+            else:
+                f0_means = f0.flatten()
+            median_dff = np.nanmedian(dff, axis=1)
+            max_dff = np.nanmax(np.abs(dff), axis=1)
+
+            f0_bad = np.where(f0_means < 0)[0]
+            dff_median_bad = np.where(median_dff < 0)[0]
+            dff_max_bad = np.where(max_dff > 10.0)[0]
+
+            problem_rois = np.unique(
+                np.concatenate([f0_bad, dff_median_bad, dff_max_bad])
+            )
+
+            if len(problem_rois) > 0:
+                print(f"Found {len(problem_rois)} problematic ROIs:")
+                if len(f0_bad) > 0:
+                    print(f"  - {len(f0_bad)} with negative F0")
+                if len(dff_median_bad) > 0:
+                    print(f"  - {len(dff_median_bad)} with median dF/F < 0")
+                if len(dff_max_bad) > 0:
+                    print(f"  - {len(dff_max_bad)} with extreme transients (>1000%)")
+
+            rois_to_plot = list(problem_rois[:20])
+
+            # Ensure at least 5 ROIs are plotted
+            if len(rois_to_plot) < 5:
+                # Find valid ROIs that are not already in rois_to_plot
+                other_rois = [r for r in valid_rois if r not in rois_to_plot]
+                if len(other_rois) > 0:
+                    n_needed = min(5 - len(rois_to_plot), len(other_rois))
+                    extra_rois = np.random.choice(other_rois, n_needed, replace=False)
+                    rois_to_plot.extend(list(extra_rois))
+
+            if len(rois_to_plot) > 0:
+                print(
+                    f"Plotting {len(rois_to_plot)} ROIs (including {len(problem_rois)} problematic) to {gmm_plot_path}"
+                )
+                for roi in rois_to_plot:
+                    sanity.plot_offset_gmm(
+                        F_detrended,
+                        Fneu_detrended,
+                        roi,
+                        ops.get("dff_ncomponents", 2),
+                        save_path=gmm_plot_path
+                        / f"dff_gmm_roi{roi}{filename_suffix}.png",
+                        neucoeff=ops.get("neucoeff", 0.7),
+                    )
+                    plt.close()
+            else:
+                print("No ROIs available for plotting.")
         else:
             print(f"Warning: dF/F files missing. Skipping dF/F and population plots.")
             fig, ax = plt.subplots()

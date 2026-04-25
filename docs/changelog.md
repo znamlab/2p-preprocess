@@ -8,9 +8,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Added
 
+- **ROI Pipeline Visualization**: Implemented a unified single-ROI diagnostic plot (`roi_pipelines/`) that shows the full processing evolution (Raw -> Offset -> Detrend -> Processed -> ΔF/F) for individual cells. Includes recording boundaries and estimated offsets for better jump/drift identification.
+- **Population Health Diagnostics**: Added a population-level quality metric plot (`05b_population_metrics.png`) showing distributions of baseline fluorescence (F0), median ΔF/F, and extreme transients (>1000%).
+- **Targeted Quality Control**: Refactored GMM baseline fit plotting (`gmm_offsets/`) to prioritize "problematic" ROIs (e.g., negative F0 or ΔF/F) for faster manual validation of session health.
+- **Performance Feedback**: Added `tqdm` progress bars and detailed console logging to the detrending stage to provide real-time status updates during long-running batch jobs.
 - **Technical Pipeline Documentation**: Expanded `docs/pipeline.md` with a detailed technical overview of the `2p calcium` command, documenting the exact calculation scopes (per-recording vs. per-neuron vs. per-session) for optical offsets, rolling baseline detrending, and GMM-based ΔF/F.
 - **Optical Offset Diagnostics**: New sanity plot for optical offset estimation. It displays the raw pixel intensity histogram of the first frame alongside the fitted GMM components and the selected offset value.
 - Memory-safe subsampling in `estimate_offset` to handle high-resolution raw TIFFs without excessive memory usage.
+
+### Changed
+
+- **Optical Offset Diagnostics**: Expanded the sanity plot for optical offset estimation with dual linear/log scales for better visualization of low-intensity pixel distributions.
+- **Flexiznam Integration**: Standardized internal API calls to use the `project` parameter consistently across data retrievals and dataset creation.
+
+### Fixed
+
+- **Pipeline Robustness**: Hardened the sanity check pipeline to handle missing intermediate files (`Fast.npy`, `Fstandard.npy`) gracefully by generating placeholder warning plots instead of crashing.
+- **Visualization Accuracy**: Updated `plot_offset_gmm` to use the session-specific `neucoeff`, ensuring the neuropil subtraction visualization accurately reflects the processing parameters.
+- **Matplotlib Compatibility**: Resolved `DeprecationWarning` regarding array-to-scalar conversion in plotting routines.
+- **Numba Optimization**: Refactored `rolling_percentile` to remove an invalid `parallel=True` directive, resolving performance warnings and ensuring stable execution.
 
 ---
 

@@ -3,7 +3,7 @@ import os
 import flexiznam as flz
 import numpy as np
 from pathlib import Path
-
+from tqdm import tqdm
 from .calcium_utils import estimate_offset, rolling_percentile
 
 print = partial(print, flush=True)
@@ -38,10 +38,14 @@ def detrend(F, first_frames, last_frames, ops, fs):
     else:
         pad_size = (win_frames // 2, win_frames // 2)  # Adjust for odd case
 
+    print(f"Detrending {F.shape[0]} ROIs across {len(first_frames)} recordings...")
+
     all_rec_baseline = np.zeros_like(F)
     for i, (start, end) in enumerate(zip(first_frames, last_frames)):
         rec_rolling_baseline = np.zeros_like(F[:, start:end])
-        for j in range(F.shape[0]):
+        for j in tqdm(
+            range(F.shape[0]), desc=f"Recording {i+1}/{len(first_frames)}", leave=False
+        ):
             rolling_baseline = np.pad(
                 rolling_percentile(
                     F[j, start:end],
