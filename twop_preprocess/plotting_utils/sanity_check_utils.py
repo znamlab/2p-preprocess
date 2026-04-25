@@ -179,7 +179,10 @@ def plot_offset_gmm(
     ax_dff = plt.subplot2grid((2, 5), (1, 0), colspan=4, sharex=ax)
     f0_val = float(gmm_means[0][0])
     this_dff = (f - f0_val) / f0_val
-    ax_dff.plot(this_dff[s:e])
+    # filter for plotting stability
+    this_dff_finite = this_dff.copy()
+    this_dff_finite[~np.isfinite(this_dff)] = np.nan
+    ax_dff.plot(this_dff_finite[s:e])
     plt.ylabel("dff")
     plt.xlabel("Frame #")
 
