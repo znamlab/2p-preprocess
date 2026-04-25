@@ -439,7 +439,7 @@ def plot_population_metrics(f0, dff, save_path=None):
     median_dff = np.nanmedian(dff, axis=1)
     max_dff = np.nanmax(np.abs(dff), axis=1)
 
-    f0_below_zero = np.sum(f0_means < 0)
+    f0_below_zero = np.sum(f0_means <= 0)
     median_dff_below_zero = np.sum(median_dff < 0)
     large_spikes = np.sum(max_dff > 10.0)  # > 1000% is 10.0
 
@@ -449,7 +449,7 @@ def plot_population_metrics(f0, dff, save_path=None):
     f0_to_plot = f0_means[np.isfinite(f0_means)]
     axes[0].hist(f0_to_plot, bins=50, color="skyblue", edgecolor="black")
     axes[0].axvline(0, color="red", linestyle="--")
-    axes[0].set_title(f"F0 Distribution\n({int(f0_below_zero)}/{n_rois} cells < 0)")
+    axes[0].set_title(f"F0 Distribution\n({int(f0_below_zero)}/{n_rois} cells <= 0)")
     axes[0].set_xlabel("F0 value")
     axes[0].set_ylabel("Count")
 

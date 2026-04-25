@@ -639,7 +639,7 @@ def generate_sanity_plots(project, session_name, flz_session):
             median_dff = np.nanmedian(dff, axis=1)
             max_dff = np.nanmax(np.abs(dff), axis=1)
 
-            f0_bad = np.where(f0_means < 0)[0]
+            f0_bad = np.where(f0_means <= 0)[0]
             dff_median_bad = np.where(median_dff < 0)[0]
             dff_max_bad = np.where(max_dff > 10.0)[0]
 
@@ -650,7 +650,7 @@ def generate_sanity_plots(project, session_name, flz_session):
             if len(problem_rois) > 0:
                 print(f"Found {len(problem_rois)} problematic ROIs:")
                 if len(f0_bad) > 0:
-                    print(f"  - {len(f0_bad)} with negative F0")
+                    print(f"  - {len(f0_bad)} with non-positive F0")
                 if len(dff_median_bad) > 0:
                     print(f"  - {len(dff_median_bad)} with median dF/F < 0")
                 if len(dff_max_bad) > 0:
