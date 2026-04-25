@@ -138,8 +138,14 @@ def plot_offset_gmm(
     plt.ylabel("Fluorescence (a.u.)")
     plt.title("Neuropil subtraction")
     plt.xlabel("Frame #")
+    # filter non-finite values
+    f_valid = f[np.isfinite(f)]
+    if len(f_valid) < n_components:
+        ax.text(0.5, 0.5, "Not enough valid data for GMM", ha="center", va="center")
+        return fig
+
     gmm = mixture.GaussianMixture(n_components=n_components, random_state=42).fit(
-        f.reshape(-1, 1)
+        f_valid.reshape(-1, 1)
     )
 
     # find useful parameters
@@ -302,7 +308,7 @@ def plot_roi_pipeline(
 
     # 7. dF/F Distribution
     if dff is not None:
-        valid_data = dff[roi_id][~np.isnan(dff[roi_id])]
+        valid_data = dff[roi_id][np.isfinite(dff[roi_id])]
         if len(valid_data) > 0:
             axes[6].hist(valid_data, bins=100, color="tab:purple", alpha=0.7)
             axes[6].axvline(0, color="black", linestyle="-", alpha=0.3)
@@ -440,25 +446,30 @@ def plot_population_metrics(f0, dff, save_path=None):
     fig, axes = plt.subplots(1, 3, figsize=(18, 5))
 
     # 1. F0 Distribution
-    axes[0].hist(f0_means, bins=50, color="skyblue", edgecolor="black")
+    f0_to_plot = f0_means[np.isfinite(f0_means)]
+    axes[0].hist(f0_to_plot, bins=50, color="skyblue", edgecolor="black")
     axes[0].axvline(0, color="red", linestyle="--")
-    axes[0].set_title(f"F0 Distribution\n({f0_below_zero}/{n_rois} cells < 0)")
+    axes[0].set_title(f"F0 Distribution\n({int(f0_below_zero)}/{n_rois} cells < 0)")
     axes[0].set_xlabel("F0 value")
     axes[0].set_ylabel("Count")
 
     # 2. Median dF/F Distribution
-    axes[1].hist(median_dff, bins=50, color="salmon", edgecolor="black")
+    median_to_plot = median_dff[np.isfinite(median_dff)]
+    axes[1].hist(median_to_plot, bins=50, color="salmon", edgecolor="black")
     axes[1].axvline(0, color="red", linestyle="--")
     axes[1].set_title(
-        f"Median dF/F Distribution\n({median_dff_below_zero}/{n_rois} cells < 0)"
+        f"Median dF/F Distribution\n({int(median_dff_below_zero)}/{n_rois} cells < 0)"
     )
     axes[1].set_xlabel("Median dF/F")
     axes[1].set_ylabel("Count")
 
     # 3. Max dF/F (Spikes) Distribution
-    axes[2].hist(max_dff, bins=50, color="lightgreen", edgecolor="black")
+    max_to_plot = max_dff[np.isfinite(max_dff)]
+    axes[2].hist(max_to_plot, bins=50, color="lightgreen", edgecolor="black")
     axes[2].axvline(10, color="red", linestyle="--")
-    axes[2].set_title(f"Max dF/F Distribution\n({large_spikes}/{n_rois} cells > 1000%)")
+    axes[2].set_title(
+        f"Max dF/F Distribution\n({int(large_spikes)}/{n_rois} cells > 1000%)"
+    )
     axes[2].set_xlabel("Max dF/F")
     axes[2].set_ylabel("Count")
     axes[2].set_yscale("log")  # Log scale often better for max values
