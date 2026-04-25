@@ -427,48 +427,39 @@ def plot_population_metrics(f0, dff, save_path=None):
         dff (np.ndarray): dF/F values (n_rois x n_frames).
         save_path (str, optional): Path to save the plot.
     """
+    from .metrics import calculate_quality_metrics
+
+    metrics = calculate_quality_metrics(f0, dff)
     n_rois = dff.shape[0]
-
-    # Calculate metrics
-    # F0 can be a trace or a single value per ROI
-    if f0.ndim == 2 and f0.shape[1] > 1:
-        f0_means = np.nanmean(f0, axis=1)
-    else:
-        f0_means = f0.flatten()
-
-    median_dff = np.nanmedian(dff, axis=1)
-    max_dff = np.nanmax(np.abs(dff), axis=1)
-
-    f0_below_zero = np.sum(f0_means <= 0)
-    median_dff_below_zero = np.sum(median_dff < 0)
-    large_spikes = np.sum(max_dff > 100.0)  # > 10000% is 100.0
 
     fig, axes = plt.subplots(1, 3, figsize=(18, 5))
 
     # 1. F0 Distribution
-    f0_to_plot = f0_means[np.isfinite(f0_means)]
+    f0_to_plot = metrics["f0_means"][np.isfinite(metrics["f0_means"])]
     axes[0].hist(f0_to_plot, bins=50, color="skyblue", edgecolor="black")
     axes[0].axvline(0, color="red", linestyle="--")
-    axes[0].set_title(f"F0 Distribution\n({int(f0_below_zero)}/{n_rois} cells <= 0)")
+    axes[0].set_title(
+        f"F0 Distribution\n({int(len(metrics['f0_bad_idx']))}/{n_rois} cells <= 0)"
+    )
     axes[0].set_xlabel("F0 value")
     axes[0].set_ylabel("Count")
 
     # 2. Median dF/F Distribution
-    median_to_plot = median_dff[np.isfinite(median_dff)]
+    median_to_plot = metrics["median_dff"][np.isfinite(metrics["median_dff"])]
     axes[1].hist(median_to_plot, bins=50, color="salmon", edgecolor="black")
     axes[1].axvline(0, color="red", linestyle="--")
     axes[1].set_title(
-        f"Median dF/F Distribution\n({int(median_dff_below_zero)}/{n_rois} cells < 0)"
+        f"Median dF/F Distribution\n({int(len(metrics['dff_median_bad_idx']))}/{n_rois} cells < 0)"
     )
     axes[1].set_xlabel("Median dF/F")
     axes[1].set_ylabel("Count")
 
     # 3. Max dF/F (Spikes) Distribution
-    max_to_plot = max_dff[np.isfinite(max_dff)]
+    max_to_plot = metrics["max_dff"][np.isfinite(metrics["max_dff"])]
     axes[2].hist(max_to_plot, bins=50, color="lightgreen", edgecolor="black")
     axes[2].axvline(100, color="red", linestyle="--")
     axes[2].set_title(
-        f"Max dF/F Distribution\n({int(large_spikes)}/{n_rois} cells > 10000%)"
+        f"Max dF/F Distribution\n({int(len(metrics['dff_max_bad_idx']))}/{n_rois} cells > 10000%)"
     )
     axes[2].set_xlabel("Max dF/F")
     axes[2].set_ylabel("Count")

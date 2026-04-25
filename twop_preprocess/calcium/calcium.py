@@ -602,11 +602,41 @@ def generate_sanity_plots(project, session_name, flz_session):
             fig.savefig(plot_path / f"fluorescence_matrices.png")
             plt.close(fig)
 
-            # 07. ROI Pipeline Plots
-            print(f"Plotting ROI pipeline diagnostics for {len(random_rois)} ROIs")
+            # 07. ROI Selection and Metrics
+            from .metrics import (
+                calculate_quality_metrics,
+                get_problematic_rois,
+                select_diagnostic_rois,
+            )
+
+            metrics = calculate_quality_metrics(f0, dff)
+            problem_rois = get_problematic_rois(metrics)
+
+            if len(problem_rois) > 0:
+                print(f"Found {len(problem_rois)} problematic ROIs:")
+                if len(metrics["f0_bad_idx"]) > 0:
+                    print(f"  - {len(metrics['f0_bad_idx'])} with non-positive F0")
+                if len(metrics["dff_median_bad_idx"]) > 0:
+                    print(
+                        f"  - {len(metrics['dff_median_bad_idx'])} with median dF/F < 0"
+                    )
+                if len(metrics["dff_max_bad_idx"]) > 0:
+                    print(
+                        f"  - {len(metrics['dff_max_bad_idx'])} with extreme transients (>10000%)"
+                    )
+
+            rois_to_plot = select_diagnostic_rois(
+                valid_rois,
+                problem_rois,
+                n_random=ops.get("plot_nrois", 5),
+                n_problem_max=20,
+            )
+
+            # 08. ROI Pipeline Plots
+            print(f"Plotting ROI pipeline diagnostics for {len(rois_to_plot)} ROIs")
             roi_plot_path = plot_path / "roi_pipelines"
             roi_plot_path.mkdir(exist_ok=True)
-            for roi in random_rois:
+            for roi in rois_to_plot:
                 sanity.plot_roi_pipeline(
                     roi,
                     F_raw,
@@ -626,51 +656,13 @@ def generate_sanity_plots(project, session_name, flz_session):
                 )
                 plt.close()
 
-            # 08. GMM f0 fits for problematic ROIs
+            # 09. GMM f0 fits for selected ROIs
             print("Plotting GMM f0 fits")
             gmm_plot_path = plot_path / "gmm_offsets"
             gmm_plot_path.mkdir(exist_ok=True)
 
-            # Identify problematic ROIs
-            if f0.ndim == 2 and f0.shape[1] > 1:
-                f0_means = np.nanmean(f0, axis=1)
-            else:
-                f0_means = f0.flatten()
-            median_dff = np.nanmedian(dff, axis=1)
-            max_dff = np.nanmax(np.abs(dff), axis=1)
-
-            f0_bad = np.where(f0_means <= 0)[0]
-            dff_median_bad = np.where(median_dff < 0)[0]
-            dff_max_bad = np.where(max_dff > 100.0)[0]
-
-            problem_rois = np.unique(
-                np.concatenate([f0_bad, dff_median_bad, dff_max_bad])
-            )
-
-            if len(problem_rois) > 0:
-                print(f"Found {len(problem_rois)} problematic ROIs:")
-                if len(f0_bad) > 0:
-                    print(f"  - {len(f0_bad)} with non-positive F0")
-                if len(dff_median_bad) > 0:
-                    print(f"  - {len(dff_median_bad)} with median dF/F < 0")
-                if len(dff_max_bad) > 0:
-                    print(f"  - {len(dff_max_bad)} with extreme transients (>10000%)")
-
-            rois_to_plot = list(problem_rois[:20])
-
-            # Ensure at least 5 ROIs are plotted
-            if len(rois_to_plot) < 5:
-                # Find valid ROIs that are not already in rois_to_plot
-                other_rois = [r for r in valid_rois if r not in rois_to_plot]
-                if len(other_rois) > 0:
-                    n_needed = min(5 - len(rois_to_plot), len(other_rois))
-                    extra_rois = np.random.choice(other_rois, n_needed, replace=False)
-                    rois_to_plot.extend(list(extra_rois))
-
             if len(rois_to_plot) > 0:
-                print(
-                    f"Plotting {len(rois_to_plot)} ROIs (including {len(problem_rois)} problematic) to {gmm_plot_path}"
-                )
+                print(f"Plotting {len(rois_to_plot)} ROIs to {gmm_plot_path}")
                 for roi in rois_to_plot:
                     sanity.plot_offset_gmm(
                         F_detrended,
