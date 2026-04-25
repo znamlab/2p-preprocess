@@ -427,7 +427,7 @@ def plot_population_metrics(f0, dff, save_path=None):
         dff (np.ndarray): dF/F values (n_rois x n_frames).
         save_path (str, optional): Path to save the plot.
     """
-    from .metrics import calculate_quality_metrics
+    from ..calcium.metrics import calculate_quality_metrics
 
     metrics = calculate_quality_metrics(f0, dff)
     n_rois = dff.shape[0]
