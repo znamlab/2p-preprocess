@@ -441,7 +441,7 @@ def plot_population_metrics(f0, dff, save_path=None):
 
     f0_below_zero = np.sum(f0_means <= 0)
     median_dff_below_zero = np.sum(median_dff < 0)
-    large_spikes = np.sum(max_dff > 10.0)  # > 1000% is 10.0
+    large_spikes = np.sum(max_dff > 100.0)  # > 10000% is 100.0
 
     fig, axes = plt.subplots(1, 3, figsize=(18, 5))
 
@@ -466,9 +466,9 @@ def plot_population_metrics(f0, dff, save_path=None):
     # 3. Max dF/F (Spikes) Distribution
     max_to_plot = max_dff[np.isfinite(max_dff)]
     axes[2].hist(max_to_plot, bins=50, color="lightgreen", edgecolor="black")
-    axes[2].axvline(10, color="red", linestyle="--")
+    axes[2].axvline(100, color="red", linestyle="--")
     axes[2].set_title(
-        f"Max dF/F Distribution\n({int(large_spikes)}/{n_rois} cells > 1000%)"
+        f"Max dF/F Distribution\n({int(large_spikes)}/{n_rois} cells > 10000%)"
     )
     axes[2].set_xlabel("Max dF/F")
     axes[2].set_ylabel("Count")

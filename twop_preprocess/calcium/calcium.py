@@ -641,7 +641,7 @@ def generate_sanity_plots(project, session_name, flz_session):
 
             f0_bad = np.where(f0_means <= 0)[0]
             dff_median_bad = np.where(median_dff < 0)[0]
-            dff_max_bad = np.where(max_dff > 10.0)[0]
+            dff_max_bad = np.where(max_dff > 100.0)[0]
 
             problem_rois = np.unique(
                 np.concatenate([f0_bad, dff_median_bad, dff_max_bad])
@@ -654,7 +654,7 @@ def generate_sanity_plots(project, session_name, flz_session):
                 if len(dff_median_bad) > 0:
                     print(f"  - {len(dff_median_bad)} with median dF/F < 0")
                 if len(dff_max_bad) > 0:
-                    print(f"  - {len(dff_max_bad)} with extreme transients (>1000%)")
+                    print(f"  - {len(dff_max_bad)} with extreme transients (>10000%)")
 
             rois_to_plot = list(problem_rois[:20])
 
