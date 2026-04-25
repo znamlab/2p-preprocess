@@ -166,7 +166,9 @@ def plot_offset_gmm(
         )
         l = plt.plot(comps[i], bins)[0]
         plt.axhline(
-            gmm_means[i], color=l.get_color(), label="f0" if i == 0 else "__no_label__"
+            float(gmm_means[i][0]),
+            color=l.get_color(),
+            label="f0" if i == 0 else "__no_label__",
         )
     comps = np.vstack(comps)
     plt.plot(comps.sum(axis=0), bins, linestyle="--", color="k")
@@ -175,8 +177,8 @@ def plot_offset_gmm(
     plt.title("GMM f0")
 
     ax_dff = plt.subplot2grid((2, 5), (1, 0), colspan=4, sharex=ax)
-    f0 = gmm_means[0]
-    this_dff = (f - f0) / f0
+    f0_val = float(gmm_means[0][0])
+    this_dff = (f - f0_val) / f0_val
     ax_dff.plot(this_dff[s:e])
     plt.ylabel("dff")
     plt.xlabel("Frame #")
@@ -388,11 +390,11 @@ def plot_optical_offset_gmm(pixels, gmm, offset, save_path=None):
 
         # Highlight the selected offset
         ax.axvline(
-            offset,
+            float(offset),
             color="r",
             linestyle="--",
             linewidth=2,
-            label=f"Offset: {offset:.2f}",
+            label=f"Offset: {float(offset):.2f}",
         )
 
         if is_log:
