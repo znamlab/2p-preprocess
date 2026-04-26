@@ -139,6 +139,11 @@ def plot_offset_gmm(
     plt.title("Neuropil subtraction")
     plt.xlabel("Frame #")
     # filter non-finite values
+    n_invalid = int(np.sum(~np.isfinite(f)))
+    if n_invalid > 0:
+        print(
+            f"  [ROI {cell_id}] plot_offset_gmm: {n_invalid} non-finite values in F trace excluded from GMM fit."
+        )
     f_valid = f[np.isfinite(f)]
     if len(f_valid) < n_components:
         ax.text(0.5, 0.5, "Not enough valid data for GMM", ha="center", va="center")
@@ -181,6 +186,11 @@ def plot_offset_gmm(
     this_dff = (f - f0_val) / f0_val
     # filter for plotting stability
     this_dff_finite = this_dff.copy()
+    n_invalid_dff = int(np.sum(~np.isfinite(this_dff)))
+    if n_invalid_dff > 0:
+        print(
+            f"  [ROI {cell_id}] plot_offset_gmm: {n_invalid_dff} non-finite values in dF/F trace set to NaN for plotting."
+        )
     this_dff_finite[~np.isfinite(this_dff)] = np.nan
     ax_dff.plot(this_dff_finite[s:e])
     plt.ylabel("dff")
@@ -313,6 +323,11 @@ def plot_roi_pipeline(
 
     # 7. dF/F Distribution
     if dff is not None:
+        n_invalid_roi = int(np.sum(~np.isfinite(dff[roi_id])))
+        if n_invalid_roi > 0:
+            print(
+                f"  [ROI {roi_id}] plot_roi_pipeline: {n_invalid_roi} non-finite dF/F values excluded from distribution histogram."
+            )
         valid_data = dff[roi_id][np.isfinite(dff[roi_id])]
         if len(valid_data) > 0:
             axes[6].hist(valid_data, bins=100, color="tab:purple", alpha=0.7)
@@ -440,6 +455,11 @@ def plot_population_metrics(f0, dff, save_path=None):
     fig, axes = plt.subplots(1, 3, figsize=(18, 5))
 
     # 1. F0 Distribution
+    n_invalid_f0 = int(np.sum(~np.isfinite(metrics["f0_means"])))
+    if n_invalid_f0 > 0:
+        print(
+            f"  plot_population_metrics: {n_invalid_f0}/{n_rois} ROIs have non-finite F0 (excluded from histogram)."
+        )
     f0_to_plot = metrics["f0_means"][np.isfinite(metrics["f0_means"])]
     axes[0].hist(f0_to_plot, bins=50, color="skyblue", edgecolor="black")
     axes[0].axvline(0, color="red", linestyle="--")
@@ -450,6 +470,11 @@ def plot_population_metrics(f0, dff, save_path=None):
     axes[0].set_ylabel("Count")
 
     # 2. Median dF/F Distribution
+    n_invalid_med = int(np.sum(~np.isfinite(metrics["median_dff"])))
+    if n_invalid_med > 0:
+        print(
+            f"  plot_population_metrics: {n_invalid_med}/{n_rois} ROIs have non-finite median dF/F (excluded from histogram)."
+        )
     median_to_plot = metrics["median_dff"][np.isfinite(metrics["median_dff"])]
     axes[1].hist(median_to_plot, bins=50, color="salmon", edgecolor="black")
     axes[1].axvline(0, color="red", linestyle="--")
@@ -460,6 +485,11 @@ def plot_population_metrics(f0, dff, save_path=None):
     axes[1].set_ylabel("Count")
 
     # 3. Max dF/F (Spikes) Distribution
+    n_invalid_max = int(np.sum(~np.isfinite(metrics["max_dff"])))
+    if n_invalid_max > 0:
+        print(
+            f"  plot_population_metrics: {n_invalid_max}/{n_rois} ROIs have non-finite max dF/F (excluded from histogram)."
+        )
     max_to_plot = metrics["max_dff"][np.isfinite(metrics["max_dff"])]
     axes[2].hist(max_to_plot, bins=50, color="lightgreen", edgecolor="black")
     axes[2].axvline(100, color="red", linestyle="--")
