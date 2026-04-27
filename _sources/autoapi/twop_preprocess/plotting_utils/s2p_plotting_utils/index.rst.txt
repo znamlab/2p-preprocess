@@ -1,0 +1,155 @@
+twop_preprocess.plotting_utils.s2p_plotting_utils
+=================================================
+
+.. py:module:: twop_preprocess.plotting_utils.s2p_plotting_utils
+
+
+Attributes
+----------
+
+.. autoapisummary::
+
+   twop_preprocess.plotting_utils.s2p_plotting_utils.jet
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   twop_preprocess.plotting_utils.s2p_plotting_utils.load_s2p_output
+   twop_preprocess.plotting_utils.s2p_plotting_utils.stats_to_array
+   twop_preprocess.plotting_utils.s2p_plotting_utils.plot_detection_outcome
+   twop_preprocess.plotting_utils.s2p_plotting_utils.make_bounding_box
+   twop_preprocess.plotting_utils.s2p_plotting_utils.plot_roi_and_neuropil
+   twop_preprocess.plotting_utils.s2p_plotting_utils.plot_f_f_neu
+   twop_preprocess.plotting_utils.s2p_plotting_utils.plot_reg_metrics
+
+
+Module Contents
+---------------
+
+.. py:data:: jet
+
+.. py:function:: load_s2p_output(output_dir)
+
+   Load Suite2p output for a specific plane directory.
+
+   :param output_dir: Path to the directory containing 'stat.npy', 'ops.npy', etc.
+   :type output_dir: str or Path
+
+   :returns:
+
+             (f, f_neu, spks, stats, iscell, ops)
+                 - f (np.ndarray): Fluorescence values for each ROI.
+                 - f_neu (np.ndarray): Neuropil fluorescence values for each ROI.
+                 - spks (np.ndarray): Deconvolved fluorescence (spikes).
+                 - stats (np.ndarray): List of dictionaries containing ROI statistics.
+                 - iscell (np.ndarray): Boolean array identifying ROIs as cells.
+                 - ops (dict): Dictionary of Suite2p run settings.
+   :rtype: tuple
+
+
+.. py:function:: stats_to_array(stats: Sequence[Dict[str, Any]], Ly: int, Lx: int, label_id: bool = False)
+
+   Convert Suite2p ROI stats to a 3D numpy array of masks.
+
+   :param stats: Sequence of dictionaries from stat.npy.
+   :type stats: Sequence[Dict[str, Any]]
+   :param Ly: Number of pixels along the Y dimension.
+   :type Ly: int
+   :param Lx: Number of pixels along the X dimension.
+   :type Lx: int
+   :param label_id: If True, pixels are labeled with the ROI index (1-indexed).
+                    If False, pixels are set to 1. Default False.
+   :type label_id: bool, optional
+
+   :returns: Stack of ROI masks (n_rois x Ly x Lx).
+   :rtype: np.ndarray
+
+
+.. py:function:: plot_detection_outcome(stats, ops, iscell, fname=None, output_dir=None)
+
+   Generate a four-panel plot showing ROI detection outcomes.
+
+   The panels include: Max Intensity Projection, All ROIs, Non-cell ROIs, and Cell ROIs.
+
+   :param stats: Stats array from stat.npy.
+   :type stats: np.ndarray
+   :param ops: Dictionary of Suite2p settings.
+   :type ops: dict
+   :param iscell: Boolean array identifying which ROIs are cells.
+   :type iscell: np.ndarray
+   :param fname: Name of the recording for the output filename.
+   :type fname: str, optional
+   :param output_dir: Directory to save the plot.
+   :type output_dir: str or Path, optional
+
+   :returns: The generated figure handle.
+   :rtype: matplotlib.figure.Figure
+
+
+.. py:function:: make_bounding_box(stat)
+
+   Utility for creating a bounding box around a single ROI.
+
+   :param stat: Single ROI dictionary from stat.npy.
+   :type stat: dict
+
+   :returns: (y_lim1, y_lim2, x_lim1, x_lim2) coordinates for an ~80px box around the ROI.
+   :rtype: tuple
+
+
+.. py:function:: plot_roi_and_neuropil(f, f_neu, spks, ops, stat, which_roi, fname, out_dir)
+
+   Generate a multipanel plot for a user-selected ROI.
+
+   The plot includes: raw fluorescence, neuropil fluorescence, deconvolved spikes,
+   cell ROI, and neuropil mask.
+
+   :param f: Fluorescence traces.
+   :type f: np.ndarray
+   :param f_neu: Neuropil fluorescence traces.
+   :type f_neu: np.ndarray
+   :param spks: Deconvolved spikes.
+   :type spks: np.ndarray
+   :param ops: Suite2p run settings.
+   :type ops: dict
+   :param stat: Stats array from stat.npy.
+   :type stat: np.ndarray
+   :param which_roi: Index of the ROI to plot.
+   :type which_roi: int
+   :param fname: Name of the recording for the output filename.
+   :type fname: str
+   :param out_dir: Directory to save the plot (.svg).
+   :type out_dir: str or Path
+
+
+.. py:function:: plot_f_f_neu(f, f_neu, which_roi, fname, out_dir)
+
+   Plot F vs F_neu correlation for a selected ROI using a KDE colormap.
+
+   :param f: Cell fluorescence traces.
+   :type f: np.ndarray
+   :param f_neu: Neuropil fluorescence traces.
+   :type f_neu: np.ndarray
+   :param which_roi: Index of the ROI.
+   :type which_roi: int
+   :param fname: Name of the recording for the output filename.
+   :type fname: str
+   :param out_dir: Directory to save the plot (.svg).
+   :type out_dir: str or Path
+
+
+.. py:function:: plot_reg_metrics(ops, fname, out_dir)
+
+   Plot registration metrics (PCs and offsets) for a Suite2p run.
+
+   :param ops: Dictionary of Suite2p run settings and metrics.
+   :type ops: dict
+   :param fname: Name of the recording for the output filename.
+   :type fname: str
+   :param out_dir: Directory to save the plot (.svg).
+   :type out_dir: str or Path
+
+

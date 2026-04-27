@@ -1,0 +1,102 @@
+twop_preprocess.calcium.calcium_s2p
+===================================
+
+.. py:module:: twop_preprocess.calcium.calcium_s2p
+
+
+Attributes
+----------
+
+.. autoapisummary::
+
+   twop_preprocess.calcium.calcium_s2p.print
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   twop_preprocess.calcium.calcium_s2p.spike_deconvolution_suite2p
+   twop_preprocess.calcium.calcium_s2p.reextract_masks
+   twop_preprocess.calcium.calcium_s2p.run_extraction
+
+
+Module Contents
+---------------
+
+.. py:data:: print
+
+.. py:function:: spike_deconvolution_suite2p(suite2p_dataset, iplane, ops=None, ast_neuropil=True)
+
+   Run spike deconvolution on the concatenated recordings after ASt neuropil correction.
+
+   This function uses Suite2p's OASIS implementation to extract spikes from
+   neuropil-corrected fluorescence traces. It can use either ASt-corrected
+   traces (Fast.npy) or standard-corrected traces (Fstandard.npy).
+
+   :param suite2p_dataset: Flexilims Dataset object containing concatenated recordings.
+   :type suite2p_dataset: Dataset
+   :param iplane: The plane index to process.
+   :type iplane: int
+   :param ops: Dictionary of Suite2p settings. If None, uses the
+               settings stored in the dataset's ops.npy.
+   :type ops: dict, optional
+   :param ast_neuropil: Whether to use the ASt-corrected trace
+                        (`Fast.npy`) or the standard trace (`Fstandard.npy`) for deconvolution.
+                        Default True.
+   :type ast_neuropil: bool, optional
+
+
+.. py:function:: reextract_masks(masks, suite2p_ds)
+
+   Re-extract fluorescence traces from registered binaries using a new set of masks.
+
+   This function takes an existing Suite2p dataset and a new set of ROI masks,
+   calculates ROI statistics (weights, overlap, etc.), and runs the Suite2p
+   extraction pipeline to generate new fluorescence (F) and neuropil (Fneu) traces.
+
+   :param masks: 3D array of masks (Z x Ly x Lx) where each non-zero value
+                 represents a unique ROI ID.
+   :type masks: np.ndarray
+   :param suite2p_ds: Flexilims Dataset object for the existing Suite2p results.
+   :type suite2p_ds: Dataset
+
+   :returns:
+
+             (merged_masks, all_original_masks, all_stats, all_ops)
+                 - merged_masks (np.ndarray): 2D array of all plane masks tiled into one image.
+                 - all_original_masks (list): List of unique ROI IDs found in each plane.
+                 - all_stats (list): List of Suite2p stats dictionaries for the new ROIs.
+                 - all_ops (list): List of updated Suite2p ops for each plane.
+   :rtype: tuple
+
+
+.. py:function:: run_extraction(flz_session, project, session_name, conflicts, ops, delete_previous_run=False)
+
+   Fetch data from Flexilims and run Suite2p ROI extraction.
+
+   This function identifies ScanImage datasets on Flexilims for the given session,
+   configures the Suite2p `ops` dictionary (including frame rate and cell diameter
+   calculations based on ScanImage metadata), and runs the Suite2p pipeline.
+   Results are saved to the project's processed data path and registered on Flexilims.
+
+   :param flz_session: Active Flexilims session object.
+   :type flz_session: Flexilims
+   :param project: Flexilims project name.
+   :type project: str
+   :param session_name: Name of the experimental session.
+   :type session_name: str
+   :param conflicts: Behavior if a Suite2p dataset already exists
+                     ('skip', 'overwrite', 'abort').
+   :type conflicts: str
+   :param ops: Dictionary of Suite2p settings.
+   :type ops: dict
+   :param delete_previous_run: If True, deletes existing Suite2p binary files
+                               and output before starting. Default False.
+   :type delete_previous_run: bool, optional
+
+   :returns: The newly created (or existing) Flexilims Suite2p ROIs Dataset.
+   :rtype: Dataset
+
+

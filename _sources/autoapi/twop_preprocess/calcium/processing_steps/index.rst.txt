@@ -1,0 +1,78 @@
+twop_preprocess.calcium.processing_steps
+========================================
+
+.. py:module:: twop_preprocess.calcium.processing_steps
+
+
+Attributes
+----------
+
+.. autoapisummary::
+
+   twop_preprocess.calcium.processing_steps.print
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   twop_preprocess.calcium.processing_steps.detrend
+   twop_preprocess.calcium.processing_steps.estimate_offsets
+
+
+Module Contents
+---------------
+
+.. py:data:: print
+
+.. py:function:: detrend(F, first_frames, last_frames, ops, fs)
+
+   Detrend fluorescence traces for each recording in a session.
+
+   This function applies a rolling percentile filter to estimate the baseline
+   of each ROI's fluorescence trace for each individual recording. The baseline
+   is then either subtracted or divided out, relative to the first recording's baseline
+   to maintain cross-recording consistency.
+
+   :param F: Concatenated fluorescence traces (n_rois x n_frames).
+   :type F: numpy.ndarray
+   :param first_frames: Start frame indices for each recording.
+   :type first_frames: numpy.ndarray
+   :param last_frames: End frame indices for each recording.
+   :type last_frames: numpy.ndarray
+   :param ops: Dictionary of settings, must include 'detrend_win' (window size in s),
+               'detrend_pctl' (percentile), and 'detrend_method' ('subtract' or 'divide').
+   :type ops: dict
+   :param fs: Sampling frequency in Hz.
+   :type fs: float
+
+   :returns:
+
+             (F_detrended, all_rec_baseline)
+                 - F_detrended (np.ndarray): The detrended fluorescence traces.
+                 - all_rec_baseline (np.ndarray): The estimated baseline values.
+   :rtype: tuple
+
+
+.. py:function:: estimate_offsets(suite2p_dataset, ops, project, flz_session)
+
+   Estimate optical offsets for all recordings associated with a Suite2p session.
+
+   This function iterates through the raw data paths stored in the Suite2p dataset,
+   identifies the original ScanImage TIFFs, and estimates the optical offset
+   for each recording using a GMM.
+
+   :param suite2p_dataset: Flexilims Dataset object for the Suite2p ROIs.
+   :type suite2p_dataset: Dataset
+   :param ops: Dictionary of preprocessing settings.
+   :type ops: dict
+   :param project: Flexilims project name.
+   :type project: str
+   :param flz_session: Active Flexilims session object.
+   :type flz_session: Flexilims
+
+   :returns: A list of estimated offsets, one per recording.
+   :rtype: list
+
+

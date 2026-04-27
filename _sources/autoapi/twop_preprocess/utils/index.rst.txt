@@ -1,0 +1,49 @@
+twop_preprocess.utils
+=====================
+
+.. py:module:: twop_preprocess.utils
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   twop_preprocess.utils.parse_si_metadata
+   twop_preprocess.utils.load_ops
+
+
+Module Contents
+---------------
+
+.. py:function:: parse_si_metadata(tiff_path)
+
+   Read metadata from a ScanImage TIFF file.
+
+   Extracts the 'FrameData' metadata dictionary from the TIFF header.
+
+   :param tiff_path: Path to a ScanImage TIFF file or a directory
+                     containing TIFF files.
+   :type tiff_path: str or Path
+
+   :returns: Dictionary of ScanImage parameters, or None if no TIFFs found.
+   :rtype: dict
+
+
+.. py:function:: load_ops(user_ops, zstack=False)
+
+   Generate the final options (ops) dictionary for the pipeline.
+
+   Combines Suite2p defaults, pipeline-specific defaults (from default_ops.yml),
+   user configuration (~/.2p_preprocess/config.yml), and runtime overrides.
+
+   :param user_ops: Dictionary of user-specified overrides provided at runtime.
+   :type user_ops: dict
+   :param zstack: If True, loads settings for z-stack registration.
+                  Default False.
+   :type zstack: bool, optional
+
+   :returns: The final consolidated options dictionary.
+   :rtype: dict
+
+

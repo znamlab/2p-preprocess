@@ -1,0 +1,34 @@
+twop_preprocess.neuropil.neuropil
+=================================
+
+.. py:module:: twop_preprocess.neuropil.neuropil
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   twop_preprocess.neuropil.neuropil.correct_neuropil
+
+
+Module Contents
+---------------
+
+.. py:function:: correct_neuropil(suite2p_dataset, iplane)
+
+   Apply Asymmetric Student's t-model (ASt) neuropil correction to a Suite2p plane.
+
+   This function loads the raw fluorescence (F) and neuropil (Fneu) traces for
+   a specific plane, and uses the ASt model to estimate the corrected neural
+   activity. The results (Fast, ast_stat, ast_elbo) are saved to the plane's directory.
+
+   :param suite2p_dataset: Flexilims Dataset object for the Suite2p ROIs.
+   :type suite2p_dataset: Dataset
+   :param iplane: The index of the plane to process.
+   :type iplane: int
+
+   :returns: The ASt-corrected fluorescence traces (n_rois x n_frames).
+   :rtype: np.ndarray
+
+

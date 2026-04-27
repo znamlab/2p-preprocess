@@ -1,0 +1,73 @@
+twop_preprocess.plotting_utils.sanity_check_utils
+=================================================
+
+.. py:module:: twop_preprocess.plotting_utils.sanity_check_utils
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   twop_preprocess.plotting_utils.sanity_check_utils.plot_trace
+   twop_preprocess.plotting_utils.sanity_check_utils.plot_raw_trace
+   twop_preprocess.plotting_utils.sanity_check_utils.plot_detrended_trace
+   twop_preprocess.plotting_utils.sanity_check_utils.plot_dff
+   twop_preprocess.plotting_utils.sanity_check_utils.plot_fluorescence_matrices
+   twop_preprocess.plotting_utils.sanity_check_utils.plot_f0_gmm
+   twop_preprocess.plotting_utils.sanity_check_utils.plot_roi_pipeline
+   twop_preprocess.plotting_utils.sanity_check_utils.plot_optical_offset_gmm
+   twop_preprocess.plotting_utils.sanity_check_utils.plot_population_metrics
+
+
+Module Contents
+---------------
+
+.. py:function:: plot_trace(F, rois, plot_baseline=False, baseline=0, ncols=2, icol=0, linecolor='b', title='F', save_path=None)
+
+.. py:function:: plot_raw_trace(F, random_rois, Fneu=[], titles=['F', 'Fneu'], save_path=None)
+
+.. py:function:: plot_detrended_trace(F_original, F_trend, F_detrended, Fneu_original, Fneu_trend, Fneu_detrended, random_rois, save_path=None)
+
+.. py:function:: plot_dff(Fast, dff, F0, random_rois, save_path=None)
+
+.. py:function:: plot_fluorescence_matrices(F, Fneu, Fast, dff, neucoeff=0.7, max_frames=4000)
+
+.. py:function:: plot_f0_gmm(F, Fneu, cell_id, n_components, nframes=3000, save_path=None, neucoeff=0.7)
+
+   Plot the GMM fit for the F0 baseline estimation of a specific ROI.
+
+
+.. py:function:: plot_roi_pipeline(roi_id, F_raw, Fneu_raw, F_offset_corrected, F_detrended, F_trend, Fneu_detrended, Fneu_trend, F_processed, f0, dff, save_path=None, neucoeff=0.7, boundaries=None, offsets=None)
+
+   Plot all processing stages for a single ROI in one figure (2 columns).
+
+
+.. py:function:: plot_optical_offset_gmm(pixels, gmm, offset, save_path=None)
+
+   Illustrate the optical offset calculation by plotting the pixel intensity
+   histogram and the fitted GMM components in both linear and log-y scales.
+
+   :param pixels: Flattened pixel intensities from a raw frame.
+   :type pixels: np.ndarray
+   :param gmm: The fitted GMM object.
+   :type gmm: mixture.GaussianMixture
+   :param offset: The estimated optical offset (lowest component mean).
+   :type offset: float
+   :param save_path: Path to save the plot.
+   :type save_path: str or Path, optional
+
+
+.. py:function:: plot_population_metrics(f0, dff, save_path=None)
+
+   Plot population-level quality metrics: F0 distribution, median dF/F distribution,
+   and frequency of large spikes.
+
+   :param f0: F0 values (n_rois x n_frames or n_rois x 1).
+   :type f0: np.ndarray
+   :param dff: dF/F values (n_rois x n_frames).
+   :type dff: np.ndarray
+   :param save_path: Path to save the plot.
+   :type save_path: str, optional
+
+

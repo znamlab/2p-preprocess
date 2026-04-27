@@ -1,0 +1,126 @@
+twop_preprocess.calcium.calcium
+===============================
+
+.. py:module:: twop_preprocess.calcium.calcium
+
+
+Attributes
+----------
+
+.. autoapisummary::
+
+   twop_preprocess.calcium.calcium.print
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   twop_preprocess.calcium.calcium.process_concatenated_traces
+   twop_preprocess.calcium.calcium.split_recordings
+   twop_preprocess.calcium.calcium.extract_session
+   twop_preprocess.calcium.calcium.generate_sanity_plots
+
+
+Module Contents
+---------------
+
+.. py:data:: print
+
+.. py:function:: process_concatenated_traces(suite2p_dataset, ops, project, flz_session)
+
+   Correct offsets, detrend, calculate dF/F and deconvolve spikes for the whole session.
+
+   This function iterates through all planes of a Suite2p dataset, applying a series
+   of preprocessing steps (offset correction, detrending, neuropil correction,
+   dF/F calculation, and spike deconvolution). It also generates sanity plots if
+   configured in the ops.
+
+   :param suite2p_dataset: Flexilims Dataset object containing concatenated recordings.
+   :type suite2p_dataset: Dataset
+   :param ops: Dictionary of preprocessing settings (e.g., 'correct_offset', 'detrend',
+               'ast_neuropil', 'sanity_plots').
+   :type ops: dict
+   :param project: Flexilims project name.
+   :type project: str
+   :param flz_session: Active Flexilims session object.
+   :type flz_session: Flexilims
+
+
+.. py:function:: split_recordings(flz_session, suite2p_dataset, conflicts, base_name='suite2p_traces', extra_attributes=None)
+
+   suite2p concatenates all the recordings in a given session into a single file.
+   To facilitate downstream analyses, we cut them back into chunks and add them
+   to flexilims as children of the corresponding recordings.
+
+   :param flz_session: flexilims session
+   :type flz_session: Flexilims
+   :param suite2p_dataset: dataset containing concatenated recordings
+                           to split
+   :type suite2p_dataset: Dataset
+   :param conflicts: defines behavior if recordings have already been split
+   :type conflicts: str
+   :param base_name: base name for the split datasets. Default
+                     "suite2p_traces"
+   :type base_name: str, optional
+   :param extra_attributes: Extra attributes to add to the split datasets
+                            on flexilims. Used to filter when looking for previously split datasets.
+                            Default None
+   :type extra_attributes: dict, optional
+
+
+.. py:function:: extract_session(project, session_name, conflicts=None, run_split=False, run_suite2p=True, run_dff=True, delete_previous_run=False, ops=None)
+
+   Main entry point to process all 2p datasets for a given session.
+
+   This function coordinates the full pipeline: running Suite2p extraction
+   (or loading existing results), calculating dF/F with optional neuropil
+   correction, and optionally splitting the concatenated traces back into
+   individual recording datasets on Flexilims.
+
+   :param project: Name of the Flexilims project (e.g., '3d_vision').
+   :type project: str
+   :param session_name: Name of the experimental session.
+   :type session_name: str
+   :param conflicts: How to handle existing data on Flexilims
+                     ('skip', 'overwrite', 'abort').
+   :type conflicts: str, optional
+   :param run_split: Whether to split concatenated traces into
+                     individual recording datasets. Default False.
+   :type run_split: bool, optional
+   :param run_suite2p: Whether to run Suite2p ROI extraction. Default True.
+   :type run_suite2p: bool, optional
+   :param run_dff: Whether to run dF/F calculation and neuropil correction.
+                   Default True.
+   :type run_dff: bool, optional
+   :param delete_previous_run: If True, deletes existing Suite2p binary files
+                               and output before starting. Default False.
+   :type delete_previous_run: bool, optional
+   :param ops: Dictionary of Suite2p and preprocessing settings.
+               If None, default ops are loaded.
+   :type ops: dict, optional
+
+   :returns: The Flexilims Dataset object for the Suite2p ROIs.
+   :rtype: Dataset
+
+
+.. py:function:: generate_sanity_plots(project, session_name, flz_session, annotated=False)
+
+   Re-generate all sanity plots for a previously processed session.
+
+   This function loads the Suite2p dataset, re-calculates necessary intermediate
+   steps (like detrending) that aren't saved to disk, and recreates the full
+   suite of diagnostic figures.
+
+   :param project: Flexilims project name.
+   :type project: str
+   :param session_name: Name of the experimental session.
+   :type session_name: str
+   :param flz_session: Active Flexilims session object.
+   :type flz_session: Flexilims
+   :param annotated: If True, use the re-extracted (annotated) dataset produced
+                     by ``2p reextract`` instead of the original suite2p dataset. Default False.
+   :type annotated: bool
+
+

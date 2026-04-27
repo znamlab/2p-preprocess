@@ -1,0 +1,117 @@
+twop_preprocess.calcium.reextraction
+====================================
+
+.. py:module:: twop_preprocess.calcium.reextraction
+
+
+Attributes
+----------
+
+.. autoapisummary::
+
+   twop_preprocess.calcium.reextraction.print
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   twop_preprocess.calcium.reextraction.reextract_session
+   twop_preprocess.calcium.reextraction.load_mask
+   twop_preprocess.calcium.reextraction.verify_mask
+   twop_preprocess.calcium.reextraction.relabel_mask
+   twop_preprocess.calcium.reextraction.plot_reextraction_sanity
+
+
+Module Contents
+---------------
+
+.. py:data:: print
+
+.. py:function:: reextract_session(session, masks, flz_session=None, project=None, conflicts='abort', attribute_changes=None)
+
+   Reextract masks and fluorescence traces for a session.
+
+   This function creates a new suite2p dataset with the reextracted masks and traces.
+   The new dataset is marked as annotated in flexilims.
+
+   :param session: name of the session
+   :type session: str
+   :param masks: Z x X x Y array of masks to be reextracted
+   :type masks: ndarray | str
+   :param flz_session: flexilims session
+   :type flz_session: Flexilims
+   :param project: name of the project. If not provided, it will be
+                   inferred from the flexilims session.
+   :type project: str, optional
+   :param conflicts: defines behavior if recordings have already been
+                     reextracted. One of `abort`, `skip`, `append`, `overwrite`. Default `abort`
+   :type conflicts: str, optional
+   :param attribute_changes: dictionary of attributes to change in the
+                             annotated dataset compared to the original. Default None
+   :type attribute_changes: dict, optional
+
+   :returns: merged masks
+   :rtype: ndarray
+
+
+.. py:function:: load_mask(path2mask)
+
+   Load masks from image, npy or stats file.
+
+   :param path2mask: path to the mask file
+   :type path2mask: str or Path
+
+   :returns: Z x X x Y array of masks to be reextracted
+   :rtype: ndarray
+
+
+.. py:function:: verify_mask(path2mask, verbose=True)
+
+   Verifies that a mask file has unique and continuous cell IDs.
+
+   Also checks that each ID corresponds to exactly one connected component.
+
+   :param path2mask: Path to the mask image file.
+   :type path2mask: str or Path
+   :param verbose: Whether to print verification details. Defaults to True.
+   :type verbose: bool
+
+   :returns:
+
+             (bool, set) where the bool is True if the mask is valid (continuous IDs
+                 and each ID is a single component), False otherwise and the set contains the
+                 IDs that correspond to multiple cells.
+   :rtype: tuple
+
+
+.. py:function:: relabel_mask(mask_path, output_path=None, verbose=True)
+
+   Relabels a mask file to ensure unique and continuous cell IDs.
+
+   Processes each original ID separately to split disconnected regions into unique
+   new IDs while preserving separations between touching cells that already had
+   different IDs.
+
+   :param mask_path: Path to the input mask image file.
+   :type mask_path: str or Path
+   :param output_path: Path where the relabeled mask will be
+                       saved. If None, the original file will be overwritten. Defaults to None.
+   :type output_path: str or Path, optional
+   :param verbose: Whether to print progress details. Defaults to True.
+   :type verbose: bool
+
+
+.. py:function:: plot_reextraction_sanity(suite2p_ds, suite2p_ds_annotated, masks)
+
+   Plot the original masks and the new masks to check the reextraction.
+
+   :param suite2p_ds: the original dataset
+   :type suite2p_ds: Suite2pDataset
+   :param suite2p_ds_annotated: the annotated dataset
+   :type suite2p_ds_annotated: Suite2pDataset
+   :param masks: the masks to be reextracted
+   :type masks: ndarray
+
+
