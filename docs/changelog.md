@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.2.0] — 2026-04-27
+
 ### Added
 
 - **ROI Pipeline Visualization**: Implemented a unified single-ROI diagnostic plot (`roi_pipelines/`) that shows the full processing evolution (Raw -> Offset -> Detrend -> Processed -> ΔF/F) for individual cells. Includes recording boundaries, estimated offsets, and numerical metadata (ROI ID, Neuropil Coefficient, and $F_0$) for better assessment.
