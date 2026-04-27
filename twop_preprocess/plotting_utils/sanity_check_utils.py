@@ -356,9 +356,17 @@ def plot_roi_pipeline(
 
     # 8. Empty or extra info
     axes[7].axis("off")
-    # Maybe add text info about ROI
-    axes[7].text(
-        0.1, 0.5, f"ROI: {roi_id}\nNeuropil Coeff: {neucoeff}", fontsize=12, va="center"
+    # Extract F0 value for display
+    f0_val = np.ravel(f0[roi_id])[0] if f0.ndim == 2 and f0.shape[1] == 1 else None
+
+    axes[0].text(
+        0.01,
+        0.95,
+        f"ROI {roi_id} | Neuropil Coeff: {neucoeff}"
+        + (f" | F0: {f0_val:.2f}" if f0_val is not None else ""),
+        transform=axes[0].transAxes,
+        va="top",
+        bbox=dict(facecolor="white", alpha=0.5),
     )
 
     for i in range(6):

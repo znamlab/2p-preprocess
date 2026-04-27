@@ -8,7 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Added
 
-- **ROI Pipeline Visualization**: Implemented a unified single-ROI diagnostic plot (`roi_pipelines/`) that shows the full processing evolution (Raw -> Offset -> Detrend -> Processed -> ΔF/F) for individual cells. Includes recording boundaries and estimated offsets for better jump/drift identification.
+- **ROI Pipeline Visualization**: Implemented a unified single-ROI diagnostic plot (`roi_pipelines/`) that shows the full processing evolution (Raw -> Offset -> Detrend -> Processed -> ΔF/F) for individual cells. Includes recording boundaries, estimated offsets, and numerical metadata (ROI ID, Neuropil Coefficient, and $F_0$) for better assessment.
 - **Population Health Diagnostics**: Added a population-level quality metric plot (`05b_population_metrics.png`) showing distributions of baseline fluorescence (F0), median ΔF/F, and extreme transients (>10000%).
 - **Sanity CLI Command**: Added a dedicated `2p sanity` command to re-generate diagnostic plots without re-running the entire processing pipeline. Supports an `--annotated` flag to handle sessions processed via `2p reextract`.
 - **Targeted Quality Control**: Refactored GMM baseline fit plotting (`gmm_offsets/`) to prioritize "problematic" ROIs (e.g., negative F0, negative median ΔF/F, or extreme transients) for faster manual validation of session health.
@@ -28,7 +28,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 - **Pipeline Robustness**: Hardened the sanity check pipeline to handle missing intermediate files (`Fast.npy`, `Fstandard.npy`) gracefully by generating placeholder warning plots instead of crashing.
 - **Visualization Accuracy**: Updated `plot_offset_gmm` to use the session-specific `neucoeff`, ensuring the neuropil subtraction visualization accurately reflects the processing parameters.
-- **Matplotlib Compatibility**: Resolved `DeprecationWarning` regarding array-to-scalar conversion in plotting routines.
+- **NumPy 1.25+ Compatibility**: Fixed `TypeError` when converting 1-element arrays to scalars during plotting of $F_0$ baselines and GMM fits.
 - **Numba Optimization**: Refactored `rolling_percentile` to remove an invalid `parallel=True` directive, resolving performance warnings and ensuring stable execution.
 - **Visualization Robustness**: Added console warnings when non-finite values (NaN/Inf) are detected and filtered during the plotting of neural traces or GMM fits.
 
