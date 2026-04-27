@@ -683,13 +683,13 @@ def generate_sanity_plots(project, session_name, flz_session, annotated=False):
 
             # 09. GMM f0 fits for selected ROIs
             print("Plotting GMM f0 fits")
-            gmm_plot_path = plot_path / "gmm_offsets"
+            gmm_plot_path = plot_path / "gmm_f0"
             gmm_plot_path.mkdir(exist_ok=True)
 
             if len(rois_to_plot) > 0:
                 print(f"Plotting {len(rois_to_plot)} ROIs to {gmm_plot_path}")
                 for roi in rois_to_plot:
-                    sanity.plot_offset_gmm(
+                    sanity.plot_f0_gmm(
                         F_detrended,
                         Fneu_detrended,
                         roi,

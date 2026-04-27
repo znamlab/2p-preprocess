@@ -123,9 +123,12 @@ def plot_fluorescence_matrices(F, Fneu, Fast, dff, neucoeff=0.7, max_frames=4000
     return fig
 
 
-def plot_offset_gmm(
+def plot_f0_gmm(
     F, Fneu, cell_id, n_components, nframes=3000, save_path=None, neucoeff=0.7
 ):
+    """
+    Plot the GMM fit for the F0 baseline estimation of a specific ROI.
+    """
     fig = plt.figure(figsize=(10, 5))
     f = F[cell_id] - neucoeff * (Fneu[cell_id] - np.median(Fneu[cell_id]))
     ax = plt.subplot2grid((2, 5), (0, 0), colspan=4)
@@ -142,7 +145,7 @@ def plot_offset_gmm(
     n_invalid = int(np.sum(~np.isfinite(f)))
     if n_invalid > 0:
         print(
-            f"  [ROI {cell_id}] plot_offset_gmm: {n_invalid} non-finite values in F trace excluded from GMM fit."
+            f"  [ROI {cell_id}] plot_f0_gmm: {n_invalid} non-finite values in F trace excluded from GMM fit."
         )
     f_valid = f[np.isfinite(f)]
     if len(f_valid) < n_components:
@@ -189,7 +192,7 @@ def plot_offset_gmm(
     n_invalid_dff = int(np.sum(~np.isfinite(this_dff)))
     if n_invalid_dff > 0:
         print(
-            f"  [ROI {cell_id}] plot_offset_gmm: {n_invalid_dff} non-finite values in dF/F trace set to NaN for plotting."
+            f"  [ROI {cell_id}] plot_f0_gmm: {n_invalid_dff} non-finite values in dF/F trace set to NaN for plotting."
         )
     this_dff_finite[~np.isfinite(this_dff)] = np.nan
     ax_dff.plot(this_dff_finite[s:e])
