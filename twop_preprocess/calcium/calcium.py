@@ -454,7 +454,7 @@ def extract_session(
     print("Extraction finished.")
 
 
-def generate_sanity_plots(project, session_name, flz_session):
+def generate_sanity_plots(project, session_name, flz_session, annotated=False):
     """
     Re-generate all sanity plots for a previously processed session.
 
@@ -466,8 +466,12 @@ def generate_sanity_plots(project, session_name, flz_session):
         project (str): Flexilims project name.
         session_name (str): Name of the experimental session.
         flz_session (Flexilims): Active Flexilims session object.
+        annotated (bool): If True, use the re-extracted (annotated) dataset produced
+            by ``2p reextract`` instead of the original suite2p dataset. Default False.
     """
     print(f"Generating sanity plots for session {session_name}...")
+    if annotated:
+        print("  Using annotated (re-extracted) dataset.")
 
     # get experimental session
     exp_session = flz.get_entity(
@@ -479,7 +483,7 @@ def generate_sanity_plots(project, session_name, flz_session):
     if exp_session is None:
         raise ValueError(f"Session {session_name} not found on flexilims")
 
-    # fetch existing suite2p dataset
+    # fetch existing suite2p dataset(s)
     suite2p_datasets = flz.get_datasets(
         origin_id=exp_session["id"],
         dataset_type="suite2p_rois",
@@ -488,6 +492,27 @@ def generate_sanity_plots(project, session_name, flz_session):
     )
     if not suite2p_datasets:
         raise ValueError(f"No Suite2p dataset found for session {session_name}")
+
+    # Filter by annotated flag
+    if annotated:
+        suite2p_datasets = [
+            ds for ds in suite2p_datasets if ds.extra_attributes.get("annotated", False)
+        ]
+        if not suite2p_datasets:
+            raise ValueError(
+                f"No annotated (re-extracted) Suite2p dataset found for session "
+                f"{session_name}. Run '2p reextract' first."
+            )
+    else:
+        suite2p_datasets = [
+            ds
+            for ds in suite2p_datasets
+            if not ds.extra_attributes.get("annotated", False)
+        ]
+        if not suite2p_datasets:
+            raise ValueError(
+                f"No non-annotated Suite2p dataset found for session {session_name}."
+            )
 
     # Use the most recent one if multiple exist
     if len(suite2p_datasets) > 1:

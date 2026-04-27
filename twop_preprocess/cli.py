@@ -192,10 +192,15 @@ def zstack(
 @cli.command()
 @click.option("--project", "-p", required=True, help="Name of the project")
 @click.option("--session", "-s", required=True, help="Flexilims name of the session")
-def sanity(project, session):
+@click.option(
+    "--annotated/--no-annotated",
+    default=False,
+    help="If set, use the re-extracted (annotated) dataset produced by '2p reextract'.",
+)
+def sanity(project, session, annotated):
     """Re-generate sanity plots for a session."""
     from twop_preprocess.calcium.calcium import generate_sanity_plots
     import flexiznam as flz
 
     flz_session = flz.get_flexilims_session(project)
-    generate_sanity_plots(project, session, flz_session)
+    generate_sanity_plots(project, session, flz_session, annotated=annotated)
