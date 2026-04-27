@@ -136,9 +136,12 @@ Usage: 2p sanity [OPTIONS]
   Re-generate sanity plots for a session.
 
 Options:
-  -p, --project TEXT  Name of the project  [required]
-  -s, --session TEXT  Flexilims name of the session  [required]
-  --help              Show this message and exit.
+  -p, --project TEXT       Name of the project  [required]
+  -s, --session TEXT       Flexilims name of the session  [required]
+  --annotated / --no-annotated
+                           Use the re-extracted (annotated) dataset from
+                           '2p reextract'  [default: False]
+  --help                   Show this message and exit.
 ```
 
 **Example:**

@@ -157,8 +157,9 @@ After a full run, each `plane{N}` subdirectory of the `suite2p_rois` dataset con
  When `sanity_plots: True` (default), the pipeline generates diagnostic figures in a `sanity_plots/` subdirectory within each plane folder and at the top level of the dataset. These include:
 
  *   **Optical Offset Diagnostics**: Shows the GMM fit to the raw pixel intensity histogram for each recording, illustrating how the optical offset was estimated.
- *   **Trace Diagnostics**: Raw traces, offset-corrected traces, detrended traces, and neuropil-corrected traces.
- *   **ΔF/F Diagnostics**: ΔF/F traces and the GMM fit used for $F_0$ baseline estimation.
+ *   **Population Health Metrics** (`05b_population_metrics.png`): Distributions of baseline fluorescence ($F_0$), median $\Delta F/F$, and extreme transients across all cells to assess overall session quality.
+ *   **Unified ROI Pipeline Plots** (`roi_pipelines/` folder): A single comprehensive plot per ROI showing the full processing evolution (Raw -> Offset -> Detrend -> Processed -> $\Delta F/F$) with recording boundaries and metadata (ROI ID, Neuropil Coeff, and $F_0$).
+ *   **GMM $F_0$ Baseline Fits** (`gmm_f0/` folder): Shows the Gaussian Mixture Model fit to the detrended fluorescence distribution for each selected ROI, illustrating how the baseline $F_0$ was estimated.
  *   **Fluorescence Matrices**: Normalized heatmaps of `F`, `Fneu`, and corrected traces across all neurons.
 
  ### Re-running diagnostics
