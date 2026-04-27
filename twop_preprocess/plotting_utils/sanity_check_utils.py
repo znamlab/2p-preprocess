@@ -169,12 +169,16 @@ def plot_f0_gmm(
     comps = []
     for i in range(n_components):
         comps.append(
-            norm.pdf(bins, float(gmm_means[i][0]), np.sqrt(float(covs[i][0][0])))
+            norm.pdf(
+                bins,
+                float(np.ravel(gmm_means[i])[0]),
+                np.sqrt(float(np.ravel(covs[i])[0])),
+            )
             * weights[i]
         )
         l = plt.plot(comps[i], bins)[0]
         plt.axhline(
-            float(gmm_means[i][0]),
+            float(np.ravel(gmm_means[i])[0]),
             color=l.get_color(),
             label="f0" if i == 0 else "__no_label__",
         )
@@ -185,7 +189,7 @@ def plot_f0_gmm(
     plt.title("GMM f0")
 
     ax_dff = plt.subplot2grid((2, 5), (1, 0), colspan=4, sharex=ax)
-    f0_val = float(gmm_means[0][0])
+    f0_val = float(np.ravel(gmm_means[0])[0])
     this_dff = (f - f0_val) / f0_val
     # filter for plotting stability
     this_dff_finite = this_dff.copy()
@@ -308,7 +312,10 @@ def plot_roi_pipeline(
             )
         else:
             axes[4].axhline(
-                float(f0[roi_id]), label="F0 baseline", color="tab:red", linestyle="--"
+                float(np.ravel(f0[roi_id])[0]),
+                label="F0 baseline",
+                color="tab:red",
+                linestyle="--",
             )
         add_boundaries(axes[4])
         axes[4].set_title("Neuropil Corrected Signal & F0 Baseline")
@@ -337,7 +344,7 @@ def plot_roi_pipeline(
             axes[6].axvline(0, color="black", linestyle="-", alpha=0.3)
             median_val = np.nanmedian(valid_data)
             axes[6].axvline(
-                float(median_val),
+                float(np.ravel(median_val)[0]),
                 color="red",
                 linestyle="--",
                 label=f"Median: {median_val:.2f}",

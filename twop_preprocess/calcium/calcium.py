@@ -23,6 +23,121 @@ from .calcium_utils import (
 print = partial(print, flush=True)
 
 
+def _generate_plane_plots(
+    dpath,
+    F_raw,
+    Fneu_raw,
+    F_offset_corrected,
+    F_detrended,
+    F_trend,
+    Fneu_detrended,
+    Fneu_trend,
+    F_processed,
+    f0,
+    dff,
+    ops,
+    filename_suffix,
+    first_frames,
+    offsets,
+):
+    """
+    Unified helper to generate all sanity plots for a single plane.
+    """
+    plot_path = dpath / "sanity_plots"
+    plot_path.mkdir(exist_ok=True)
+
+    # 1. Population Metrics
+    print("Plotting population metrics")
+    sanity.plot_population_metrics(
+        f0,
+        dff,
+        save_path=plot_path / f"05b_population_metrics{filename_suffix}.png",
+    )
+    plt.close()
+
+    # 2. Matrix heatmaps
+    print("Plotting matrix heatmaps")
+    Fast = F_processed if ops.get("ast_neuropil", True) else np.zeros_like(F_detrended)
+    fig = sanity.plot_fluorescence_matrices(
+        F_detrended, Fneu_detrended, Fast, dff, ops.get("neucoeff", 0.7)
+    )
+    fig.savefig(plot_path / f"fluorescence_matrices.png")
+    plt.close(fig)
+
+    # 3. ROI Selection and Metrics
+    from .metrics import (
+        calculate_quality_metrics,
+        get_problematic_rois,
+        select_diagnostic_rois,
+    )
+
+    metrics = calculate_quality_metrics(f0, dff)
+    problem_rois = get_problematic_rois(metrics)
+
+    if len(problem_rois) > 0:
+        print(f"Found {len(problem_rois)} problematic ROIs:")
+        if len(metrics["f0_bad_idx"]) > 0:
+            print(f"  - {len(metrics['f0_bad_idx'])} with non-positive F0")
+        if len(metrics["dff_median_bad_idx"]) > 0:
+            print(f"  - {len(metrics['dff_median_bad_idx'])} with median dF/F < 0")
+        if len(metrics["dff_max_bad_idx"]) > 0:
+            print(
+                f"  - {len(metrics['dff_max_bad_idx'])} with extreme transients (>10000%)"
+            )
+
+    valid_rois = np.where(~np.isnan(F_raw).all(axis=1))[0]
+    rois_to_plot = select_diagnostic_rois(
+        valid_rois,
+        problem_rois,
+        n_random=ops.get("plot_nrois", 5),
+        n_problem_max=20,
+    )
+
+    # 4. ROI Pipeline Plots
+    print(f"Plotting ROI pipeline diagnostics for {len(rois_to_plot)} ROIs")
+    roi_plot_path = plot_path / "roi_pipelines"
+    roi_plot_path.mkdir(exist_ok=True)
+    for roi in rois_to_plot:
+        sanity.plot_roi_pipeline(
+            roi,
+            F_raw,
+            Fneu_raw,
+            F_offset_corrected,
+            F_detrended,
+            F_trend,
+            Fneu_detrended,
+            Fneu_trend,
+            F_processed,
+            f0,
+            dff,
+            save_path=roi_plot_path / f"roi{roi}_pipeline.png",
+            neucoeff=ops.get("neucoeff", 0.7),
+            boundaries=first_frames[1:],
+            offsets=offsets,
+        )
+        plt.close()
+
+    # 5. GMM f0 fits for selected ROIs
+    print("Plotting GMM f0 fits")
+    gmm_plot_path = plot_path / "gmm_f0"
+    gmm_plot_path.mkdir(exist_ok=True)
+
+    if len(rois_to_plot) > 0:
+        print(f"Plotting {len(rois_to_plot)} ROIs to {gmm_plot_path}")
+        for roi in rois_to_plot:
+            sanity.plot_f0_gmm(
+                F_detrended,
+                Fneu_detrended,
+                roi,
+                ops.get("dff_ncomponents", 2),
+                save_path=gmm_plot_path / f"dff_gmm_roi{roi}{filename_suffix}.png",
+                neucoeff=ops.get("neucoeff", 0.7),
+            )
+            plt.close()
+    else:
+        print("No ROIs available for plotting.")
+
+
 def process_concatenated_traces(suite2p_dataset, ops, project, flz_session):
     """
     Correct offsets, detrend, calculate dF/F and deconvolve spikes for the whole session.
@@ -71,36 +186,7 @@ def process_concatenated_traces(suite2p_dataset, ops, project, flz_session):
             continue
 
         # Prepare for plotting if needed
-        random_rois = None
-        do_plots = ops.get("sanity_plots", False)
-        if do_plots:
-            plot_path.mkdir(exist_ok=True)
-            np.random.seed(0)
-            n_rois_to_plot = min(ops.get("plot_nrois", 5), F_raw.shape[0])
-            if n_rois_to_plot > 0:
-                valid_rois = np.where(~np.isnan(F_raw).all(axis=1))[0]
-                if len(valid_rois) == 0:
-                    raise ValueError("F for all rois is NaN")
-
-                random_rois = np.random.choice(
-                    valid_rois, n_rois_to_plot, replace=False
-                )
-            else:
-                print(
-                    "Warning: plot_nrois is 0 or invalid, cannot generate ROI-specific plots."
-                )
-                random_rois = np.array([])  # Ensure it's an array for consistency
-            do_plots = random_rois is not None and len(random_rois) > 0
-            if do_plots:
-                print(
-                    f"Generating sanity plots for {len(random_rois)} random ROIs: {random_rois}"
-                )
-                sanity.plot_raw_trace(
-                    F_raw,
-                    random_rois,
-                    Fneu_raw,
-                    save_path=plot_path / "01_raw_traces.png",
-                )
+        do_plots = ops.get("sanity_plots", True)
 
         # --- 2b. Correct Offset ---
         if ops.get("correct_offset", True):
@@ -121,13 +207,6 @@ def process_concatenated_traces(suite2p_dataset, ops, project, flz_session):
             print("Offset correction skipped.")
             F_offset_corrected = F_raw
             Fneu_offset_corrected = Fneu_raw
-        if do_plots:
-            sanity.plot_raw_trace(
-                F_offset_corrected,
-                random_rois,
-                Fneu_offset_corrected,
-                save_path=plot_path / "02_offset_corrected.png",
-            )
 
         # --- 2c. Detrend ---
         if ops.get("detrend", True):
@@ -146,17 +225,6 @@ def process_concatenated_traces(suite2p_dataset, ops, project, flz_session):
                 ops,
                 fs,
             )
-            if do_plots:
-                sanity.plot_detrended_trace(
-                    F_offset_corrected,
-                    F_trend,
-                    F_detrended,
-                    Fneu_offset_corrected,
-                    Fneu_trend,
-                    Fneu_detrended,
-                    random_rois,
-                    save_path=plot_path / "03_detrended.png",
-                )
         else:
             print("Detrending skipped.")
             F_detrended = F_offset_corrected
@@ -164,7 +232,7 @@ def process_concatenated_traces(suite2p_dataset, ops, project, flz_session):
 
         # --- 2d. Neuropil Correction ---
         F_processed = None
-        if ops["ast_neuropil"]:
+        if ops.get("ast_neuropil", True):
             print("Running ASt neuropil correction...")
             Fast = correct_neuropil_ast(dpath, F_detrended, Fneu_detrended)
             F_processed = Fast
@@ -177,44 +245,33 @@ def process_concatenated_traces(suite2p_dataset, ops, project, flz_session):
             )
             F_processed = Fstandard
             filename_suffix = ""
-            Fast = np.zeros_like(F_detrended)
-
-        if do_plots:
-            sfx = "AST" if ops["ast_neuropil"] else "Standard"
-            sanity.plot_raw_trace(
-                F_detrended,
-                random_rois,
-                F_processed,
-                titles=["F Detrended", f"F Corrected ({sfx})"],
-                save_path=plot_path / "04b_neuropil_corrected.png",
-            )
 
         # --- 2e. Calculate dF/F ---
         print("Calculating dF/F")
         dff, f0 = calculate_and_save_dFF(
             dpath, F_processed, filename_suffix, ops.get("dff_ncomponents", 2)
         )
+
         if do_plots:
-            sanity.plot_dff(
-                F_processed,
-                dff,
-                f0,
-                random_rois,
-                save_path=plot_path / f"05_dff{filename_suffix}.png",
+            _generate_plane_plots(
+                dpath=dpath,
+                F_raw=F_raw,
+                Fneu_raw=Fneu_raw,
+                F_offset_corrected=F_offset_corrected,
+                F_detrended=F_detrended,
+                F_trend=F_trend,
+                Fneu_detrended=Fneu_detrended,
+                Fneu_trend=Fneu_trend,
+                F_processed=F_processed,
+                f0=f0,
+                dff=dff,
+                ops=ops,
+                filename_suffix=filename_suffix,
+                first_frames=first_frames[:, iplane],
+                offsets=offsets,
             )
-            fig = sanity.plot_fluorescence_matrices(
-                F_detrended, Fneu_detrended, Fast, dff, ops["neucoeff"]
-            )
-            fig.savefig(plot_path / f"fluorescence_matrices.png")
-            # Plot GMM for baseline estimation (using F_proc)
-            for roi in random_rois:
-                sanity.plot_offset_gmm(
-                    F_detrended,
-                    F_processed,
-                    roi,
-                    ops.get("dff_ncomponents", 2),
-                    save_path=plot_path / f"07_dff_gmm_roi{roi}{filename_suffix}.png",
-                )
+
+        # --- 2f. Spike Deconvolution ---
 
         # --- 2f. Spike Deconvolution ---
         print("Deconvolve spikes ...")
@@ -609,110 +666,25 @@ def generate_sanity_plots(project, session_name, flz_session, annotated=False):
             dff = np.load(dff_file)
             f0 = np.load(f0_file)
 
-            # 05b. Population Metrics (always run if data exists)
-            print("Plotting population metrics")
-            sanity.plot_population_metrics(
-                f0,
-                dff,
-                save_path=plot_path / f"05b_population_metrics{filename_suffix}.png",
+            # --- Use unified plotting helper ---
+            _generate_plane_plots(
+                dpath=dpath,
+                F_raw=F_raw,
+                Fneu_raw=Fneu_raw,
+                F_offset_corrected=F_offset_corrected,
+                F_detrended=F_detrended,
+                F_trend=F_trend,
+                Fneu_detrended=Fneu_detrended,
+                Fneu_trend=Fneu_trend,
+                F_processed=F_processed,
+                f0=f0,
+                dff=dff,
+                ops=ops,
+                filename_suffix=filename_suffix,
+                first_frames=first_frames[:, iplane],
+                offsets=offsets,
             )
-            plt.close()
-
-            # 06. Matrix heatmaps
-            print("Plotting matrix heatmaps")
-            Fast = F_processed if ast_enabled else np.zeros_like(F_detrended)
-            fig = sanity.plot_fluorescence_matrices(
-                F_detrended, Fneu_detrended, Fast, dff, ops["neucoeff"]
-            )
-            fig.savefig(plot_path / f"fluorescence_matrices.png")
-            plt.close(fig)
-
-            # 07. ROI Selection and Metrics
-            from .metrics import (
-                calculate_quality_metrics,
-                get_problematic_rois,
-                select_diagnostic_rois,
-            )
-
-            metrics = calculate_quality_metrics(f0, dff)
-            problem_rois = get_problematic_rois(metrics)
-
-            if len(problem_rois) > 0:
-                print(f"Found {len(problem_rois)} problematic ROIs:")
-                if len(metrics["f0_bad_idx"]) > 0:
-                    print(f"  - {len(metrics['f0_bad_idx'])} with non-positive F0")
-                if len(metrics["dff_median_bad_idx"]) > 0:
-                    print(
-                        f"  - {len(metrics['dff_median_bad_idx'])} with median dF/F < 0"
-                    )
-                if len(metrics["dff_max_bad_idx"]) > 0:
-                    print(
-                        f"  - {len(metrics['dff_max_bad_idx'])} with extreme transients (>10000%)"
-                    )
-
-            rois_to_plot = select_diagnostic_rois(
-                valid_rois,
-                problem_rois,
-                n_random=ops.get("plot_nrois", 5),
-                n_problem_max=20,
-            )
-
-            # 08. ROI Pipeline Plots
-            print(f"Plotting ROI pipeline diagnostics for {len(rois_to_plot)} ROIs")
-            roi_plot_path = plot_path / "roi_pipelines"
-            roi_plot_path.mkdir(exist_ok=True)
-            for roi in rois_to_plot:
-                sanity.plot_roi_pipeline(
-                    roi,
-                    F_raw,
-                    Fneu_raw,
-                    F_offset_corrected,
-                    F_detrended,
-                    F_trend,
-                    Fneu_detrended,
-                    Fneu_trend,
-                    F_processed,
-                    f0,
-                    dff,
-                    save_path=roi_plot_path / f"roi{roi}_pipeline.png",
-                    neucoeff=ops.get("neucoeff", 0.7),
-                    boundaries=first_frames[1:, iplane],
-                    offsets=offsets,
-                )
-                plt.close()
-
-            # 09. GMM f0 fits for selected ROIs
-            print("Plotting GMM f0 fits")
-            gmm_plot_path = plot_path / "gmm_f0"
-            gmm_plot_path.mkdir(exist_ok=True)
-
-            if len(rois_to_plot) > 0:
-                print(f"Plotting {len(rois_to_plot)} ROIs to {gmm_plot_path}")
-                for roi in rois_to_plot:
-                    sanity.plot_f0_gmm(
-                        F_detrended,
-                        Fneu_detrended,
-                        roi,
-                        ops.get("dff_ncomponents", 2),
-                        save_path=gmm_plot_path
-                        / f"dff_gmm_roi{roi}{filename_suffix}.png",
-                        neucoeff=ops.get("neucoeff", 0.7),
-                    )
-                    plt.close()
-            else:
-                print("No ROIs available for plotting.")
         else:
             print(f"Warning: dF/F files missing. Skipping dF/F and population plots.")
-            fig, ax = plt.subplots()
-            ax.text(
-                0.5,
-                0.5,
-                f"dF/F files missing.\ndF/F plots skipped.",
-                ha="center",
-                va="center",
-                transform=ax.transAxes,
-            )
-            fig.savefig(plot_path / f"05_dff{filename_suffix}.png")
-            plt.close(fig)
 
     print(f"\nFinished generating sanity plots for session {session_name}.")
