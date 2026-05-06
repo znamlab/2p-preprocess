@@ -17,7 +17,6 @@ dependencies = [
         "numpy",
         "scikit-learn",
         "numba",
-        "suite2p<=0.14",
         "cellpose",
         "tifffile",
         "jax",
