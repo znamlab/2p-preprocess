@@ -1,9 +1,9 @@
 [project]
 name = "2p-preprocess"
-authors = [{name = "Znamenskiy lab", email= "petr.znamenskiy@crick.ac.uk"}]
-description = "Preprocessing of two-photon data"
-readme = "README.md"
-requires-python = ">=3.8"  # If using with suite2p, need <3.10
+authors = [{name = "znamenskiy lab", email= "petr.znamenskiy@crick.ac.uk"}]
+description = "preprocessing of two-photon data"
+readme = "readme.md"
+requires-python = ">=3.9"  # if using with suite2p, need <3.10
 dynamic = ["version"]
 dependencies = [
         "flexiznam @ git+ssh://git@github.com/znamlab/flexiznam.git",
@@ -13,25 +13,26 @@ dependencies = [
         "more_itertools",
         "scikit-image",
         "tqdm",
-        "Click",
+        "click",
         "numpy",
         "scikit-learn",
         "numba",
-        "suite2p <= 0.14",
+        "cellpose",
         "tifffile",
-          "jax",
+        "jax",
         "optax",
-        ]
-license = {text = "MIT"}
+        "sbxreader>=0.2.3",
+]
+license = {text = "mit"}
 
 [project.scripts]
 2p = "twop_preprocess.cli:cli"
 
 [project.urls]
-"Homepage" = "https://github.com/znamlab/twop_preprocess"
-"Bug Tracker" = "https://github.com/znamlab/twop_preprocess/issues"
-"Source Code" = "https://github.com/znamlab/twop_preprocess"
-"User Support" = "https://github.com/znamlab/twop_preprocess/issues"
+"homepage" = "https://github.com/znamlab/twop_preprocess"
+"bug tracker" = "https://github.com/znamlab/twop_preprocess/issues"
+"source code" = "https://github.com/znamlab/twop_preprocess"
+"user support" = "https://github.com/znamlab/twop_preprocess/issues"
 
 [project.optional-dependencies]
 dev = [
@@ -99,15 +100,15 @@ ignore = [
 line-length = 88
 exclude = ["__init__.py","build",".eggs"]
 lint.select = [
-  "E",   # pycodestyle errors
-  "F",   # Pyflakes
-  "I",   # isort
-  # You can see what all the rules do here: https://docs.astral.sh/ruff/rules/
-  # Some additional ruff rules that might be useful (uncomment to enable)
-  #"UP",  # pyupgrade
-  #"B",   # flake8 bugbear
-  #"SIM", # flake8 simplify
-  #"C90", # McCabe complexity
+  "e",   # pycodestyle errors
+  "f",   # pyflakes
+  "i",   # isort
+  # you can see what all the rules do here: https://docs.astral.sh/ruff/rules/
+  # some additional ruff rules that might be useful (uncomment to enable)
+  #"up",  # pyupgrade
+  #"b",   # flake8 bugbear
+  #"sim", # flake8 simplify
+  #"c90", # mccabe complexity
 ]
 fix = true
 
@@ -115,7 +116,12 @@ fix = true
 legacy_tox_ini = """
 [tox]
 envlist = py{39}
-isolated_build = True
+isolated_build = true
+
+[[tool.uv.index]]
+name = "jax-index"
+url = "https://storage.googleapis.com/jax-releases/jax_cuda_releases.html"
+format = "flat"
 
 [gh-actions]
 python =
@@ -127,3 +133,6 @@ extras =
 commands =
     pytest -v --color=yes --cov=twop_preprocess --cov-report=xml
 """
+
+[tool.uv.sources]
+suite2p = { git = "ssh://git@github.com/znamlab/suite2p.git" }

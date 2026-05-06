@@ -11,10 +11,8 @@
 ml purge
 ml CUDA/12.1.1
 ml cuDNN/8.9.2.26-CUDA-12.1.1
-ml Anaconda3/2022.05
 
-source activate base
+source ${UV_PROJECT_ENVIRONMENT}/bin/activate
 
-conda activate 2p-preprocess
 echo Processing ${SESSION} in project ${PROJECT}
 2p calcium -p ${PROJECT} -s ${SESSION} -c ${CONFLICTS} --no-run-neuropil  -t ${TAU} --run-split --run-suite2p
