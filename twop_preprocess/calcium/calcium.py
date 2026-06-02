@@ -511,7 +511,9 @@ def extract_session(
     print("Extraction finished.")
 
 
-def generate_sanity_plots(project, session_name, flz_session, annotated=False):
+def generate_sanity_plots(
+    project, session_name, flz_session, annotated=False, ast_neuropil="dataset"
+):
     """
     Re-generate all sanity plots for a previously processed session.
 
@@ -525,8 +527,11 @@ def generate_sanity_plots(project, session_name, flz_session, annotated=False):
         flz_session (Flexilims): Active Flexilims session object.
         annotated (bool): If True, use the re-extracted (annotated) dataset produced
             by ``2p reextract`` instead of the original suite2p dataset. Default False.
+        ast_neuropil (str): Mode for ASt neuropil: 'dataset', 'true', or 'false'. Default 'dataset'.
     """
-    print(f"Generating sanity plots for session {session_name}...")
+    print(
+        f"Generating sanity plots for session {session_name} (ast_neuropil choice: {ast_neuropil})..."
+    )
     if annotated:
         print("  Using annotated (re-extracted) dataset.")
 
@@ -649,7 +654,10 @@ def generate_sanity_plots(project, session_name, flz_session, annotated=False):
         )
 
         # 04. Neuropil Corrected (Load final result if it exists)
-        ast_enabled = ops.get("ast_neuropil", True)
+        if ast_neuropil.lower() == "dataset":
+            ast_enabled = ops.get("ast_neuropil")
+        else:
+            ast_enabled = ast_neuropil.lower() == "true"
         processed_file = "Fast.npy" if ast_enabled else "Fstandard.npy"
         filename_suffix = "_ast" if ast_enabled else ""
 

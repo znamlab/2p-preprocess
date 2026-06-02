@@ -197,10 +197,21 @@ def zstack(
     default=False,
     help="If set, use the re-extracted (annotated) dataset produced by '2p reextract'.",
 )
-def sanity(project, session, annotated):
+@click.option(
+    "--ast-neuropil",
+    type=click.Choice(["dataset", "true", "false"], case_sensitive=False),
+    default="dataset",
+    help=(
+        "ASt neuropil correction mode: 'dataset' (use setting from the ROIs "
+        "dataset ops), 'true' (force ASt), or 'false' (force standard)."
+    ),
+)
+def sanity(project, session, annotated, ast_neuropil):
     """Re-generate sanity plots for a session."""
     from twop_preprocess.calcium.calcium import generate_sanity_plots
     import flexiznam as flz
 
     flz_session = flz.get_flexilims_session(project)
-    generate_sanity_plots(project, session, flz_session, annotated=annotated)
+    generate_sanity_plots(
+        project, session, flz_session, annotated=annotated, ast_neuropil=ast_neuropil
+    )
