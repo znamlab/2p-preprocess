@@ -518,6 +518,7 @@ def generate_sanity_plots(
     annotated=False,
     ast_neuropil="dataset",
     minimal=False,
+    negative_offset_rois=False,
 ):
     """
     Re-generate all sanity plots for a previously processed session.
@@ -696,24 +697,78 @@ def generate_sanity_plots(
             dff = np.load(dff_file)
             f0 = np.load(f0_file)
 
-            # --- Use unified plotting helper ---
-            _generate_plane_plots(
-                dpath=dpath,
-                F_raw=F_raw,
-                Fneu_raw=Fneu_raw,
-                F_offset_corrected=F_offset_corrected,
-                F_detrended=F_detrended,
-                F_trend=F_trend,
-                Fneu_detrended=Fneu_detrended,
-                Fneu_trend=Fneu_trend,
-                F_processed=F_processed,
-                f0=f0,
-                dff=dff,
-                ops=ops,
-                filename_suffix=filename_suffix,
-                first_frames=first_frames[:, iplane],
-                offsets=offsets,
-            )
+            if negative_offset_rois:
+                if f0.ndim == 2 and f0.shape[1] > 1:
+                    f0_means = np.nanmean(f0, axis=1)
+                else:
+                    f0_means = f0.flatten()
+
+                neg_rois = np.where(f0_means < 0)[0]
+                if len(neg_rois) > 0:
+                    neg_plot_dir = (
+                        Path(suite2p_dataset.path_full)
+                        / "sanity_plots"
+                        / "negative_offset_rois"
+                    )
+                    neg_plot_dir.mkdir(exist_ok=True, parents=True)
+                    print(
+                        f"Found {len(neg_rois)} ROIs with F0 < 0 in Plane {iplane}. Plotting to {neg_plot_dir}..."
+                    )
+
+                    for roi in neg_rois:
+                        # 1. GMM F0 fit
+                        sanity.plot_f0_gmm(
+                            F_detrended,
+                            Fneu_detrended,
+                            roi,
+                            ops.get("dff_ncomponents", 2),
+                            save_path=neg_plot_dir
+                            / f"plane{iplane}_roi{roi}_gmm_f0.png",
+                            neucoeff=ops.get("neucoeff", 0.7),
+                        )
+                        plt.close()
+
+                        # 2. ROI pipeline
+                        sanity.plot_roi_pipeline(
+                            roi,
+                            F_raw,
+                            Fneu_raw,
+                            F_offset_corrected,
+                            F_detrended,
+                            F_trend,
+                            Fneu_detrended,
+                            Fneu_trend,
+                            F_processed,
+                            f0,
+                            dff,
+                            save_path=neg_plot_dir
+                            / f"plane{iplane}_roi{roi}_pipeline.png",
+                            neucoeff=ops.get("neucoeff", 0.7),
+                            boundaries=first_frames[:, iplane][1:],
+                            offsets=offsets,
+                        )
+                        plt.close()
+                else:
+                    print(f"No ROIs with F0 < 0 found in Plane {iplane}.")
+            else:
+                # --- Use unified plotting helper ---
+                _generate_plane_plots(
+                    dpath=dpath,
+                    F_raw=F_raw,
+                    Fneu_raw=Fneu_raw,
+                    F_offset_corrected=F_offset_corrected,
+                    F_detrended=F_detrended,
+                    F_trend=F_trend,
+                    Fneu_detrended=Fneu_detrended,
+                    Fneu_trend=Fneu_trend,
+                    F_processed=F_processed,
+                    f0=f0,
+                    dff=dff,
+                    ops=ops,
+                    filename_suffix=filename_suffix,
+                    first_frames=first_frames[:, iplane],
+                    offsets=offsets,
+                )
         else:
             print(f"Warning: dF/F files missing. Skipping dF/F and population plots.")
 

@@ -211,7 +211,13 @@ def zstack(
     default=False,
     help="If set, only generate the optical offset plot and population metrics distributions, skipping detrending and ROI plotting.",
 )
-def sanity(project, session, annotated, ast_neuropil, minimal):
+@click.option(
+    "--negative-offset-rois",
+    is_flag=True,
+    default=False,
+    help="Plot gmm_f0 and roi_pipelines only for cells with F0 < 0.",
+)
+def sanity(project, session, annotated, ast_neuropil, minimal, negative_offset_rois):
     """Re-generate sanity plots for a session."""
     from twop_preprocess.calcium.calcium import generate_sanity_plots
     import flexiznam as flz
@@ -222,6 +228,7 @@ def sanity(project, session, annotated, ast_neuropil, minimal):
         session,
         flz_session,
         annotated=annotated,
+        negative_offset_rois=negative_offset_rois,
         ast_neuropil=ast_neuropil,
         minimal=minimal,
     )
