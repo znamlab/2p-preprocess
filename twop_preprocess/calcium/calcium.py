@@ -512,7 +512,12 @@ def extract_session(
 
 
 def generate_sanity_plots(
-    project, session_name, flz_session, annotated=False, ast_neuropil="dataset"
+    project,
+    session_name,
+    flz_session,
+    annotated=False,
+    ast_neuropil="dataset",
+    minimal=False,
 ):
     """
     Re-generate all sanity plots for a previously processed session.
@@ -610,6 +615,31 @@ def generate_sanity_plots(
         ops = np.load(dpath / "ops.npy", allow_pickle=True).item()
         ops["sanity_plots"] = True
 
+        ast_enabled = (
+            ops.get("ast_neuropil")
+            if ast_neuropil.lower() == "dataset"
+            else ast_neuropil.lower() == "true"
+        )
+        filename_suffix = "_ast" if ast_enabled else ""
+        dff_file = dpath / f"dff{filename_suffix}.npy"
+        f0_file = dpath / f"f0{filename_suffix}.npy"
+
+        if minimal:
+            if dff_file.exists() and f0_file.exists():
+                dff = np.load(dff_file)
+                f0 = np.load(f0_file)
+                print("Plotting population metrics (minimal mode)")
+                sanity.plot_population_metrics(
+                    f0,
+                    dff,
+                    save_path=plot_path
+                    / f"05b_population_metrics{filename_suffix}.png",
+                )
+                plt.close()
+            else:
+                print(f"Warning: dF/F files missing for plane {iplane}. Skipping.")
+            continue
+
         F_raw = np.load(dpath / "F.npy")
         Fneu_raw = np.load(dpath / "Fneu.npy")
 
@@ -654,20 +684,12 @@ def generate_sanity_plots(
         )
 
         # 04. Neuropil Corrected (Load final result if it exists)
-        if ast_neuropil.lower() == "dataset":
-            ast_enabled = ops.get("ast_neuropil")
-        else:
-            ast_enabled = ast_neuropil.lower() == "true"
         processed_file = "Fast.npy" if ast_enabled else "Fstandard.npy"
-        filename_suffix = "_ast" if ast_enabled else ""
 
         if (dpath / processed_file).exists():
             F_processed = np.load(dpath / processed_file)
         else:
             F_processed = None
-
-        dff_file = dpath / f"dff{filename_suffix}.npy"
-        f0_file = dpath / f"f0{filename_suffix}.npy"
 
         # 05. dF/F and Population Metrics
         if dff_file.exists() and f0_file.exists():

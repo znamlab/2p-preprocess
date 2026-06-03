@@ -206,12 +206,22 @@ def zstack(
         "dataset ops), 'true' (force ASt), or 'false' (force standard)."
     ),
 )
-def sanity(project, session, annotated, ast_neuropil):
+@click.option(
+    "--minimal/--no-minimal",
+    default=False,
+    help="If set, only generate the optical offset plot and population metrics distributions, skipping detrending and ROI plotting.",
+)
+def sanity(project, session, annotated, ast_neuropil, minimal):
     """Re-generate sanity plots for a session."""
     from twop_preprocess.calcium.calcium import generate_sanity_plots
     import flexiznam as flz
 
     flz_session = flz.get_flexilims_session(project)
     generate_sanity_plots(
-        project, session, flz_session, annotated=annotated, ast_neuropil=ast_neuropil
+        project,
+        session,
+        flz_session,
+        annotated=annotated,
+        ast_neuropil=ast_neuropil,
+        minimal=minimal,
     )
