@@ -19,7 +19,7 @@ dependencies = [
         "numba",
         "suite2p <= 0.14",
         "tifffile",
-          "jax",
+        "jax",
         "optax",
         ]
 license = {text = "MIT"}

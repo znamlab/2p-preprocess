@@ -1,13 +1,11 @@
 import numpy as np
-import os
 import datetime
 import flexiznam as flz
 import itertools
 from znamutils import slurm_it
 from functools import partial
-import matplotlib.pyplot as plt
-
-from ..utils import parse_si_metadata, load_ops
+from tifffile import imwrite
+from ..utils import parse_si_metadata, load_ops, load_meanImg
 from ..plotting_utils import sanity_check_utils as sanity
 from .processing_steps import estimate_offsets, detrend
 from .calcium_s2p import run_extraction, spike_deconvolution_suite2p
@@ -470,6 +468,12 @@ def extract_session(
         suite2p_dataset = run_extraction(
             flz_session, project, session_name, conflicts, ops, delete_previous_run
         )
+        meanImg = load_meanImg(suite2p_dataset) 
+        # save meanImg as multiframe tiff
+        if meanImg is not None:
+            img_path = suite2p_dataset.path_full / "meanImg.tif"
+            print(f"Saving mean image to {img_path} ...")
+            imwrite(img_path, meanImg.astype(np.float32))
     else:
         suite2p_datasets = flz.get_datasets(
             origin_name=session_name,
@@ -506,7 +510,10 @@ def extract_session(
             flz_session,
             suite2p_dataset,
             conflicts=conflicts,
-            extra_attributes={"ast_neuropil": ops["ast_neuropil"]},
+            extra_attributes={
+                "ast_neuropil": ops["ast_neuropil"], 
+                "anatomical_only": ops["anatomical_only"]
+            }
         )
     print("Extraction finished.")
 
