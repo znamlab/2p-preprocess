@@ -2,6 +2,7 @@ import numpy as np
 import datetime
 import flexiznam as flz
 import itertools
+import matplotlib.pyplot as plt
 from znamutils import slurm_it
 from functools import partial
 from tifffile import imwrite
@@ -468,7 +469,7 @@ def extract_session(
         suite2p_dataset = run_extraction(
             flz_session, project, session_name, conflicts, ops, delete_previous_run
         )
-        meanImg = load_meanImg(suite2p_dataset) 
+        meanImg = load_meanImg(suite2p_dataset)
         # save meanImg as multiframe tiff
         if meanImg is not None:
             img_path = suite2p_dataset.path_full / "meanImg.tif"
@@ -511,9 +512,9 @@ def extract_session(
             suite2p_dataset,
             conflicts=conflicts,
             extra_attributes={
-                "ast_neuropil": ops["ast_neuropil"], 
-                "anatomical_only": ops["anatomical_only"]
-            }
+                "ast_neuropil": ops["ast_neuropil"],
+                "anatomical_only": ops["anatomical_only"],
+            },
         )
     print("Extraction finished.")
 
@@ -713,7 +714,7 @@ def generate_sanity_plots(
                 neg_rois = np.where(f0_means < 0)[0]
                 if len(neg_rois) > 0:
                     neg_plot_dir = (
-                        Path(suite2p_dataset.path_full)
+                        suite2p_dataset.path_full
                         / "sanity_plots"
                         / "negative_offset_rois"
                     )
