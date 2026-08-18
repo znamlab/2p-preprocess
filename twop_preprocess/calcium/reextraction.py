@@ -41,7 +41,7 @@ def reextract_session(
 
     Args:
         session (str): name of the session
-        masks (ndarray | str): Z x X x Y array of masks to be reextracted
+        masks (ndarray | str): Z x Y x X array of masks to be reextracted
         flz_session (Flexilims): flexilims session
         project (str, optional): name of the project. If not provided, it will be
             inferred from the flexilims session.
@@ -76,7 +76,7 @@ def reextract_session(
         masks = masks[None, ...]  # add a plane dimension if only one plane
     elif masks.ndim != 3:
         raise ValueError(
-            f"masks must be a 3D array (Z x X x Y), but got {masks.ndim}D array"
+            f"masks must be a 3D array (Z x Y x X), but got {masks.ndim}D array"
         )
 
     # get initial suite2p dataset
@@ -423,7 +423,7 @@ def load_mask(path2mask):
         path2mask (str or Path): path to the mask file
 
     Returns:
-        ndarray: Z x X x Y array of masks to be reextracted
+        ndarray: Z x Y x X array of masks to be reextracted
     """
     path2mask = str(Path(path2mask).resolve())
     if path2mask.endswith(".npy"):
