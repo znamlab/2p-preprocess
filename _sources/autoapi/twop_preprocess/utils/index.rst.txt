@@ -1,0 +1,63 @@
+twop_preprocess.utils
+=====================
+
+.. py:module:: twop_preprocess.utils
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   twop_preprocess.utils.parse_si_metadata
+   twop_preprocess.utils.load_ops
+   twop_preprocess.utils.load_meanImg
+
+
+Module Contents
+---------------
+
+.. py:function:: parse_si_metadata(tiff_path)
+
+   Read metadata from a ScanImage TIFF file.
+
+   Extracts the 'FrameData' metadata dictionary from the TIFF header.
+
+   :param tiff_path: Path to a ScanImage TIFF file or a directory
+                     containing TIFF files.
+   :type tiff_path: str or Path
+
+   :returns: Dictionary of ScanImage parameters, or None if no TIFFs found.
+   :rtype: dict
+
+
+.. py:function:: load_ops(user_ops, zstack=False)
+
+   Generate the final options (ops) dictionary for the pipeline.
+
+   Combines Suite2p defaults, pipeline-specific defaults (from default_ops.yml),
+   user configuration (~/.2p_preprocess/config.yml), and runtime overrides.
+
+   :param user_ops: Dictionary of user-specified overrides provided at runtime.
+   :type user_ops: dict
+   :param zstack: If True, loads settings for z-stack registration.
+                  Default False.
+   :type zstack: bool, optional
+
+   :returns: The final consolidated options dictionary.
+   :rtype: dict
+
+
+.. py:function:: load_meanImg(suite2p_dataset)
+
+   Takes a single suite2p dataset and loads the im from the suite2p run.
+
+   :param suite2p_dataset: flexiznam.schema.datasets.Dataset object with
+                           suite2p output paths and run parameters
+
+   :returns:
+
+             numpy.ndarray of shape (n_planes, Y, X) where n_planes is the
+                 number of imaging planes of the recording
+
+

@@ -1,0 +1,102 @@
+twop_preprocess.neuropil.ast_model
+==================================
+
+.. py:module:: twop_preprocess.neuropil.ast_model
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   twop_preprocess.neuropil.ast_model.black_box_variational_inference
+   twop_preprocess.neuropil.ast_model.K
+   twop_preprocess.neuropil.ast_model.log_density_ast
+   twop_preprocess.neuropil.ast_model.ast_model
+
+
+Module Contents
+---------------
+
+.. py:function:: black_box_variational_inference(logprob, n_samples)
+
+   Implements Black-Box Variational Inference (BBVI).
+
+   Based on http://arxiv.org/abs/1401.0118, using the local reparameterization
+   trick from http://arxiv.org/abs/1506.02557. This function creates a variational
+   objective (ELBO) that can be minimized to find the best variational parameters.
+
+   :param logprob: Function that computes the log probability of the model.
+   :type logprob: callable
+   :param n_samples: Number of Monte Carlo samples to use for the ELBO estimate.
+   :type n_samples: int
+
+   :returns: The variational objective function.
+   :rtype: callable
+
+
+.. py:function:: K(nu)
+
+   Helper function for the Asymmetric Student distribution PDF.
+
+   Computes the normalization constant for the Student's t-distribution.
+
+   :param nu: Degrees of freedom.
+   :type nu: float
+
+   :returns: The constant K(nu).
+   :rtype: float
+
+
+.. py:function:: log_density_ast(y, alpha, nu1, nu2, mu, sigma)
+
+   Computes the log probability density of the Asymmetric Student distribution.
+
+   Based on Zhu and Galbraith (2009).
+
+   :param y: Data points.
+   :type y: jnp.ndarray
+   :param alpha: Skewness parameter.
+   :type alpha: float
+   :param nu1: Degrees of freedom for the left branch.
+   :type nu1: float
+   :param nu2: Degrees of freedom for the right branch.
+   :type nu2: float
+   :param mu: Location parameter (mean).
+   :type mu: jnp.ndarray
+   :param sigma: Scale parameter.
+   :type sigma: jnp.ndarray
+
+   :returns: Log density at points y.
+   :rtype: jnp.ndarray
+
+
+.. py:function:: ast_model(traces, n_sectors, n_samples=1, n_iters=5000, lr=0.01, verbose=False)
+
+   Infers the ASt model using Black-Box Stochastic Variational Inference (SVI).
+
+   This function separates neural activity from neuropil contamination by
+   modeling the signal as an Asymmetric Student distribution.
+
+   :param traces: Input signal (e.g., [F, Fneu]) normalized by scale.
+   :type traces: jnp.ndarray
+   :param n_sectors: Number of pixels in each mask (ROI and neuropil).
+   :type n_sectors: jnp.ndarray
+   :param n_samples: Number of samples for BBVI. Default 1.
+   :type n_samples: int, optional
+   :param n_iters: Number of optimization iterations. Default 5000.
+   :type n_iters: int, optional
+   :param lr: Learning rate for the Adam optimizer. Default 0.01.
+   :type lr: float, optional
+   :param verbose: Whether to print progress. Default False.
+   :type verbose: bool, optional
+
+   :returns:
+
+             (cleaned_trace, params, elbo)
+                 - cleaned_trace (jnp.ndarray): The neuropil-corrected trace.
+                 - params (jnp.ndarray): The optimized variational parameters.
+                 - elbo (list): History of the Evidence Lower Bound objective values.
+   :rtype: tuple
+
+

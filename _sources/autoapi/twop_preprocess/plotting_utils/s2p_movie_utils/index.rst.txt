@@ -1,0 +1,69 @@
+twop_preprocess.plotting_utils.s2p_movie_utils
+==============================================
+
+.. py:module:: twop_preprocess.plotting_utils.s2p_movie_utils
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   twop_preprocess.plotting_utils.s2p_movie_utils.simple_open_binaries
+   twop_preprocess.plotting_utils.s2p_movie_utils.load_s2p_reg_stack
+   twop_preprocess.plotting_utils.s2p_movie_utils.moving_average_im
+   twop_preprocess.plotting_utils.s2p_movie_utils.write_moving_average_tif
+
+
+Module Contents
+---------------
+
+.. py:function:: simple_open_binaries(ops)
+
+   Open the primary binary file (raw or registered) for a Suite2p session.
+
+   :param ops: Suite2p settings dictionary.
+   :type ops: dict
+
+   :returns: A list containing the opened file handle.
+   :rtype: list
+
+
+.. py:function:: load_s2p_reg_stack(reg_path)
+
+   Load registered TIFF files from a Suite2p run.
+
+   :param reg_path: Path to the registered TIFF files.
+   :type reg_path: str or Path
+
+   :returns: The registered movie (n_frames x Ly x Lx).
+   :rtype: np.ndarray
+
+
+.. py:function:: moving_average_im(im, w=100)
+
+   Calculate a moving average of pixel values along the time axis.
+
+   :param im: Movie array (n_frames x Ly x Lx).
+   :type im: np.ndarray
+   :param w: Size of the window for the moving average. Default 100.
+   :type w: int, optional
+
+   :returns: The smoothed movie array.
+   :rtype: np.ndarray
+
+
+.. py:function:: write_moving_average_tif(im, out_dir, fname, w=100)
+
+   Calculate a moving average and save it as a TIFF file.
+
+   :param im: Movie array (n_frames x Ly x Lx).
+   :type im: np.ndarray
+   :param out_dir: Directory to save the output file.
+   :type out_dir: str or Path
+   :param fname: Base name for the recording.
+   :type fname: str
+   :param w: Size of the window for the moving average. Default 100.
+   :type w: int, optional
+
+

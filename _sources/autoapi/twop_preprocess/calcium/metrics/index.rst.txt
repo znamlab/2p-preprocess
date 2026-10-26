@@ -1,0 +1,53 @@
+twop_preprocess.calcium.metrics
+===============================
+
+.. py:module:: twop_preprocess.calcium.metrics
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   twop_preprocess.calcium.metrics.calculate_quality_metrics
+   twop_preprocess.calcium.metrics.get_problematic_rois
+   twop_preprocess.calcium.metrics.select_diagnostic_rois
+
+
+Module Contents
+---------------
+
+.. py:function:: calculate_quality_metrics(f0, dff)
+
+   Calculate session-level quality metrics for each ROI.
+
+   :param f0: Baseline fluorescence (n_rois x n_frames or n_rois x 1).
+   :type f0: np.ndarray
+   :param dff: dF/F traces (n_rois x n_frames).
+   :type dff: np.ndarray
+
+   :returns:
+
+             A dictionary containing:
+                 - f0_means (np.ndarray): Mean F0 per ROI.
+                 - median_dff (np.ndarray): Median dF/F per ROI.
+                 - max_dff (np.ndarray): Maximum absolute dF/F per ROI.
+                 - f0_bad_idx (np.ndarray): Indices of ROIs with F0 <= 0.
+                 - dff_median_bad_idx (np.ndarray): Indices of ROIs with median dF/F < 0.
+                 - dff_max_bad_idx (np.ndarray): Indices of ROIs with max abs dF/F > 100.0.
+   :rtype: dict
+
+
+.. py:function:: get_problematic_rois(metrics)
+
+   Get a unique list of problematic ROI indices from calculated metrics.
+
+
+.. py:function:: select_diagnostic_rois(valid_rois, problem_rois, n_random=5, n_problem_max=20)
+
+   Select a subset of ROIs for detailed diagnostic plotting.
+
+   Prioritizes problematic ROIs (up to n_problem_max) and ensures a minimum
+   number of total ROIs are selected by adding random ones if necessary.
+
+
