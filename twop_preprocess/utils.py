@@ -2,6 +2,7 @@ from tifffile import TiffFile
 from pathlib import Path
 import os
 import yaml
+import numpy as np
 
 
 def parse_si_metadata(tiff_path):
@@ -70,3 +71,43 @@ def load_ops(user_ops, zstack=False):
     # update with user specified ops provided at runtime
     ops = dict(ops, **user_ops)
     return ops
+
+
+def load_meanImg(suite2p_dataset):
+    """Takes a single suite2p dataset and loads the im from the suite2p run.
+
+    Args:
+        suite2p_dataset: flexiznam.schema.datasets.Dataset object with
+            suite2p output paths and run parameters
+
+    Returns:
+        numpy.ndarray of shape (n_planes, Y, X) where n_planes is the
+            number of imaging planes of the recording
+
+    """
+    s2p_output_path = suite2p_dataset.path_full
+    # Get the size of the image for each frame of the recording, assumes square images
+    if suite2p_dataset.extra_attributes["lx"] is None or np.isnan(
+        suite2p_dataset.extra_attributes["lx"]
+    ):
+        n_px = int(suite2p_dataset.extra_attributes["Lx"])
+    else:
+        n_px = int(suite2p_dataset.extra_attributes["lx"])
+
+    if "combined" in os.listdir(s2p_output_path):
+        plane_paths = [p for p in os.listdir(s2p_output_path) if "plane" in p]
+        meanImg = np.zeros((len(plane_paths), n_px, n_px))
+        plane_paths.sort()
+        for i, iplane in enumerate(plane_paths):
+            s2p_ops = np.load(s2p_output_path / iplane / "ops.npy", allow_pickle=True)
+            s2p_ops = s2p_ops.item()
+            meanImg[i, :, :] = s2p_ops["meanImg"]
+    elif "plane0" in os.listdir(s2p_output_path):
+        s2p_ops = np.load(
+            s2p_output_path / "plane0" / "ops.npy", allow_pickle=True
+        ).item()
+        meanImg = s2p_ops["meanImg"]
+    else:
+        FileNotFoundError("ops.npy not found in combined or plane0 directory.")
+
+    return meanImg

@@ -1,13 +1,12 @@
 import numpy as np
-import os
 import datetime
 import flexiznam as flz
 import itertools
+import matplotlib.pyplot as plt
 from znamutils import slurm_it
 from functools import partial
-import matplotlib.pyplot as plt
-
-from ..utils import parse_si_metadata, load_ops
+from tifffile import imwrite
+from ..utils import parse_si_metadata, load_ops, load_meanImg
 from ..plotting_utils import sanity_check_utils as sanity
 from .processing_steps import estimate_offsets, detrend
 from .calcium_s2p import run_extraction, spike_deconvolution_suite2p
@@ -470,6 +469,12 @@ def extract_session(
         suite2p_dataset = run_extraction(
             flz_session, project, session_name, conflicts, ops, delete_previous_run
         )
+        meanImg = load_meanImg(suite2p_dataset)
+        # save meanImg as multiframe tiff
+        if meanImg is not None:
+            img_path = suite2p_dataset.path_full / "meanImg.tif"
+            print(f"Saving mean image to {img_path} ...")
+            imwrite(img_path, meanImg.astype(np.float32))
     else:
         suite2p_datasets = flz.get_datasets(
             origin_name=session_name,
@@ -506,12 +511,23 @@ def extract_session(
             flz_session,
             suite2p_dataset,
             conflicts=conflicts,
-            extra_attributes={"ast_neuropil": ops["ast_neuropil"]},
+            extra_attributes={
+                "ast_neuropil": ops["ast_neuropil"],
+                "anatomical_only": ops["anatomical_only"],
+            },
         )
     print("Extraction finished.")
 
 
-def generate_sanity_plots(project, session_name, flz_session, annotated=False):
+def generate_sanity_plots(
+    project,
+    session_name,
+    flz_session,
+    annotated=False,
+    ast_neuropil="dataset",
+    minimal=False,
+    negative_offset_rois=False,
+):
     """
     Re-generate all sanity plots for a previously processed session.
 
@@ -525,8 +541,11 @@ def generate_sanity_plots(project, session_name, flz_session, annotated=False):
         flz_session (Flexilims): Active Flexilims session object.
         annotated (bool): If True, use the re-extracted (annotated) dataset produced
             by ``2p reextract`` instead of the original suite2p dataset. Default False.
+        ast_neuropil (str): Mode for ASt neuropil: 'dataset', 'true', or 'false'. Default 'dataset'.
     """
-    print(f"Generating sanity plots for session {session_name}...")
+    print(
+        f"Generating sanity plots for session {session_name} (ast_neuropil choice: {ast_neuropil})..."
+    )
     if annotated:
         print("  Using annotated (re-extracted) dataset.")
 
@@ -605,6 +624,31 @@ def generate_sanity_plots(project, session_name, flz_session, annotated=False):
         ops = np.load(dpath / "ops.npy", allow_pickle=True).item()
         ops["sanity_plots"] = True
 
+        ast_enabled = (
+            ops.get("ast_neuropil")
+            if ast_neuropil.lower() == "dataset"
+            else ast_neuropil.lower() == "true"
+        )
+        filename_suffix = "_ast" if ast_enabled else ""
+        dff_file = dpath / f"dff{filename_suffix}.npy"
+        f0_file = dpath / f"f0{filename_suffix}.npy"
+
+        if minimal:
+            if dff_file.exists() and f0_file.exists():
+                dff = np.load(dff_file)
+                f0 = np.load(f0_file)
+                print("Plotting population metrics (minimal mode)")
+                sanity.plot_population_metrics(
+                    f0,
+                    dff,
+                    save_path=plot_path
+                    / f"05b_population_metrics{filename_suffix}.png",
+                )
+                plt.close()
+            else:
+                print(f"Warning: dF/F files missing for plane {iplane}. Skipping.")
+            continue
+
         F_raw = np.load(dpath / "F.npy")
         Fneu_raw = np.load(dpath / "Fneu.npy")
 
@@ -649,41 +693,90 @@ def generate_sanity_plots(project, session_name, flz_session, annotated=False):
         )
 
         # 04. Neuropil Corrected (Load final result if it exists)
-        ast_enabled = ops.get("ast_neuropil", True)
         processed_file = "Fast.npy" if ast_enabled else "Fstandard.npy"
-        filename_suffix = "_ast" if ast_enabled else ""
 
         if (dpath / processed_file).exists():
             F_processed = np.load(dpath / processed_file)
         else:
             F_processed = None
 
-        dff_file = dpath / f"dff{filename_suffix}.npy"
-        f0_file = dpath / f"f0{filename_suffix}.npy"
-
         # 05. dF/F and Population Metrics
         if dff_file.exists() and f0_file.exists():
             dff = np.load(dff_file)
             f0 = np.load(f0_file)
 
-            # --- Use unified plotting helper ---
-            _generate_plane_plots(
-                dpath=dpath,
-                F_raw=F_raw,
-                Fneu_raw=Fneu_raw,
-                F_offset_corrected=F_offset_corrected,
-                F_detrended=F_detrended,
-                F_trend=F_trend,
-                Fneu_detrended=Fneu_detrended,
-                Fneu_trend=Fneu_trend,
-                F_processed=F_processed,
-                f0=f0,
-                dff=dff,
-                ops=ops,
-                filename_suffix=filename_suffix,
-                first_frames=first_frames[:, iplane],
-                offsets=offsets,
-            )
+            if negative_offset_rois:
+                if f0.ndim == 2 and f0.shape[1] > 1:
+                    f0_means = np.nanmean(f0, axis=1)
+                else:
+                    f0_means = f0.flatten()
+
+                neg_rois = np.where(f0_means < 0)[0]
+                if len(neg_rois) > 0:
+                    neg_plot_dir = (
+                        suite2p_dataset.path_full
+                        / "sanity_plots"
+                        / "negative_offset_rois"
+                    )
+                    neg_plot_dir.mkdir(exist_ok=True, parents=True)
+                    print(
+                        f"Found {len(neg_rois)} ROIs with F0 < 0 in Plane {iplane}. Plotting to {neg_plot_dir}..."
+                    )
+
+                    for roi in neg_rois:
+                        # 1. GMM F0 fit
+                        sanity.plot_f0_gmm(
+                            F_detrended,
+                            Fneu_detrended,
+                            roi,
+                            ops.get("dff_ncomponents", 2),
+                            save_path=neg_plot_dir
+                            / f"plane{iplane}_roi{roi}_gmm_f0.png",
+                            neucoeff=ops.get("neucoeff", 0.7),
+                        )
+                        plt.close()
+
+                        # 2. ROI pipeline
+                        sanity.plot_roi_pipeline(
+                            roi,
+                            F_raw,
+                            Fneu_raw,
+                            F_offset_corrected,
+                            F_detrended,
+                            F_trend,
+                            Fneu_detrended,
+                            Fneu_trend,
+                            F_processed,
+                            f0,
+                            dff,
+                            save_path=neg_plot_dir
+                            / f"plane{iplane}_roi{roi}_pipeline.png",
+                            neucoeff=ops.get("neucoeff", 0.7),
+                            boundaries=first_frames[:, iplane][1:],
+                            offsets=offsets,
+                        )
+                        plt.close()
+                else:
+                    print(f"No ROIs with F0 < 0 found in Plane {iplane}.")
+            else:
+                # --- Use unified plotting helper ---
+                _generate_plane_plots(
+                    dpath=dpath,
+                    F_raw=F_raw,
+                    Fneu_raw=Fneu_raw,
+                    F_offset_corrected=F_offset_corrected,
+                    F_detrended=F_detrended,
+                    F_trend=F_trend,
+                    Fneu_detrended=Fneu_detrended,
+                    Fneu_trend=Fneu_trend,
+                    F_processed=F_processed,
+                    f0=f0,
+                    dff=dff,
+                    ops=ops,
+                    filename_suffix=filename_suffix,
+                    first_frames=first_frames[:, iplane],
+                    offsets=offsets,
+                )
         else:
             print(f"Warning: dF/F files missing. Skipping dF/F and population plots.")
 

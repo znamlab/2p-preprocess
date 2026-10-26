@@ -41,7 +41,7 @@ def reextract_session(
 
     Args:
         session (str): name of the session
-        masks (ndarray | str): Z x X x Y array of masks to be reextracted
+        masks (ndarray | str): Z x Y x X array of masks to be reextracted
         flz_session (Flexilims): flexilims session
         project (str, optional): name of the project. If not provided, it will be
             inferred from the flexilims session.
@@ -76,7 +76,7 @@ def reextract_session(
         masks = masks[None, ...]  # add a plane dimension if only one plane
     elif masks.ndim != 3:
         raise ValueError(
-            f"masks must be a 3D array (Z x X x Y), but got {masks.ndim}D array"
+            f"masks must be a 3D array (Z x Y x X), but got {masks.ndim}D array"
         )
 
     # get initial suite2p dataset
@@ -369,9 +369,11 @@ def reextract_session(
         allow_pickle=True,
     )
     # mask for each plane have different length, cannot save a single array
+    # `all_original_masks` only has entries for planes that had masks, so key by
+    # the real `iplane` rather than by position in the list (see reextract_masks).
     np.savez(
         suite2p_ds_annotated.path_full / "original_masks.npz",
-        **{f"plane{i}": mask for i, mask in enumerate(all_original_masks)},
+        **{f"plane{iplane}": mask for iplane, mask in all_original_masks},
     )
     np.save(suite2p_ds_annotated.path_full / "merged_masks.npy", merged_masks)
 
@@ -386,7 +388,9 @@ def reextract_session(
         target_dir.mkdir(exist_ok=True)
         np.save(target_dir / "F.npy", np.array([[]]))
         np.save(target_dir / "Fneu.npy", np.array([[]]))
+        np.save(target_dir / "spks.npy", np.array([[]]))
         np.save(target_dir / "stat.npy", np.array([]), allow_pickle=True)
+        np.save(target_dir / "iscell.npy", np.zeros((0, 2)))
         np.save(target_dir / "ops.npy", ops, allow_pickle=True)
 
     print("Calculating dF/F...")
@@ -423,7 +427,7 @@ def load_mask(path2mask):
         path2mask (str or Path): path to the mask file
 
     Returns:
-        ndarray: Z x X x Y array of masks to be reextracted
+        ndarray: Z x Y x X array of masks to be reextracted
     """
     path2mask = str(Path(path2mask).resolve())
     if path2mask.endswith(".npy"):

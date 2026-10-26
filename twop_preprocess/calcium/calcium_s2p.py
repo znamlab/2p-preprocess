@@ -81,7 +81,10 @@ def reextract_masks(masks, suite2p_ds):
     Returns:
         tuple: (merged_masks, all_original_masks, all_stats, all_ops)
             - merged_masks (np.ndarray): 2D array of all plane masks tiled into one image.
-            - all_original_masks (list): List of unique ROI IDs found in each plane.
+            - all_original_masks (list): List of (iplane, unique ROI IDs) tuples, one
+                per plane that has masks. Planes with no masks are absent from the
+                list, so `iplane` must be used to label results rather than the
+                position in the list.
             - all_stats (list): List of Suite2p stats dictionaries for the new ROIs.
             - all_ops (list): List of updated Suite2p ops for each plane.
     """
@@ -126,7 +129,9 @@ def reextract_masks(masks, suite2p_ds):
         iY = int(iplane / nX)
         merged_masks[iY * Ly : (iY + 1) * Ly, iX * Lx : (iX + 1) * Lx] = reordered_masks
 
-        all_original_masks.append(original_mask_values[original_mask_values > 0])
+        all_original_masks.append(
+            (iplane, original_mask_values[original_mask_values > 0])
+        )
         path2ops = suite2p_ds.path_full / f"plane{iplane}" / "ops.npy"
         ops = np.load(path2ops, allow_pickle=True).item()
 

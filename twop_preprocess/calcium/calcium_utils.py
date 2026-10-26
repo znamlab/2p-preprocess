@@ -332,11 +332,11 @@ def estimate_offset(datapath, n_components=3, save_path=None):
     Returns:
         float: The estimated offset (mean of the lowest GMM component).
     """
-    # find the first tiff at the path
-    tiffs = list(Path(datapath).glob("*.tif"))
+    # find the tiff in the middle of the recording
+    tiffs = sorted(list(Path(datapath).glob("*.tif")))
     if len(tiffs) == 0:
         raise ValueError(f"No tiffs found at {datapath}")
-    tiff = tiffs[0]
+    tiff = tiffs[len(tiffs) // 2]
 
     with TiffFile(tiff) as tf:
         # Load the first frame
